@@ -89,21 +89,25 @@ abstract public class StateMachine
      * Restricted to ensure mod never gets into an illegal state.
      * @param toState state we are transitioning to.
      */
+    private synchronized void _setState(IState toState) {
+        // We are on the home thread, so safe to proceed:
+        if (this.state != toState)
+        {
+            System.out.println(getName() + " enter state: " + toState);
+            TCPUtils.Log(Level.INFO, "======== " + getName() + " enter state: " + toState + " ========");
+            this.state = toState;
+            onPreStateChange(toState);
+            onStateChange();
+        }
+    }
+
     private void setState(IState toState)
     {
         // We want to make sure state changes happen purely on the "home" thread,
         // for the sake of sanity and avoiding many obscure race-condition bugs.
         if (Thread.currentThread() == this.homeThread)
         {
-            // We are on the home thread, so safe to proceed:
-            if (this.state != toState)
-            {
-                System.out.println(getName() + " enter state: " + toState);
-                TCPUtils.Log(Level.INFO, "======== " + getName() + " enter state: " + toState + " ========");
-                this.state = toState;
-                onPreStateChange(toState);
-                onStateChange();
-            }
+        	_setState(toState);
         }
         else
         {
@@ -147,20 +151,17 @@ abstract public class StateMachine
     }
 
     /** Call this regularly to give the state machine a chance to transition to the next state.<br>
-     * Must be called from the home thread.
      */
     public void updateState() {
-        if (Thread.currentThread() == this.homeThread) {
-            IState state = null;
-            // Check the state queue to see if we need to carry out a transition:
-            synchronized (this.stateQueue) {
-                if (this.stateQueue.size() > 0) {
-                    state = this.stateQueue.remove(0);
-                }
-            }
-            if (state != null) {
-                setState(state);   // Transition to the next state.
-            }
+         IState state = null;
+         // Check the state queue to see if we need to carry out a transition:
+         synchronized (this.stateQueue) {
+        	 if (this.stateQueue.size() > 0) {
+                 state = this.stateQueue.remove(0);
+              }
+         }
+        if (state != null) {
+        	_setState(state);   // Transition to the next state.
         }
     }
 

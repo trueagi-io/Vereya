@@ -22,8 +22,6 @@ package io.singularitynet.Client;
 import java.io.IOException;
 import java.util.ArrayList;
 
-import org.lwjgl.input.Mouse;
-
 import io.singularitynet.ClientState;
 import io.singularitynet.ClientStateMachine;
 import io.singularitynet.IMalmoModClient;

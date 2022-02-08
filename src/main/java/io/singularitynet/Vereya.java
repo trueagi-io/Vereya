@@ -20,6 +20,8 @@ import net.minecraftforge.network.simple.SimpleChannel;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import io.singularitynet.Client.MalmoModClient;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -40,6 +42,7 @@ public class Vereya
     	    PROTOCOL_VERSION::equals,
     	    PROTOCOL_VERSION::equals
     	);
+	private IMalmoModClient client;
     
     public Vereya() {
         // Register the setup method for modloading
@@ -99,10 +102,12 @@ public class Vereya
         // do something when the server starts
         LOGGER.info("HELLO from server starting");
     }
-    
+
     private void onClientSetup(final FMLClientSetupEvent event) {
         // do something that can only be done on the client
         LOGGER.info("HELLO CLIENT SETUP");
+        this.client = new MalmoModClient();
+        this.client.init();
     }
     
     // You can use EventBusSubscriber to automatically subscribe events on the contained class (this is subscribing to the MOD

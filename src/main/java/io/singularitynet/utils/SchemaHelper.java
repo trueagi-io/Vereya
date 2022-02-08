@@ -19,10 +19,7 @@
 
 package io.singularitynet.utils;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.StringReader;
-import java.io.StringWriter;
+import java.io.*;
 import java.net.URL;
 import java.util.HashMap;
 import java.util.List;
@@ -41,6 +38,7 @@ import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamReader;
 import javax.xml.validation.Schema;
 import javax.xml.validation.SchemaFactory;
+import org.glassfish.jaxb.runtime.v2.ContextFactory;
 
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -48,6 +46,7 @@ import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
+import java.util.Collections;
 
 import io.singularitynet.Vereya;
 
@@ -96,26 +95,14 @@ public class SchemaHelper
      * @param objclass the class of the object requested
      * @return if successful, an instance of class objclass that captures the data in the XML string
      */
-    static public Object deserialiseObject(String xml, String xsdFile, Class<?> objclass) throws JAXBException, SAXException, XMLStreamException
+    static public Object deserialiseObject(String xml, Class<?> objclass) throws JAXBException, SAXException, XMLStreamException
     {
-        Object obj = null;
+        Object result = null;
         JAXBContext jaxbContext = getJAXBContext(objclass);
-        SchemaFactory schemaFactory = SchemaFactory.newInstance(XMLConstants.W3C_XML_SCHEMA_NS_URI);
-        final String schemaResourceFilename = new String(xsdFile);
-        URL schemaURL = Vereya.class.getClassLoader().getResource(schemaResourceFilename);
-        Schema schema = schemaFactory.newSchema(schemaURL);
-        Unmarshaller jaxbUnmarshaller = jaxbContext.createUnmarshaller();
-        jaxbUnmarshaller.setSchema(schema);
-
-        StringReader stringReader = new StringReader(xml);
-
-        XMLInputFactory xif = XMLInputFactory.newFactory();
-        xif.setProperty(XMLInputFactory.IS_SUPPORTING_EXTERNAL_ENTITIES, false);
-        xif.setProperty(XMLInputFactory.SUPPORT_DTD, false);
-        XMLStreamReader XMLreader = xif.createXMLStreamReader(stringReader);
-
-        obj = jaxbUnmarshaller.unmarshal(XMLreader);
-        return obj;
+        InputStream targetStream = new ByteArrayInputStream(xml.getBytes());
+        Unmarshaller unmarshaller = jaxbContext.createUnmarshaller();
+        result = unmarshaller.unmarshal(targetStream);
+        return result;
     }
 
     /** Retrieve the name of the root node in an XML string.

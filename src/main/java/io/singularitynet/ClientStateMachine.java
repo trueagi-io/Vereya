@@ -55,21 +55,22 @@ import org.xml.sax.SAXException;
 import com.google.gson.JsonObject;
 import com.mojang.authlib.properties.Property;
 
-import Schemas.ClientAgentConnection;
-import Schemas.MinecraftServerConnection;
-import Schemas.Mission;
-import Schemas.MissionDiagnostics;
-import Schemas.MissionEnded;
-import Schemas.MissionInit;
-import Schemas.MissionResult;
 import io.singularitynet.utils.IScreenHelper;
 import io.singularitynet.utils.TCPInputPoller;
+import io.singularitynet.utils.TCPInputPoller.CommandAndIPAddress;
 import io.singularitynet.utils.TCPSocketChannel;
 import io.singularitynet.utils.TCPUtils;
 import io.singularitynet.utils.SchemaHelper;
 import io.singularitynet.utils.ScreenHelper;
 import io.singularitynet.utils.ScreenHelper.TextCategory;
 import io.singularitynet.Client.MalmoModClient;
+import com.microsoft.projectmalmo.ClientAgentConnection;
+import com.microsoft.projectmalmo.MinecraftServerConnection;
+import com.microsoft.projectmalmo.Mission;
+import com.microsoft.projectmalmo.MissionDiagnostics;
+import com.microsoft.projectmalmo.MissionEnded;
+import com.microsoft.projectmalmo.MissionInit;
+import com.microsoft.projectmalmo.MissionResult;
 import io.singularitynet.utils.AddressHelper;
 import jakarta.xml.bind.JAXBException;
 
@@ -101,7 +102,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
     static {
     	Properties properties = new Properties();
         try {
-			properties.load(ClientStateMachine.class.getClassLoader().getResourceAsStream("version.propertiess"));
+			properties.load(ClientStateMachine.class.getClassLoader().getResourceAsStream("version.properties"));
 	        mod_version = properties.getProperty("version");
         } catch (IOException e) {
 			// TODO Auto-generated catch block
@@ -126,8 +127,8 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
     {
         synchronized(this.reservationID)
         {
-            ClientStateMachine.this.getScreenHelper().clearFragment(INFO_RESERVE_STATUS);
-
+            //ClientStateMachine.this.getScreenHelper().clearFragment(INFO_RESERVE_STATUS);
+        	System.out.println("reserving " + id);
             // id is in the form <long>:<expID>, where long is the length of time to keep the reservation for,
             // and expID is the experimentationID used to ensure the client is reserved for the correct experiment.
             int separator = id.indexOf(":");
@@ -143,7 +144,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
                 this.reservationExpirationTime = System.currentTimeMillis() + duration;
                 // We don't just use the id, in case users have supplied a blank string as their experiment ID.
                 this.reservationID = "RESERVED" + expID;
-                ClientStateMachine.this.getScreenHelper().addFragment("Reserved: " + expID, TextCategory.TXT_INFO,  (Integer.valueOf((int)duration)).toString());//INFO_RESERVE_STATUS);
+                //ClientStateMachine.this.getScreenHelper().addFragment("Reserved: " + expID, TextCategory.TXT_INFO,  (Integer.valueOf((int)duration)).toString());//INFO_RESERVE_STATUS);
             }
         }
     }
@@ -170,7 +171,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
         synchronized(this.reservationID)
         {
             this.reservationID = "";
-            ClientStateMachine.this.getScreenHelper().clearFragment(INFO_RESERVE_STATUS);
+            // ClientStateMachine.this.getScreenHelper().clearFragment(INFO_RESERVE_STATUS);
         }            
     }
 
@@ -243,7 +244,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
     @Override
     protected void onPreStateChange(IState toState)
     {
-        this.getScreenHelper().addFragment("CLIENT: " + toState, ScreenHelper.TextCategory.TXT_CLIENT_STATE, "");
+        // this.getScreenHelper().addFragment("CLIENT: " + toState, ScreenHelper.TextCategory.TXT_CLIENT_STATE, "");
     }
 
     /**
@@ -257,8 +258,15 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
     {
         if (!(state instanceof ClientState))
             return null;
-
         ClientState cs = (ClientState) state;
+        switch (cs) {
+        	case WAITING_FOR_MOD_READY:
+        			return new InitialiseClientModEpisode(this);
+        	case DORMANT:
+        		return new DormantEpisode(this);
+            default:
+                break;
+        }
         LOGGER.info("got state " + cs.toString());
         return null;
     }
@@ -282,6 +290,8 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
 
     protected MissionInitResult decodeMissionInit(String command)
     {
+        ClassLoader c = new ClassLoader() {};
+        Thread.currentThread().setContextClassLoader(c);
         MissionInitResult result = new MissionInitResult();
         if (command == null)
         {
@@ -296,11 +306,12 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
             // Attempt to decode the MissionInit XML string.
             try
             {
-                result.missionInit = (MissionInit) SchemaHelper.deserialiseObject(command, "MissionInit.xsd", MissionInit.class);
+                result.missionInit = (MissionInit) SchemaHelper.deserialiseObject(command, MissionInit.class);
             }
             catch (JAXBException e)
             {
                 System.out.println("JAXB exception: " + e);
+                e.printStackTrace(System.out);
                 if (e.getMessage() != null)
                     result.error = e.getMessage();
                 else if (e.getLinkedException() != null && e.getLinkedException().getMessage() != null)
@@ -556,17 +567,18 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
         {
             // Failed to create a mission control port - nothing will work!
             System.out.println("**** NO MISSION CONTROL SOCKET CREATED - WAS THE PORT IN USE? (Check Mod GUI options) ****");
-            ClientStateMachine.this.getScreenHelper().addFragment("ERROR: Could not open a Mission Control Port - check the Mod GUI options.", TextCategory.TXT_CLIENT_WARNING, MISSING_MCP_PORT_ERROR);
+            //ClientStateMachine.this.getScreenHelper().addFragment("ERROR: Could not open a Mission Control Port - check the Mod GUI options.", TextCategory.TXT_CLIENT_WARNING, MISSING_MCP_PORT_ERROR);
         }
         else
         {
             // Clear the error string, if there was one:
-            ClientStateMachine.this.getScreenHelper().clearFragment(MISSING_MCP_PORT_ERROR);
+            // ClientStateMachine.this.getScreenHelper().clearFragment(MISSING_MCP_PORT_ERROR);
         }
         // Display the port number:
-        ClientStateMachine.this.getScreenHelper().clearFragment(INFO_MCP_PORT);
+        // ClientStateMachine.this.getScreenHelper().clearFragment(INFO_MCP_PORT);
         if (AddressHelper.getMissionControlPort() != -1)
-            ClientStateMachine.this.getScreenHelper().addFragment("MCP: " + AddressHelper.getMissionControlPort(), TextCategory.TXT_INFO, INFO_MCP_PORT);
+        	System.out.println("MCP: " + AddressHelper.getMissionControlPort());
+        //ClientStateMachine.this.getScreenHelper().addFragment("MCP: " + AddressHelper.getMissionControlPort(), TextCategory.TXT_INFO, INFO_MCP_PORT);
     }
 
     public static void exitJava() {
@@ -594,5 +606,107 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
 
         // Have to use FMLCommonHandler; direct calls to System.exit() are trapped and denied by the FML code.
        // FMLCommonHandler.instance().exitJava(0, false);
+    }
+    
+    /** Initial episode - perform client setup */
+    public class InitialiseClientModEpisode extends StateEpisode
+    {
+        InitialiseClientModEpisode(ClientStateMachine machine)
+        {
+            super(machine);
+        }
+
+        @Override
+        protected void execute() throws Exception
+        {
+            ClientStateMachine.this.initialiseComms();
+
+            // This is necessary in order to allow user to exit the Minecraft window without halting the experiment:
+            Options settings = Minecraft.getInstance().options;
+            settings.pauseOnLostFocus = false;
+            // And hook the screen helper into the ingame gui (which is responsible for overlaying chat, titles etc) -
+            // this has to be done after Minecraft.init(), so we do it here.
+            //ScreenHelper.hookIntoInGameGui();
+        }
+
+        @Override
+        public void onRenderTick(TickEvent.RenderTickEvent ev)
+        {
+            // We wait until we start to get render ticks, at which point we assume Minecraft has finished starting up.
+            episodeHasCompleted(ClientState.DORMANT);
+        }
+    }
+    
+    /** Dormant state - receptive to new missions */
+    public class DormantEpisode extends StateEpisode
+    {
+        private ClientStateMachine csMachine;
+
+        protected DormantEpisode(ClientStateMachine machine)
+        {
+            super(machine);
+            this.csMachine = machine;
+        }
+
+        @Override
+        protected void execute()
+        {
+            // TextureHelper.init();
+
+            // Clear our current MissionInit state:
+            csMachine.currentMissionInit = null;
+            // Clear our current error state:
+            clearErrorDetails();
+            // And clear out any stale commands left over from recent missions:
+            if (ClientStateMachine.this.controlInputPoller != null)
+                ClientStateMachine.this.controlInputPoller.clearCommands();
+            // Finally, do some Java housekeeping:
+            System.gc();
+        }
+
+        @Override
+        public void onClientTick(TickEvent.ClientTickEvent ev) throws Exception
+        {
+            checkForMissionCommand();
+        }
+
+        private void checkForMissionCommand() throws Exception
+        {
+            // Minecraft.getInstance().mcProfiler.endStartSection("malmoHandleMissionCommands");
+            if (ClientStateMachine.this.missionPoller == null) {
+            	LOGGER.warn("mission poller is null");
+                return;
+            }
+
+            CommandAndIPAddress comip = missionPoller.getCommandAndIPAddress();
+            if (comip == null)
+                return;
+            String missionMessage = comip.command;
+            if (missionMessage == null || missionMessage.length() == 0)
+                return;
+
+            // Minecraft.getInstance().mcProfiler.startSection("malmoDecodeMissionInit");
+
+            MissionInitResult missionInitResult = decodeMissionInit(missionMessage);
+            // Minecraft.getInstance().mcProfiler.endSection();
+
+            MissionInit missionInit = missionInitResult.missionInit;
+            if (missionInit != null)
+            {
+                missionInit.getClientAgentConnection().setAgentIPAddress(comip.ipAddress);
+                System.out.println("Mission received: " + missionInit.getMission().getAbout().getSummary());
+                csMachine.currentMissionInit = missionInit;
+
+               // ScoreHelper.logMissionInit(missionInit);
+
+                ClientStateMachine.this.createMissionControlSocket();
+                // Move on to next state:
+                episodeHasCompleted(ClientState.CREATING_HANDLERS);
+            }
+            else
+            {
+                throw new Exception("Failed to get valid MissionInit object from SchemaHelper.");
+            }
+        }
     }
 }

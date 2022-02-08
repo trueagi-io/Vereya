@@ -8,12 +8,16 @@ buildscript {
         classpath group: 'net.minecraftforge.gradle', name: 'ForgeGradle', version: '5.1.+', changing: true
     }
 }
-apply plugin: 'net.minecraftforge.gradle'
-// Only edit below this line, the above code adds and enables the necessary things for Forge to be setup.
-apply plugin: 'eclipse'
-apply plugin: 'maven-publish'
 
-version = '0.1'
+
+
+plugins {
+    id 'maven-publish'
+    id 'eclipse'
+    id("com.github.bjornvester.xjc") version "1.6.0"
+}
+apply plugin: 'net.minecraftforge.gradle'
+version = '0.1.0'
 group = 'io.singularitynet.vereya' // http://maven.apache.org/guides/mini/guide-naming-conventions.html
 archivesBaseName = 'vereya'
 project.ext.lwjglVersion = "3.3.0"
@@ -124,6 +128,8 @@ repositories {
     // flatDir {
     //     dir 'libs'
     // }
+    maven { url = 'https://maven.minecraftforge.net' }
+    mavenCentral()
 }
 
 dependencies {
@@ -143,37 +149,53 @@ dependencies {
     // For more info...
     // http://www.gradle.org/docs/current/userguide/artifact_dependencies_tutorial.html
     // http://www.gradle.org/docs/current/userguide/dependency_management.html
+    implementation "org.glassfish.jaxb:jaxb-runtime:3.0.2"
+    implementation 'org.glassfish.jaxb:jaxb-xjc:3.0.1'
     implementation 'jakarta.xml.bind:jakarta.xml.bind-api:3.0.1'
-    implementation 'com.sun.xml.bind:jaxb-xjc:3.0.1'
-    runtimeOnly 'com.sun.xml.bind:jaxb-impl:3.0.1'
-    runtimeOnly 'org.glassfish.jaxb:jaxb-runtime:3.0.1'
-    
-    
+    implementation 'jakarta.annotation:jakarta.annotation-api:2.0.0'
+    implementation 'jakarta.activation:jakarta.activation-api:2.0.1'
+
+    xjc "org.glassfish.jaxb:jaxb-runtime:3.0.2"
+    xjc 'org.glassfish.jaxb:jaxb-xjc:3.0.1'
+    xjc 'jakarta.xml.bind:jakarta.xml.bind-api:3.0.1'
+    xjc 'jakarta.annotation:jakarta.annotation-api:2.0.0'
+    xjc 'jakarta.activation:jakarta.activation-api:2.0.1'
+
+
     // lwjgl
     implementation platform("org.lwjgl:lwjgl-bom:$lwjglVersion")
 
-	implementation "org.lwjgl:lwjgl"
-	implementation "org.lwjgl:lwjgl-assimp"
-	implementation "org.lwjgl:lwjgl-glfw"
-	implementation "org.lwjgl:lwjgl-opengl"
-	implementation "org.lwjgl:lwjgl-stb"
-	runtimeOnly "org.lwjgl:lwjgl::$lwjglNatives"
-	runtimeOnly "org.lwjgl:lwjgl-assimp::$lwjglNatives"
-	runtimeOnly "org.lwjgl:lwjgl-glfw::$lwjglNatives"
-	runtimeOnly "org.lwjgl:lwjgl-opengl::$lwjglNatives"
-	runtimeOnly "org.lwjgl:lwjgl-stb::$lwjglNatives"
+    implementation "org.lwjgl:lwjgl"
+    implementation "org.lwjgl:lwjgl-assimp"
+    implementation "org.lwjgl:lwjgl-glfw"
+    implementation "org.lwjgl:lwjgl-opengl"
+    implementation "org.lwjgl:lwjgl-stb"
+    runtimeOnly "org.lwjgl:lwjgl::$lwjglNatives"
+    runtimeOnly "org.lwjgl:lwjgl-assimp::$lwjglNatives"
+    runtimeOnly "org.lwjgl:lwjgl-glfw::$lwjglNatives"
+    runtimeOnly "org.lwjgl:lwjgl-opengl::$lwjglNatives"
+    runtimeOnly "org.lwjgl:lwjgl-stb::$lwjglNatives"
+
+
+
+/*    jar {
+        from {
+            configurations.compileClasspath.findAll { (it.name.endsWith('jar') && !it.name.contains('forge')) }.collect { zipTree(it) }
+        }
+    }
+*/
 }
 
 // Example for how to get properties into the manifest for reading at runtime.
 jar {
     manifest {
         attributes([
-                "Specification-Title"     : "examplemod",
-                "Specification-Vendor"    : "examplemodsareus",
+                "Specification-Title"     : "Vereya",
+                "Specification-Vendor"    : "singularitynet",
                 "Specification-Version"   : "1", // We are version 1 of ourselves
                 "Implementation-Title"    : project.name,
                 "Implementation-Version"  : project.jar.archiveVersion,
-                "Implementation-Vendor"   : "examplemodsareus",
+                "Implementation-Vendor"   : "singularitynet",
                 "Implementation-Timestamp": new Date().format("yyyy-MM-dd'T'HH:mm:ssZ")
         ])
     }
@@ -181,9 +203,11 @@ jar {
 
 // Example configuration to allow publishing using the maven-publish plugin
 // This is the preferred method to reobfuscate your jar file
-jar.finalizedBy('reobfJar')
+//jar.finalizedBy('reobfJar')
+
+jar.duplicatesStrategy = 'WARN'
 // However if you are in a multi-project build, dev time needs unobfed jar files, so you can delay the obfuscation until publishing by doing
-// publish.dependsOn('reobfJar')
+publish.dependsOn('reobfJar')
 
 publishing {
     publications {
@@ -200,15 +224,19 @@ publishing {
 
 
 task createProperties(dependsOn: processResources) {
-  doLast {
-    new File("$buildDir/resources/main/version.properties").withWriter { w ->
-        Properties p = new Properties()
-        p['version'] = project.version.toString()
-        p.store w, null
+    doLast {
+        new File("$buildDir/resources/main/version.properties").withWriter { w ->
+            Properties p = new Properties()
+            p['version'] = project.version.toString()
+            p.store w, null
+        }
     }
-  }
 }
 
 classes {
     dependsOn createProperties
+}
+
+xjc {
+    xjcVersion.set("3.0.0")
 }

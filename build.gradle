@@ -150,7 +150,8 @@ dependencies {
 
     jar {
         from {
-            configurations.compileClasspath.findAll { (it.name.endsWith('jar') && !it.name.contains('forge')) }.collect { zipTree(it) }
+            configurations.compileClasspath.findAll { ((it.name.startsWith('jakarta') || it.name.startsWith('jaxb') || it.name.startsWith('istack')) && 
+            it.name.endsWith('jar') && !it.name.contains('forge')) }.collect { zipTree(it) }
         }
     }
 }

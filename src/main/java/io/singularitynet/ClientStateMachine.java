@@ -290,8 +290,6 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
 
     protected MissionInitResult decodeMissionInit(String command)
     {
-        ClassLoader c = new ClassLoader() {};
-        Thread.currentThread().setContextClassLoader(c);
         MissionInitResult result = new MissionInitResult();
         if (command == null)
         {

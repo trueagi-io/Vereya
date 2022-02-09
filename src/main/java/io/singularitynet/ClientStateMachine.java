@@ -306,6 +306,9 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
             {
                 result.missionInit = (MissionInit) SchemaHelper.deserialiseObject(command, MissionInit.class);
             }
+            catch (NullPointerException e){
+                LOGGER.error("exception parsing xml", e);
+            }
             catch (JAXBException e)
             {
                 System.out.println("JAXB exception: " + e);
@@ -316,6 +319,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
                     result.error = e.getLinkedException().getMessage();
                 else
                     result.error = "Unspecified problem parsing MissionInit - check your Mission xml.";
+                LOGGER.error("exception parsing xml", e);
             }
             catch (SAXException e)
             {
@@ -403,7 +407,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
             @Override
             public boolean onCommand(String command, String ipFrom, DataOutputStream dos)
             {
-                System.out.println("Received from " + ipFrom + ":" +
+                LOGGER.info("Received from " + ipFrom + ":" +
                                     command.substring(0, Math.min(command.length(), 1024)));
                 boolean keepProcessing = false;
 
@@ -513,6 +517,8 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
                     // See if we've been sent a MissionInit message:
 
                     MissionInitResult missionInitResult = decodeMissionInit(command);
+                    LOGGER.info("decoded mission init " + missionInitResult.toString());
+            
 
                     if (missionInitResult.wasMissionInit && missionInitResult.missionInit == null)
                     {

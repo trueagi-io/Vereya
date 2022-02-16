@@ -19,19 +19,28 @@
 
 package io.singularitynet;
 
-import java.util.concurrent.locks.ReentrantReadWriteLock;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientChunkEvents;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.world.ClientWorld;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.world.chunk.WorldChunk;
+import io.singularitynet.StateEpisode;
 
-import net.minecraftforge.event.TickEvent;
-import net.minecraftforge.event.entity.living.LivingDeathEvent;
-import net.minecraftforge.event.entity.player.PlayerEvent.PlayerLoggedInEvent;
-import net.minecraftforge.event.world.ChunkEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /** Class that is responsible for catching all the Forge events we require (server ticks, client ticks, etc)
  * and passing them on to the current episode.<br>
  * Doing it this way saves us having to register/deregister each individual episode, which was causing race-condition vulnerabilities.
  */
-public class EpisodeEventWrapper {
+public class EpisodeEventWrapper implements ClientTickEvents.EndTick,
+        ServerTickEvents.EndTick,
+        ClientChunkEvents.Load,
+        ClientLifecycleEvents.ClientStarted,
+        TitleScreenEvents.EndInit {
     /** The current episode, if there is one. */
     private StateEpisode stateEpisode = null;
 
@@ -54,38 +63,7 @@ public class EpisodeEventWrapper {
         this.stateEpisodeLock.writeLock().unlock();
         return lastEpisode;
     }
-    
-    @SubscribeEvent
-    public void onClientTick(TickEvent.ClientTickEvent ev)
-    {
-        // Now pass the event on to the active episode, if there is one:
-        this.stateEpisodeLock.readLock().lock();
-        if (this.stateEpisode != null && this.stateEpisode.isLive())
-        {
-        	try
-        	{
-        		this.stateEpisode.onClientTick(ev);
-        	}
-        	catch (Exception e)
-        	{
-        		// Do what??
-        	}
-        }
-        this.stateEpisodeLock.readLock().unlock();
-    }
-
-    @SubscribeEvent
-    public void onServerTick(TickEvent.ServerTickEvent ev)
-    {
-        // Pass the event on to the active episode, if there is one:
-        this.stateEpisodeLock.readLock().lock();
-        if (this.stateEpisode != null && this.stateEpisode.isLive())
-        {
-            this.stateEpisode.onServerTick(ev);
-        }
-        this.stateEpisodeLock.readLock().unlock();
-    }
-
+/*
     @SubscribeEvent
     public void onPlayerTick(TickEvent.PlayerTickEvent ev)
     {
@@ -96,10 +74,10 @@ public class EpisodeEventWrapper {
             this.stateEpisode.onPlayerTick(ev);
         }
         this.stateEpisodeLock.readLock().unlock();
-    }
+    }*/
 
-    @SubscribeEvent
-    public void onRenderTick(TickEvent.RenderTickEvent ev)
+
+    public void onRenderTick(WorldRenderContext ev)
     {
         // Pass the event on to the active episode, if there is one:
         this.stateEpisodeLock.readLock().lock();
@@ -110,18 +88,9 @@ public class EpisodeEventWrapper {
         this.stateEpisodeLock.readLock().unlock();
     }
 
-    @SubscribeEvent
-    public void onChunkLoad(ChunkEvent.Load cev)
-    {
-        // Pass the event on to the active episode, if there is one:
-        this.stateEpisodeLock.readLock().lock();
-        if (this.stateEpisode != null && this.stateEpisode.isLive())
-        {
-            this.stateEpisode.onChunkLoad(cev);
-        }
-        this.stateEpisodeLock.readLock().unlock();
-    }
 
+    // use https://github.com/ByMartrixx/player-events
+    /*
     @SubscribeEvent
     public void onPlayerDies(LivingDeathEvent lde)
     {
@@ -130,6 +99,68 @@ public class EpisodeEventWrapper {
         if (this.stateEpisode != null && this.stateEpisode.isLive())
         {
             this.stateEpisode.onPlayerDies(lde);
+        }
+        this.stateEpisodeLock.readLock().unlock();
+    }*/
+
+    @Override
+    public void onEndTick(MinecraftClient client) {
+        // Now pass the event on to the active episode, if there is one:
+        this.stateEpisodeLock.readLock().lock();
+        if (this.stateEpisode != null && this.stateEpisode.isLive())
+        {
+            try
+            {
+                this.stateEpisode.onClientTick(client);
+            }
+            catch (Exception e)
+            {
+                // Do what??
+            }
+        }
+        this.stateEpisodeLock.readLock().unlock();
+    }
+
+    @Override
+    public void onEndTick(MinecraftServer server) {
+        // Pass the event on to the active episode, if there is one:
+        this.stateEpisodeLock.readLock().lock();
+        if (this.stateEpisode != null && this.stateEpisode.isLive())
+        {
+            this.stateEpisode.onServerTick(server);
+        }
+        this.stateEpisodeLock.readLock().unlock();
+    }
+
+    @Override
+    public void onChunkLoad(ClientWorld world, WorldChunk chunk) {
+        // Pass the event on to the active episode, if there is one:
+        this.stateEpisodeLock.readLock().lock();
+        if (this.stateEpisode != null && this.stateEpisode.isLive())
+        {
+            this.stateEpisode.onChunkLoad(world, chunk);
+        }
+        this.stateEpisodeLock.readLock().unlock();
+    }
+
+    @Override
+    public void onClientStarted(MinecraftClient client) {
+        // Pass the event on to the active episode, if there is one:
+        this.stateEpisodeLock.readLock().lock();
+        if (this.stateEpisode != null && this.stateEpisode.isLive())
+        {
+            this.stateEpisode.onClientStarted(client);
+        }
+        this.stateEpisodeLock.readLock().unlock();
+    }
+
+    @Override
+    public void onTitleScreenEndInit(){
+        // Pass the event on to the active episode, if there is one:
+        this.stateEpisodeLock.readLock().lock();
+        if (this.stateEpisode != null && this.stateEpisode.isLive())
+        {
+            this.stateEpisode.onTitleScreen();
         }
         this.stateEpisodeLock.readLock().unlock();
     }

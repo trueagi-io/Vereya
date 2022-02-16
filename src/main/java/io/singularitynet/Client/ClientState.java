@@ -17,16 +17,17 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 // --------------------------------------------------------------------------------------------------
 
-package io.singularitynet;
+package io.singularitynet.Client;
 
+
+import io.singularitynet.IState;
 
 /** Set of states used by MissionStateTracker to ensure the Mod remains in a valid state.<br>
  * Note: these do not necessarily occur in the order presented here.
  * If adding states here, please also add a MissionStateEpisode class to MissionStateTracker,
  * and a line to the switch statement in MissionStateTracker.getStateEpisodeForState().
  */
-public enum ClientState implements IState
-{
+public enum ClientState implements IState {
     WAITING_FOR_MOD_READY,
 	DORMANT,
 	CREATING_HANDLERS,

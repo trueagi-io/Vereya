@@ -19,36 +19,25 @@
 
 package io.singularitynet.utils;
 
-import java.io.*;
-import java.net.URL;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Scanner;
-
-import javax.xml.XMLConstants;
 import jakarta.xml.bind.JAXBContext;
 import jakarta.xml.bind.JAXBException;
 import jakarta.xml.bind.Marshaller;
 import jakarta.xml.bind.Unmarshaller;
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
-import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.stream.XMLInputFactory;
-import javax.xml.stream.XMLStreamException;
-import javax.xml.stream.XMLStreamReader;
-import javax.xml.validation.Schema;
-import javax.xml.validation.SchemaFactory;
-import org.glassfish.jaxb.runtime.v2.ContextFactory;
-
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
-import java.util.Collections;
 
-import io.singularitynet.Vereya;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.stream.XMLStreamException;
+import java.io.*;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Scanner;
 
 
 /** Helper functions for serialising/deserialising our schema-defined objects.
@@ -58,7 +47,6 @@ public class SchemaHelper
     private static HashMap<String, JAXBContext> jaxbContentCache = new HashMap<String, JAXBContext>();
 
     /** Serialise the object to an XML string
-     * @param obj the object to be serialised
      * @param objclass the class of the object to be serialised
      * @return an XML string representing the object, or null if the object couldn't be serialised
      * @throws JAXBException 
@@ -91,7 +79,6 @@ public class SchemaHelper
 
     /** Attempt to construct the specified object from this XML string
      * @param xml the XML string to parse
-     * @param xsdFile the name of the XSD schema that defines the object
      * @param objclass the class of the object requested
      * @return if successful, an instance of class objclass that captures the data in the XML string
      */
@@ -142,7 +129,7 @@ public class SchemaHelper
         }
         String requiredVersion = parts[0] + "." + parts[1];
         System.out.println("Testing schemas against internal version number: " + requiredVersion);
-        InputStream stream = Vereya.class.getClassLoader().getResourceAsStream("schemas.index");
+        InputStream stream = SchemaHelper.class.getClassLoader().getResourceAsStream("schemas.index");
         if (stream == null)
         {
             System.out.println("Cannot find index of schema files in resources - try rebuilding.");
@@ -167,7 +154,7 @@ public class SchemaHelper
     static private String getVersionNumber(String url)
     {
         // Load the XSD file as a string:
-        InputStream stream = Vereya.class.getClassLoader().getResourceAsStream(url);
+        InputStream stream = SchemaHelper.class.getClassLoader().getResourceAsStream(url);
         Scanner scanner = new Scanner(stream, "UTF-8");
         scanner.useDelimiter("\\A");
         String xml = scanner.next();

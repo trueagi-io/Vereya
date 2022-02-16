@@ -1,21 +1,16 @@
 package io.singularitynet.utils;
 
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.time.DateFormatUtils;
+import org.apache.commons.lang3.time.FastDateFormat;
+
 import java.io.File;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.util.Date;
 import java.util.Random;
 import java.util.TimeZone;
-import java.util.logging.FileHandler;
-import java.util.logging.Formatter;
-import java.util.logging.Handler;
-import java.util.logging.Level;
-import java.util.logging.LogRecord;
-import java.util.logging.Logger;
-
-import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.time.DateFormatUtils;
-import org.apache.commons.lang3.time.FastDateFormat;
+import java.util.logging.*;
 
 public class TCPUtils
 {

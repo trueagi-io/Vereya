@@ -19,11 +19,16 @@
 
 package io.singularitynet;
 
+import io.singularitynet.utils.TCPUtils;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientChunkEvents;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+
+
 import java.util.ArrayList;
 import java.util.logging.Level;
-
-import io.singularitynet.utils.TCPUtils;
-import net.minecraftforge.common.MinecraftForge;
 
 /**
  * Class designed to track and control the state of the mod, especially regarding mission launching/running.<br>
@@ -82,7 +87,14 @@ abstract public class StateMachine
         this.homeThread = Thread.currentThread();
         
         // Register the EventWrapper on the event busses:
-        MinecraftForge.EVENT_BUS.register(this.eventWrapper);
+        ClientTickEvents.END_CLIENT_TICK.register(client -> {this.eventWrapper.onEndTick(client);});
+        ServerTickEvents.END_SERVER_TICK.register(server -> {this.eventWrapper.onEndTick(server);});
+        ClientChunkEvents.CHUNK_LOAD.register((world, chunk) ->
+                    {this.eventWrapper.onChunkLoad(world, chunk);});
+        WorldRenderEvents.END.register((context) -> {this.eventWrapper.onRenderTick(context);});
+        ClientLifecycleEvents.CLIENT_STARTED.register((client) -> {this.eventWrapper.onClientStarted(client);});
+        TitleScreenEvents.END_TITLESCREEN_INIT.register(()-> {this.eventWrapper.onTitleScreenEndInit();});
+        //MinecraftForge.EVENT_BUS.register(this.eventWrapper);
     }
     
     /** Private method to set the state - not available to subclasses.<br>

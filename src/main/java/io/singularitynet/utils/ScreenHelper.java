@@ -1,7 +1,5 @@
 package io.singularitynet.utils;
 
-import io.singularitynet.utils.ScreenHelper.TextCategory;
-
 public class ScreenHelper implements IScreenHelper {
 	
     public enum TextCategory

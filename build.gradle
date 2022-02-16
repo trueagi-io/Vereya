@@ -1,212 +1,115 @@
-buildscript {
-    repositories {
-        // These repositories are only for Gradle plugins, put any other repositories in the repository block further below
-        maven { url = 'https://maven.minecraftforge.net' }
-        mavenCentral()
-    }
-    dependencies {
-        classpath group: 'net.minecraftforge.gradle', name: 'ForgeGradle', version: '5.1.+', changing: true
-    }
-}
-
-
-
 plugins {
-    id 'maven-publish'
-    id 'eclipse'
-    id("com.github.bjornvester.xjc") version "1.6.0"
+	id 'fabric-loom' version '0.11-SNAPSHOT'
+	id 'maven-publish'
+	id("com.github.bjornvester.xjc") version "1.6.0"
 }
-apply plugin: 'net.minecraftforge.gradle'
-version = '0.1.0'
-group = 'io.singularitynet.vereya' // http://maven.apache.org/guides/mini/guide-naming-conventions.html
-archivesBaseName = 'vereya'
 
-// Mojang ships Java 17 to end users in 1.18+, so your mod should target Java 17.
-java.toolchain.languageVersion = JavaLanguageVersion.of(17)
+sourceCompatibility = JavaVersion.VERSION_17
+targetCompatibility = JavaVersion.VERSION_17
 
-println('Java: ' + System.getProperty('java.version') + ' JVM: ' + System.getProperty('java.vm.version') + '(' + System.getProperty('java.vendor') + ') Arch: ' + System.getProperty('os.arch'))
-minecraft {
-    // The mappings can be changed at any time and must be in the following format.
-    // Channel:   Version:
-    // snapshot   YYYYMMDD   Snapshot are built nightly.
-    // stable     #          Stables are built at the discretion of the MCP team.
-    // official   MCVersion  Official field/method names from Mojang mapping files
-    //
-    // You must be aware of the Mojang license when using the 'official' mappings.
-    // See more information here: https://github.com/MinecraftForge/MCPConfig/blob/master/Mojang.md
-    //
-    // Use non-default mappings at your own risk. They may not always work.
-    // Simply re-run your setup task after changing the mappings to update your workspace.
-    mappings channel: 'official', version: '1.18.1'
+archivesBaseName = project.archives_base_name
+version = "0.1.0"
+group = project.maven_group
 
-    // accessTransformer = file('src/main/resources/META-INF/accesstransformer.cfg') // Currently, this location cannot be changed from the default.
-
-    // Default run configurations.
-    // These can be tweaked, removed, or duplicated as needed.
-    runs {
-        client {
-            workingDirectory project.file('run')
-
-            // Recommended logging data for a userdev environment
-            // The markers can be added/remove as needed separated by commas.
-            // "SCAN": For mods scan.
-            // "REGISTRIES": For firing of registry events.
-            // "REGISTRYDUMP": For getting the contents of all registries.
-            property 'forge.logging.markers', 'REGISTRIES'
-
-            // Recommended logging level for the console
-            // You can set various levels here.
-            // Please read: https://stackoverflow.com/questions/2031163/when-to-use-the-different-log-levels
-            property 'forge.logging.console.level', 'debug'
-
-            mods {
-                vereya {
-                    source sourceSets.main
-                }
-            }
-        }
-
-        server {
-            workingDirectory project.file('run')
-
-            // Recommended logging data for a userdev environment
-            // The markers can be added/remove as needed separated by commas.
-            // "SCAN": For mods scan.
-            // "REGISTRIES": For firing of registry events.
-            // "REGISTRYDUMP": For getting the contents of all registries.
-            property 'forge.logging.markers', 'REGISTRIES'
-
-            // Recommended logging level for the console
-            // You can set various levels here.
-            // Please read: https://stackoverflow.com/questions/2031163/when-to-use-the-different-log-levels
-            property 'forge.logging.console.level', 'debug'
-
-            mods {
-                vereya {
-                    source sourceSets.main
-                }
-            }
-        }
-
-        data {
-            workingDirectory project.file('run')
-
-            // Recommended logging data for a userdev environment
-            // The markers can be added/remove as needed separated by commas.
-            // "SCAN": For mods scan.
-            // "REGISTRIES": For firing of registry events.
-            // "REGISTRYDUMP": For getting the contents of all registries.
-            property 'forge.logging.markers', 'REGISTRIES'
-
-            // Recommended logging level for the console
-            // You can set various levels here.
-            // Please read: https://stackoverflow.com/questions/2031163/when-to-use-the-different-log-levels
-            property 'forge.logging.console.level', 'debug'
-
-            // Specify the modid for data generation, where to output the resulting resource, and where to look for existing resources.
-            args '--mod', 'vereya', '--all', '--output', file('src/generated/resources/'), '--existing', file('src/main/resources/')
-
-            mods {
-                vereya {
-                    source sourceSets.main
-                }
-            }
-        }
-    }
-}
 
 // Include resources generated by data generators.
 sourceSets.main.resources { srcDir 'src/generated/resources' }
 
 repositories {
-    // Put repositories for dependencies here
-    // ForgeGradle automatically adds the Forge maven and Maven Central for you
-
-    // If you have mod jar dependencies in ./libs, you can declare them as a repository like so:
-    // flatDir {
-    //     dir 'libs'
-    // }
-    maven { url = 'https://maven.minecraftforge.net' }
-    mavenCentral()
+	// Add repositories to retrieve artifacts from in here.
+	// You should only use this when depending on other mods because
+	// Loom adds the essential maven repositories to download Minecraft and libraries from automatically.
+	// See https://docs.gradle.org/current/userguide/declaring_repositories.html
+	// for more information about repositories.
 }
 
 dependencies {
-    // Specify the version of Minecraft to use. If this is any group other than 'net.minecraft', it is assumed
-    // that the dep is a ForgeGradle 'patcher' dependency, and its patches will be applied.
-    // The userdev artifact is a special name and will get all sorts of transformations applied to it.
-    minecraft 'net.minecraftforge:forge:1.18.1-39.0.59'
+	// To change the versions see the gradle.properties file
+	minecraft "com.mojang:minecraft:${project.minecraft_version}"
+	mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
+	modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
 
-    implementation "org.glassfish.jaxb:jaxb-runtime:3.0.2"
-    implementation 'org.glassfish.jaxb:jaxb-xjc:3.0.1'
-    implementation 'jakarta.xml.bind:jakarta.xml.bind-api:3.0.1'
-    implementation 'jakarta.annotation:jakarta.annotation-api:2.0.0'
-    implementation 'jakarta.activation:jakarta.activation-api:2.0.1'
+	// Fabric API. This is technically optional, but you probably want it anyway.
+	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+	implementation "org.glassfish.jaxb:jaxb-runtime:3.0.2"
+	implementation 'org.glassfish.jaxb:jaxb-xjc:3.0.1'
+	implementation 'jakarta.xml.bind:jakarta.xml.bind-api:3.0.1'
+	implementation 'jakarta.annotation:jakarta.annotation-api:2.0.0'
+	implementation 'jakarta.activation:jakarta.activation-api:2.0.1'
 
-    xjc "org.glassfish.jaxb:jaxb-runtime:3.0.2"
-    xjc 'org.glassfish.jaxb:jaxb-xjc:3.0.1'
-    xjc 'jakarta.xml.bind:jakarta.xml.bind-api:3.0.1'
-    xjc 'jakarta.annotation:jakarta.annotation-api:2.0.0'
-    xjc 'jakarta.activation:jakarta.activation-api:2.0.1'
+	xjc "org.glassfish.jaxb:jaxb-runtime:3.0.2"
+	xjc 'org.glassfish.jaxb:jaxb-xjc:3.0.1'
+	xjc 'jakarta.xml.bind:jakarta.xml.bind-api:3.0.1'
+	xjc 'jakarta.annotation:jakarta.annotation-api:2.0.0'
+	xjc 'jakarta.activation:jakarta.activation-api:2.0.1'
 
-    jar {
-        from {
-            configurations.compileClasspath.findAll { ((it.name.startsWith('jakarta') || it.name.startsWith('jaxb') || it.name.startsWith('istack')) && 
-            it.name.endsWith('jar') && !it.name.contains('forge')) }.collect { zipTree(it) }
-        }
-    }
+	jar {
+		from {
+			configurations.compileClasspath.findAll { ((it.name.startsWith('jakarta') || it.name.startsWith('jaxb') || it.name.startsWith('istack')) &&
+					it.name.endsWith('jar') && !it.name.contains('forge')) }.collect { zipTree(it) }
+		}
+	}
 }
 
-// Example for how to get properties into the manifest for reading at runtime.
+processResources {
+	inputs.property "version", project.version
+
+	filesMatching("fabric.mod.json") {
+		expand "version": project.version
+	}
+}
+
+tasks.withType(JavaCompile).configureEach {
+	// Minecraft 1.18 (1.18-pre2) upwards uses Java 17.
+	it.options.release = 17
+}
+
+java {
+	// Loom will automatically attach sourcesJar to a RemapSourcesJar task and to the "build" task
+	// if it is present.
+	// If you remove this line, sources will not be generated.
+	withSourcesJar()
+}
+
 jar {
-    manifest {
-        attributes([
-                "Specification-Title"     : "Vereya",
-                "Specification-Vendor"    : "singularitynet",
-                "Specification-Version"   : "1", // We are version 1 of ourselves
-                "Implementation-Title"    : project.name,
-                "Implementation-Version"  : project.jar.archiveVersion,
-                "Implementation-Vendor"   : "singularitynet",
-                "Implementation-Timestamp": new Date().format("yyyy-MM-dd'T'HH:mm:ssZ")
-        ])
-    }
+	from("LICENSE") {
+		rename { "${it}_${project.archivesBaseName}"}
+	}
 }
-
-// Example configuration to allow publishing using the maven-publish plugin
-// This is the preferred method to reobfuscate your jar file
-//jar.finalizedBy('reobfJar')
-
 jar.duplicatesStrategy = 'WARN'
-// However if you are in a multi-project build, dev time needs unobfed jar files, so you can delay the obfuscation until publishing by doing
-publish.dependsOn('reobfJar')
 
+// configure the maven publication
 publishing {
-    publications {
-        mavenJava(MavenPublication) {
-            artifact jar
-        }
-    }
-    repositories {
-        maven {
-            url "file://${project.projectDir}/mcmodsrepo"
-        }
-    }
-}
+	publications {
+		mavenJava(MavenPublication) {
+			from components.java
+		}
+	}
 
+	// See https://docs.gradle.org/current/userguide/publishing_maven.html for information on how to set up publishing.
+	repositories {
+		// Add repositories to publish to here.
+		// Notice: This block does NOT have the same function as the block in the top level.
+		// The repositories here will be used for publishing your artifact, not for
+		// retrieving dependencies.
+	}
+}
 
 task createProperties(dependsOn: processResources) {
-    doLast {
-        new File("$buildDir/resources/main/version.properties").withWriter { w ->
-            Properties p = new Properties()
-            p['version'] = project.version.toString()
-            p.store w, null
-        }
-    }
+	doLast {
+		new File("$buildDir/resources/main/version.properties").withWriter { w ->
+			Properties p = new Properties()
+			p['version'] = project.version.toString()
+			p.store w, null
+		}
+	}
 }
 
 classes {
-    dependsOn createProperties
+	dependsOn createProperties
 }
 
+
 xjc {
-    xjcVersion.set("3.0.0")
+	xjcVersion.set("3.0.0")
 }

@@ -1,4 +1,4 @@
-package io.singularitynet;
+package io.singularitynet.Client;
 
 public interface IMissionBehaviour {
 

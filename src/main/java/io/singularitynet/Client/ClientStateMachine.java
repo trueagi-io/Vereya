@@ -17,62 +17,28 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 // --------------------------------------------------------------------------------------------------
 
-package io.singularitynet;
+package io.singularitynet.Client;
 
-import java.io.DataOutputStream;
-import java.io.IOException;
-import java.lang.reflect.Field;
-import java.math.BigDecimal;
-import java.net.UnknownHostException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Properties;
-import java.util.logging.Level;
-
-import javax.xml.stream.XMLStreamException;
-
-
-import net.minecraft.client.Minecraft;
-import net.minecraft.world.entity.player.Player;
-import net.minecraftforge.common.MinecraftForge;
-import net.minecraftforge.event.TickEvent;
-import net.minecraftforge.event.TickEvent.ClientTickEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraft.client.gui.screens.DisconnectedScreen;
-import net.minecraft.client.gui.screens.PauseScreen;
-import net.minecraft.client.gui.screens.TitleScreen;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.Options;
-
+import io.singularitynet.*;
+import io.singularitynet.projectmalmo.*;
+import io.singularitynet.utils.*;
+import io.singularitynet.utils.TCPInputPoller.CommandAndIPAddress;
+import jakarta.xml.bind.JAXBException;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
+import net.minecraft.client.MinecraftClient;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.xml.sax.SAXException;
 
-import com.google.gson.JsonObject;
-import com.mojang.authlib.properties.Property;
-
-import io.singularitynet.utils.IScreenHelper;
-import io.singularitynet.utils.TCPInputPoller;
-import io.singularitynet.utils.TCPInputPoller.CommandAndIPAddress;
-import io.singularitynet.utils.TCPSocketChannel;
-import io.singularitynet.utils.TCPUtils;
-import io.singularitynet.utils.SchemaHelper;
-import io.singularitynet.utils.ScreenHelper;
-import io.singularitynet.utils.ScreenHelper.TextCategory;
-import io.singularitynet.Client.MalmoModClient;
-import com.microsoft.projectmalmo.ClientAgentConnection;
-import com.microsoft.projectmalmo.MinecraftServerConnection;
-import com.microsoft.projectmalmo.Mission;
-import com.microsoft.projectmalmo.MissionDiagnostics;
-import com.microsoft.projectmalmo.MissionEnded;
-import com.microsoft.projectmalmo.MissionInit;
-import com.microsoft.projectmalmo.MissionResult;
-import io.singularitynet.utils.AddressHelper;
-import jakarta.xml.bind.JAXBException;
+import javax.xml.stream.XMLStreamException;
+import java.io.DataOutputStream;
+import java.io.IOException;
+import java.net.UnknownHostException;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
 
 /**
  * Class designed to track and control the state of the mod, especially regarding mission launching/running.<br>
@@ -202,8 +168,8 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
         this.inputController = malmoModClient;
 
         // Register ourself on the event busses, so we can harness the client tick:
-        MinecraftForge.EVENT_BUS.register(this);
-        Vereya.MalmoMessageHandler.registerForMessage(this, MalmoMessageType.SERVER_TEXT);
+        ClientTickEvents.END_CLIENT_TICK.register(client -> this.onClientTick(client));
+        // Vereya.MalmoMessageHandler.registerForMessage(this, MalmoMessageType.SERVER_TEXT);
     }
 
     @Override
@@ -213,8 +179,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
         this.missionQuitCode = "";
     }
 
-    @SubscribeEvent
-    public void onClientTick(TickEvent.ClientTickEvent ev)
+    public void onClientTick(MinecraftClient ev)
     {
         // Use the client tick to ensure we regularly update our state (from the client thread)
         updateState();
@@ -626,15 +591,15 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
             ClientStateMachine.this.initialiseComms();
 
             // This is necessary in order to allow user to exit the Minecraft window without halting the experiment:
-            Options settings = Minecraft.getInstance().options;
-            settings.pauseOnLostFocus = false;
+            // Options settings = Minecraft.getInstance().options;
+            // settings.pauseOnLostFocus = false;
             // And hook the screen helper into the ingame gui (which is responsible for overlaying chat, titles etc) -
             // this has to be done after Minecraft.init(), so we do it here.
             //ScreenHelper.hookIntoInGameGui();
         }
 
         @Override
-        public void onRenderTick(TickEvent.RenderTickEvent ev)
+        public void onTitleScreen()
         {
             // We wait until we start to get render ticks, at which point we assume Minecraft has finished starting up.
             episodeHasCompleted(ClientState.DORMANT);
@@ -669,7 +634,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
         }
 
         @Override
-        public void onClientTick(TickEvent.ClientTickEvent ev) throws Exception
+        public void onClientTick(MinecraftClient ev) throws Exception
         {
             checkForMissionCommand();
         }
@@ -710,6 +675,92 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
             else
             {
                 throw new Exception("Failed to get valid MissionInit object from SchemaHelper.");
+            }
+        }
+    }
+
+
+    /**
+     * Now the MissionInit XML has been decoded, the client needs to create the
+     * Mission Handlers.
+     */
+    public class CreateHandlersEpisode extends StateEpisode
+    {
+        protected CreateHandlersEpisode(ClientStateMachine machine)
+        {
+            super(machine);
+        }
+
+        @Override
+        protected void execute() throws Exception
+        {
+            // First, clear our reservation state, if we were reserved:
+            ClientStateMachine.this.cancelReservation();
+
+            // Now try creating the handlers:
+            try
+            {
+                ClientStateMachine.this.missionBehaviour = MissionBehaviour.createAgentHandlersFromMissionInit(currentMissionInit());
+                if (envServer != null) {
+                    ClientStateMachine.this.missionBehaviour.addQuitProducer(envServer);
+                }
+            }
+            catch (Exception e)
+            {
+                // TODO
+            }
+            // Set up our command input poller. This is only checked during the MissionRunning episode, but
+            // it needs to be started now, so we can report the port it's using back to the agent.
+            TCPUtils.LogSection ls = new TCPUtils.LogSection("Initialise Command Input Poller");
+            ClientAgentConnection cac = currentMissionInit().getClientAgentConnection();
+            int requestedPort = cac.getClientCommandsPort();
+            // If the requested port is 0, we dynamically allocate our own port, and feed that back to the agent.
+            // If the requested port is non-zero, we have to use it.
+            if (requestedPort != 0 && ClientStateMachine.this.controlInputPoller != null && ClientStateMachine.this.controlInputPoller.getPort() != requestedPort)
+            {
+                // A specific port has been requested, and it's not the one we are currently using,
+                // so we need to recreate our poller.
+                ClientStateMachine.this.controlInputPoller.stopServer();
+                ClientStateMachine.this.controlInputPoller = null;
+            }
+            if (ClientStateMachine.this.controlInputPoller == null)
+            {
+                if (requestedPort == 0)
+                    ClientStateMachine.this.controlInputPoller = new TCPInputPoller(AddressHelper.MIN_FREE_PORT, AddressHelper.MAX_FREE_PORT, true, "com");
+                else
+                    ClientStateMachine.this.controlInputPoller = new TCPInputPoller(requestedPort, "com");
+                ClientStateMachine.this.controlInputPoller.start();
+            }
+            // Make sure the cac is up-to-date:
+            cac.setClientCommandsPort(ClientStateMachine.this.controlInputPoller.getPortBlocking());
+            ls.close();
+
+            // Check to see whether anything has caused us to abort - if so, go to the abort state.
+            if (inAbortState())
+                episodeHasCompleted(ClientState.MISSION_ABORTED);
+
+            // Set the agent's name as the current username:
+            List<AgentSection> agents = currentMissionInit().getMission().getAgentSection();
+            String agentName = agents.get(currentMissionInit().getClientRole()).getName();
+            AuthenticationHelper.setPlayerName(Minecraft.getMinecraft().getSession(), agentName);
+            // If the player's profile properties are empty, MC will keep pinging the Minecraft session service
+            // to fill them, resulting in multiple http requests and grumpy responses from the server
+            // (see https://github.com/Microsoft/malmo/issues/568).
+            // To prevent this, we add a dummy property.
+            Minecraft.getMinecraft().getProfileProperties().put("dummy", new Property("dummy", "property"));
+            // Handlers and poller created successfully; proceed to next stage of loading.
+            // We will either need to connect to an existing server, or to start
+            // a new integrated server ourselves, depending on our role.
+            // For now, assume that the mod with role 0 is responsible for the server.
+            if (currentMissionInit().getClientRole() == 0)
+            {
+                // We are responsible for the server - investigate what needs to happen next:
+                episodeHasCompleted(ClientState.EVALUATING_WORLD_REQUIREMENTS);
+            }
+            else
+            {
+                // We may need to connect to a server.
+                episodeHasCompleted(ClientState.WAITING_FOR_SERVER_READY);
             }
         }
     }

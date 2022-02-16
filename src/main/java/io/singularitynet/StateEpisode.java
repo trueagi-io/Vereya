@@ -19,12 +19,11 @@
 
 package io.singularitynet;
 
-import net.minecraftforge.event.entity.living.LivingDeathEvent;
-import net.minecraftforge.event.world.ChunkEvent;
-import net.minecraftforge.event.TickEvent.ClientTickEvent;
-import net.minecraftforge.event.TickEvent.PlayerTickEvent;
-import net.minecraftforge.event.TickEvent.RenderTickEvent;
-import net.minecraftforge.event.TickEvent.ServerTickEvent;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.world.ClientWorld;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.world.chunk.WorldChunk;
 
 public abstract class StateEpisode
 {
@@ -32,17 +31,17 @@ public abstract class StateEpisode
      */
     private boolean isLive = false;
     protected StateMachine machine = null;
-    
+
     protected StateEpisode(StateMachine machine)
     {
-    	this.machine = machine;
+        this.machine = machine;
     }
-    
+
     /** Is the episode active?
      * @return true if the episode is currently running and requires notification of events.
      */
     public boolean isLive() { return this.isLive; }
-    
+
     /** Called to kick off the episode - should be no need for subclasses to override.
      */
     public void start() {
@@ -56,11 +55,11 @@ public abstract class StateEpisode
         }
     }
 
-	/** Called after the episode has been retired - use this to clean up any resources.
-	 */
-	public void cleanup()
-	{
-	}
+    /** Called after the episode has been retired - use this to clean up any resources.
+     */
+    public void cleanup()
+    {
+    }
 
     /** Subclass should call this when the state has been completed;
      *  it will advance the tracker into the next state.
@@ -70,30 +69,33 @@ public abstract class StateEpisode
         this.isLive = false;    // Immediately stop acting on events.
         this.machine.queueStateChange(nextState);  // And queue up the next state.
     }
-    
+
     protected void episodeHasCompletedWithErrors(IState nextState, String error)
     {
-    	this.machine.saveErrorDetails(error);
-    	episodeHasCompleted(nextState);
+        this.machine.saveErrorDetails(error);
+        episodeHasCompleted(nextState);
     }
-    
+
     /** Subclass should override this to carry out whatever operations
      * were intended to be run at this stage in the mod state.
-     * @throws Exception 
+     * @throws Exception
      */
     protected abstract void execute() throws Exception;
-    
+
     /** Subclass should overrride this to act on client ticks.
      * @throws Exception */
-    protected void onClientTick(ClientTickEvent ev) throws Exception {}
+    protected void onClientTick(MinecraftClient client) throws Exception {}
     /** Subclass should overrride this to act on server ticks.*/
-    protected void onServerTick(ServerTickEvent ev) {}
+    protected void onServerTick(MinecraftServer server) {}
+
     /** Subclass should overrride this to act on player ticks.*/
-    protected void onPlayerTick(PlayerTickEvent ev) {}
+    // protected void onPlayerTick(PlayerTickEvent ev) {}
     /** Subclass should overrride this to act on render ticks.*/
-    protected void onRenderTick(RenderTickEvent ev) {}
+    protected void onRenderTick(WorldRenderContext ev) {}
+    protected void onClientStarted(MinecraftClient ev) {}
     /** Subclass should overrride this to act on chunk load events.*/
-    protected void onChunkLoad(ChunkEvent.Load cev) {}
+    protected void onChunkLoad(ClientWorld world, WorldChunk chunk) {}
     /** Subclass should overrride this to act on player death events.*/
-    protected void onPlayerDies(LivingDeathEvent event) {}
+    // protected void onPlayerDies(LivingDeathEvent event) {}
+    protected void onTitleScreen(){};
 }

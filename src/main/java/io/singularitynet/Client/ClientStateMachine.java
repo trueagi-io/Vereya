@@ -20,6 +20,7 @@
 package io.singularitynet.Client;
 
 import io.singularitynet.*;
+import io.singularitynet.MissionHandlers.MissionBehaviour;
 import io.singularitynet.projectmalmo.*;
 import io.singularitynet.utils.*;
 import io.singularitynet.utils.TCPInputPoller.CommandAndIPAddress;
@@ -28,6 +29,8 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.world.World;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.xml.sax.SAXException;
@@ -39,6 +42,7 @@ import java.net.UnknownHostException;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.logging.Level;
 
 /**
  * Class designed to track and control the state of the mod, especially regarding mission launching/running.<br>
@@ -229,6 +233,12 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
         			return new InitialiseClientModEpisode(this);
         	case DORMANT:
         		return new DormantEpisode(this);
+            case CREATING_HANDLERS:
+                return new CreateHandlersEpisode(this);
+            case CREATING_NEW_WORLD:
+                return new CreateWorldEpisode(this);
+            case EVALUATING_WORLD_REQUIREMENTS:
+                return new EvaluateWorldRequirementsEpisode(this);
             default:
                 break;
         }
@@ -679,12 +689,104 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
         }
     }
 
+    // ---------------------------------------------------------------------------------------------------------
+    // Episode helpers - each extends a MissionStateEpisode to encapsulate a certain state
+    // ---------------------------------------------------------------------------------------------------------
+
+    public abstract class ErrorAwareEpisode extends StateEpisode implements IMalmoMessageListener
+    {
+        protected Boolean errorFlag = false;
+        protected Map<String, String> errorData = null;
+
+        public ErrorAwareEpisode(ClientStateMachine machine)
+        {
+            super(machine);
+            // MalmoMod.MalmoMessageHandler.registerForMessage(this, MalmoMessageType.SERVER_ABORT);
+        }
+
+        protected boolean pingAgent(boolean abortIfFailed)
+        {
+            if (AddressHelper.getMissionControlPort() == 0) {
+                // MalmoEnvServer has no server to client ping.
+                return true;
+            }
+
+            boolean sentOkay = ClientStateMachine.this.getMissionControlSocket().sendTCPString("<?xml version=\"1.0\" encoding=\"UTF-8\"?><ping/>", 1);
+            if (!sentOkay)
+            {
+                // It's not available - bail.
+                ClientStateMachine.this.getScreenHelper().addFragment("ERROR: Lost contact with agent - aborting mission",
+                        ScreenHelper.TextCategory.TXT_CLIENT_WARNING,
+                        "10000");
+                if (abortIfFailed)
+                    episodeHasCompletedWithErrors(ClientState.ERROR_LOST_AGENT, "Lost contact with the agent");
+            }
+            return sentOkay;
+        }
+
+        @Override
+        public void onMessage(MalmoMessageType messageType, Map<String, String> data)
+        {
+            if (messageType == MalmoMessageType.SERVER_ABORT)
+            {
+                synchronized (this)
+                {
+                    this.errorFlag = true;
+                    this.errorData = data;
+                    // Save the error message, if there is one:
+                    if (data != null)
+                    {
+                        String message = data.get("message");
+                        String user = data.get("username");
+                        String error = data.get("error");
+                        String report = "";
+                        if (user != null)
+                            report += "From " + user + ": ";
+                        if (error != null)
+                            report += error;
+                        if (message != null)
+                            report += " (" + message + ")";
+                        ClientStateMachine.this.saveErrorDetails(report);
+                    }
+                    onAbort(data);
+                }
+            }
+        }
+
+        @Override
+        public void cleanup()
+        {
+            super.cleanup();
+            // MalmoMod.MalmoMessageHandler.deregisterForMessage(this, MalmoMessageType.SERVER_ABORT);
+        }
+
+        protected boolean inAbortState()
+        {
+            synchronized (this)
+            {
+                return this.errorFlag;
+            }
+        }
+
+        protected Map<String, String> getErrorData()
+        {
+            synchronized (this)
+            {
+                return this.errorData;
+            }
+        }
+
+        protected void onAbort(Map<String, String> errorData)
+        {
+            // Default does nothing, but can be overridden.
+        }
+    }
 
     /**
      * Now the MissionInit XML has been decoded, the client needs to create the
      * Mission Handlers.
      */
-    public class CreateHandlersEpisode extends StateEpisode
+    public class CreateHandlersEpisode extends ErrorAwareEpisode
     {
         protected CreateHandlersEpisode(ClientStateMachine machine)
         {
@@ -701,9 +803,6 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
             try
             {
                 ClientStateMachine.this.missionBehaviour = MissionBehaviour.createAgentHandlersFromMissionInit(currentMissionInit());
-                if (envServer != null) {
-                    ClientStateMachine.this.missionBehaviour.addQuitProducer(envServer);
-                }
             }
             catch (Exception e)
             {
@@ -742,12 +841,12 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
             // Set the agent's name as the current username:
             List<AgentSection> agents = currentMissionInit().getMission().getAgentSection();
             String agentName = agents.get(currentMissionInit().getClientRole()).getName();
-            AuthenticationHelper.setPlayerName(Minecraft.getMinecraft().getSession(), agentName);
+            // AuthenticationHelper.setPlayerName(Minecraft.getMinecraft().getSession(), agentName);
             // If the player's profile properties are empty, MC will keep pinging the Minecraft session service
             // to fill them, resulting in multiple http requests and grumpy responses from the server
             // (see https://github.com/Microsoft/malmo/issues/568).
             // To prevent this, we add a dummy property.
-            Minecraft.getMinecraft().getProfileProperties().put("dummy", new Property("dummy", "property"));
+            // Minecraft.getMinecraft().getProfileProperties().put("dummy", new Property("dummy", "property"));
             // Handlers and poller created successfully; proceed to next stage of loading.
             // We will either need to connect to an existing server, or to start
             // a new integrated server ourselves, depending on our role.
@@ -761,6 +860,153 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
             {
                 // We may need to connect to a server.
                 episodeHasCompleted(ClientState.WAITING_FOR_SERVER_READY);
+            }
+        }
+    }
+
+
+    // ---------------------------------------------------------------------------------------------------------
+    /**
+     * Attempt to create a world.
+     */
+    public class CreateWorldEpisode extends ErrorAwareEpisode
+    {
+        boolean serverStarted = false;
+        boolean worldCreated = false;
+        int totalTicks = 0;
+
+        CreateWorldEpisode(ClientStateMachine machine)
+        {
+            super(machine);
+        }
+
+        @Override
+        protected void execute()
+        {
+            try
+            {
+                totalTicks = 0;
+
+                // We need to use the server's MissionHandlers here:
+                MissionBehaviour serverHandlers = MissionBehaviour.createServerHandlersFromMissionInit(currentMissionInit());
+                if (serverHandlers != null && serverHandlers.worldGenerator != null)
+                {
+                    if (serverHandlers.worldGenerator.createWorld(currentMissionInit()))
+                    {
+                        this.worldCreated = true;
+                        if (MinecraftClient.getInstance().getServer() != null) {
+                            MinecraftClient.getInstance().getServer().setOnlineMode(false);
+                        }
+                    }
+                    else
+                    {
+                        // World has not been created.
+                        episodeHasCompletedWithErrors(ClientState.ERROR_CANNOT_CREATE_WORLD, "Server world-creation handler failed to create a world: " + serverHandlers.worldGenerator.getErrorDetails());
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                episodeHasCompletedWithErrors(ClientState.ERROR_CANNOT_CREATE_WORLD, "Server world-creation handler failed to create a world: " + e.getMessage());
+            }
+        }
+
+        @Override
+        protected void onServerTick(MinecraftServer server) // called by Server thread
+        {
+            if (this.worldCreated && !this.serverStarted)
+            {
+                // The server has started ticking - we can set up its state machine,
+                // and move on to the next state in our own machine.
+                this.serverStarted = true;
+                // MalmoMod.instance.initIntegratedServer(currentMissionInit()); // Needs to be done from the server thread.
+                episodeHasCompleted(ClientState.WAITING_FOR_SERVER_READY);
+            }
+        }
+
+        @Override
+        public void onClientTick(MinecraftClient ev) // called in Render thread
+        {
+            // Check to see whether anything has caused us to abort - if so, go to the abort state.
+            if (inAbortState())
+                episodeHasCompleted(ClientState.MISSION_ABORTED);
+
+            if (++totalTicks > WAIT_MAX_TICKS)
+            {
+                String msg = "Too long waiting for world to be created.";
+                TCPUtils.Log(Level.SEVERE, msg);
+                episodeHasCompletedWithErrors(ClientState.ERROR_TIMED_OUT_WAITING_FOR_WORLD_CREATE, msg);
+            }
+        }
+    }
+
+    /**
+     * Depending on the basemap provided, either begin to perform a full world
+     * load, or reset the current world
+     */
+    public class EvaluateWorldRequirementsEpisode extends StateEpisode {
+        EvaluateWorldRequirementsEpisode(ClientStateMachine machine) {
+            super(machine);
+        }
+
+        @Override
+        protected void execute() {
+            // We are responsible for creating the server, if required.
+            // This means we need access to the server's MissionHandlers:
+            MissionBehaviour serverHandlers = null;
+            try {
+                serverHandlers = MissionBehaviour.createServerHandlersFromMissionInit(currentMissionInit());
+            } catch (Exception e) {
+                episodeHasCompletedWithErrors(ClientState.ERROR_DUFF_HANDLERS, "Could not create server mission handlers: " + e.getMessage());
+            }
+
+            World world = null;
+            if (MinecraftClient.getInstance().getServer() != null) {
+                // alternative: there's getWorld which accepts key
+                for (World w : MinecraftClient.getInstance().getServer().getWorlds()) {
+                    world = w;
+                }
+            }
+
+            boolean needsNewWorld = serverHandlers != null && serverHandlers.worldGenerator != null && serverHandlers.worldGenerator.shouldCreateWorld(currentMissionInit(), world);
+            boolean worldCurrentlyExists = world != null;
+            if (worldCurrentlyExists) {
+                // If a world already exists, we need to check that our requested agent name matches the name
+                // of the player. If not, the safest thing to do is start a new server.
+                // Get our name from the Mission:
+                List<AgentSection> agents = currentMissionInit().getMission().getAgentSection();
+                String agentName = agents.get(currentMissionInit().getClientRole()).getName();
+                if (MinecraftClient.getInstance().player != null) {
+                    if (!MinecraftClient.getInstance().player.getName().equals(agentName))
+                        needsNewWorld = true;
+                }
+            }
+            if (needsNewWorld && worldCurrentlyExists) {
+                // We want a new world, and there is currently a world running,
+                // so we need to kill the current world.
+                episodeHasCompleted(ClientState.PAUSING_OLD_SERVER);
+            } else if (needsNewWorld && !worldCurrentlyExists) {
+                // We want a new world, and there is currently nothing running,
+                // so jump to world creation:
+                episodeHasCompleted(ClientState.CREATING_NEW_WORLD);
+            } else if (!needsNewWorld && worldCurrentlyExists) {
+                // We don't want a new world, and we can use the current one -
+                // but we own the server, so we need to pass it the new mission init:
+                MinecraftClient.getInstance().getServer().execute(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            //MalmoMod.instance.sendMissionInitDirectToServer(currentMissionInit);
+                        } catch (Exception e) {
+                            episodeHasCompletedWithErrors(ClientState.ERROR_INTEGRATED_SERVER_UNREACHABLE, "Could not send MissionInit to our integrated server: " + e.getMessage());
+                        }
+                    }
+                });
+                // Skip all the map loading stuff and go straight to waiting for the server:
+                episodeHasCompleted(ClientState.WAITING_FOR_SERVER_READY);
+            } else if (!needsNewWorld && !worldCurrentlyExists) {
+                // Mission has requested no new world, but there is no current world to play in - this is an error:
+                episodeHasCompletedWithErrors(ClientState.ERROR_NO_WORLD, "We have no world to play in - check that your ServerHandlers section contains a world generator");
             }
         }
     }

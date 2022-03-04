@@ -22,4 +22,9 @@ public class ScreenHelper implements IScreenHelper {
 	public void addFragment(String text, TextCategory category, String handle) {
 		
 	}
+
+    @Override
+    public void addFragment(String text, TextCategory category, int handle) {
+
+    }
 }

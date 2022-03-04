@@ -7,5 +7,6 @@ public interface IScreenHelper {
 	void clearFragment(String infoReserveStatus);
 
     public void addFragment(String text, TextCategory category, String handle);
+    public void addFragment(String text, TextCategory category, int handle);
 
 }

@@ -1,5 +1,7 @@
 package io.singularitynet.MissionHandlerInterfaces;
 
+import io.singularitynet.projectmalmo.MissionInit;
+
 public interface ICommandHandler {
 
 
@@ -12,4 +14,10 @@ public interface ICommandHandler {
      * @param b set this control on/off.
      */
     public void setOverriding(boolean b);
+
+    void install(MissionInit currentMissionInit);
+
+    void deinstall(MissionInit currentMissionInit);
+
+    boolean execute(String command, MissionInit currentMissionInit);
 }

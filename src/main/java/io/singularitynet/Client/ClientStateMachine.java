@@ -19,17 +19,22 @@
 
 package io.singularitynet.Client;
 
+import com.google.gson.JsonObject;
 import io.singularitynet.*;
+import io.singularitynet.MissionHandlerInterfaces.IVideoProducer;
+import io.singularitynet.MissionHandlerInterfaces.IWantToQuit;
 import io.singularitynet.MissionHandlers.MissionBehaviour;
 import io.singularitynet.projectmalmo.*;
 import io.singularitynet.utils.*;
 import io.singularitynet.utils.TCPInputPoller.CommandAndIPAddress;
 import jakarta.xml.bind.JAXBException;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
-import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.world.World;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -38,10 +43,9 @@ import org.xml.sax.SAXException;
 import javax.xml.stream.XMLStreamException;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.net.UnknownHostException;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
+import java.util.*;
 import java.util.logging.Level;
 
 /**
@@ -54,7 +58,7 @@ import java.util.logging.Level;
  */
 public class ClientStateMachine extends StateMachine implements IMalmoMessageListener
 {
-    private static final int WAIT_MAX_TICKS = 2000; // Over 1 minute and a half in client ticks.
+    private static final int WAIT_MAX_TICKS = 3000; // Over 3 minute and a half in client ticks.
     private static final int VIDEO_MAX_WAIT = 90 * 1000; // Max wait for video in ms.
     private static final String MISSING_MCP_PORT_ERROR = "no_mcp";
     private static final String INFO_MCP_PORT = "info_mcp";
@@ -62,7 +66,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
     // Directly reference a log4j logger.
     private static final Logger LOGGER = LogManager.getLogger();
     private MissionInit currentMissionInit = null; // The MissionInit object for the mission currently being loaded/run.
-    private IMissionBehaviour missionBehaviour = null;// new MissionBehaviour();
+    private MissionBehaviour missionBehaviour = null;// new MissionBehaviour();
     private String missionQuitCode = ""; // The reason why this mission ended.
 
     private MissionDiagnostics missionEndedData = new MissionDiagnostics();
@@ -230,7 +234,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
         ClientState cs = (ClientState) state;
         switch (cs) {
         	case WAITING_FOR_MOD_READY:
-        			return new InitialiseClientModEpisode(this);
+                return new InitialiseClientModEpisode(this);
         	case DORMANT:
         		return new DormantEpisode(this);
             case CREATING_HANDLERS:
@@ -239,6 +243,10 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
                 return new CreateWorldEpisode(this);
             case EVALUATING_WORLD_REQUIREMENTS:
                 return new EvaluateWorldRequirementsEpisode(this);
+            case WAITING_FOR_SERVER_READY:
+                return new WaitingForServerEpisode(this);
+            case RUNNING:
+                return new MissionRunningEpisode(this);
             default:
                 break;
         }
@@ -251,7 +259,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
         return this.currentMissionInit;
     }
 
-    public IMissionBehaviour currentMissionBehaviour()
+    public MissionBehaviour currentMissionBehaviour()
     {
         return this.missionBehaviour;
     }
@@ -717,7 +725,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
                 // It's not available - bail.
                 ClientStateMachine.this.getScreenHelper().addFragment("ERROR: Lost contact with agent - aborting mission",
                         ScreenHelper.TextCategory.TXT_CLIENT_WARNING,
-                        "10000");
+                        10000);
                 if (abortIfFailed)
                     episodeHasCompletedWithErrors(ClientState.ERROR_LOST_AGENT, "Lost contact with the agent");
             }
@@ -1008,6 +1016,787 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
                 // Mission has requested no new world, but there is no current world to play in - this is an error:
                 episodeHasCompletedWithErrors(ClientState.ERROR_NO_WORLD, "We have no world to play in - check that your ServerHandlers section contains a world generator");
             }
+        }
+    }
+
+    // ---------------------------------------------------------------------------------------------------------
+    /**
+     * Attempt to connect to a server. Wait until connection is established.
+     */
+    public class WaitingForServerEpisode extends ErrorAwareEpisode implements IMalmoMessageListener
+    {
+        String agentName;
+        int ticksUntilNextPing = 0;
+        int totalTicks = 0;
+        boolean waitingForChunk = false;
+        boolean waitingForPlayer = true;
+
+        protected WaitingForServerEpisode(ClientStateMachine machine)
+        {
+            super(machine);
+            SidesMessageHandler.server2client.registerForMessage(this, MalmoMessageType.SERVER_ALLPLAYERSJOINED);
+        }
+
+        private boolean isChunkReady()
+        {/*
+            // First, find the starting position we ought to have:
+            List<AgentSection> agents = currentMissionInit().getMission().getAgentSection();
+            if (agents == null || agents.size() <= currentMissionInit().getClientRole())
+                return true;    // This should never happen.
+            AgentSection as = agents.get(currentMissionInit().getClientRole());
+            if (as.getAgentStart() != null && as.getAgentStart().getPlacement() != null)
+            {
+                PosAndDirection pos = as.getAgentStart().getPlacement();
+                int x = MathHelper.floor(pos.getX().doubleValue()) >> 4;
+                int z = MathHelper.floor(pos.getZ().doubleValue()) >> 4;
+
+                // Now get the chunk we should be starting in:
+                IChunkProvider chunkprov = Minecraft.getMinecraft().world.getChunkProvider();
+                MinecraftClient.getInstance().player.setPos();
+                EntityPlayerSP player = Minecraft.getMinecraft().player;
+                if (player.addedToChunk)
+                {
+                    // Our player is already added to a chunk - is it the right one?
+                    Chunk actualChunk = chunkprov.provideChunk(player.chunkCoordX, player.chunkCoordZ);
+                    Chunk requestedChunk = chunkprov.provideChunk(x,  z);
+                    if (actualChunk == requestedChunk && actualChunk != null && !actualChunk.isEmpty())
+                    {
+                        // We're in the right chunk, and it's not an empty chunk.
+                        // We're ready to proceed, but first set our client positions to where we ought to be.
+                        // The server should be doing this too, but there's no harm (probably) in doing it ourselves.
+                        player.posX = pos.getX().doubleValue();
+                        player.posY = pos.getY().doubleValue();
+                        player.posZ = pos.getZ().doubleValue();
+                        return true;
+                    }
+                }
+                return false;   // Our starting position has been specified, but it's not yet ready.
+            }*/
+            return true;    // No starting position specified, so doesn't matter where we start.
+        }
+
+        @Override
+        protected void onClientTick(MinecraftClient client)
+        {
+            // Check to see whether anything has caused us to abort - if so, go to the abort state.
+            if (inAbortState())
+                episodeHasCompleted(ClientState.MISSION_ABORTED);
+
+            if (this.waitingForPlayer)
+            {
+                if (client.player != null)
+                {
+                    this.waitingForPlayer = false;
+                    handleLan();
+                }
+                else
+                    return;
+            }
+
+            totalTicks++;
+
+            if (ticksUntilNextPing == 0)
+            {
+                // Tell the server what our agent name is.
+                // We do this repeatedly, because the server might not yet be listening.
+                if (client.player != null && !this.waitingForChunk)
+                {
+                    HashMap<String, String> map = new HashMap<String, String>();
+                    map.put("agentname", agentName);
+                    map.put("username", client.player.getName().asString());
+                    currentMissionBehaviour().appendExtraServerInformation(map);
+                    System.out.println("***Telling server we are ready - " + agentName);
+                    ClientPlayNetworking.send(NetworkConstants.CLIENT2SERVER,
+                            (new MalmoMessage(MalmoMessageType.CLIENT_AGENTREADY, 0, map)).toBytes());
+                }
+
+                // We also ping our agent, just to check it is still available:
+                pingAgent(true);    // Will abort to an error state if client unavailable.
+
+                ticksUntilNextPing = 10; // Try again in ten ticks.
+            }
+            else
+            {
+                ticksUntilNextPing--;
+            }
+
+            if (this.waitingForChunk)
+            {
+                // The server is ready, we're just waiting for our chunk to appear.
+                if (isChunkReady())
+                    proceed();
+            }
+
+            List<AgentSection> agents = currentMissionInit().getMission().getAgentSection();
+            boolean completedWithErrors = false;
+
+            if (agents.size() > 1 && currentMissionInit().getClientRole() != 0)
+            {
+                throw new RuntimeException("Not implemented");
+                /*
+                // We are waiting to join an out-of-process server. Need to pay attention to what happens -
+                // if we can't join, for any reason, we should abort the mission.
+                GuiScreen screen = Minecraft.getMinecraft().currentScreen;
+                if (screen != null && screen instanceof GuiDisconnected) {
+                    // Disconnected screen appears when something has gone wrong.
+                    // Would be nice to grab the reason from the screen, but it's a private member.
+                    // (Can always use reflection, but it's so inelegant.)
+                    String msg = "Unable to connect to Minecraft server in multi-agent mission.";
+                    TCPUtils.Log(Level.SEVERE, msg);
+                    episodeHasCompletedWithErrors(ClientState.ERROR_CANNOT_CONNECT_TO_SERVER, msg);
+                    completedWithErrors = true;
+                }*/
+            }
+
+            if (!completedWithErrors && totalTicks > WAIT_MAX_TICKS)
+            {
+                String msg = "Too long waiting for server episode to start.";
+                TCPUtils.Log(Level.SEVERE, msg);
+                episodeHasCompletedWithErrors(ClientState.ERROR_TIMED_OUT_WAITING_FOR_EPISODE_START, msg);
+            }
+        }
+
+        @Override
+        protected void execute() throws Exception
+        {
+            totalTicks = 0;
+
+            // Minecraft.getMinecraft().displayGuiScreen(null); // Clear any menu screen that might confuse things.
+            // Get our name from the Mission:
+            List<AgentSection> agents = currentMissionInit().getMission().getAgentSection();
+            //if (agents == null || agents.size() <= currentMissionInit().getClientRole())
+            //    throw new Exception("No agent section for us!"); // TODO
+            this.agentName = agents.get(currentMissionInit().getClientRole()).getName();
+
+            if (agents.size() > 1 && currentMissionInit().getClientRole() != 0)
+            {
+                // Multi-agent mission, we should be joining a server.
+                // (Unless we are already on the correct server.)
+                String address = currentMissionInit().getMinecraftServerConnection().getAddress().trim();
+                int port = currentMissionInit().getMinecraftServerConnection().getPort();
+                String targetIP = address + ":" + port;
+                System.out.println("We should be joining " + targetIP);
+                ClientPlayerEntity player = MinecraftClient.getInstance().player;
+                boolean namesMatch = (player == null) || player.getName().equals(this.agentName);
+                if (!namesMatch)
+                {
+                    // The name of our agent no longer matches the agent in our game profile -
+                    // safest way to update is to log out and back in again.
+                    // This hangs so just warn instead about the miss-match and proceed.
+                    TCPUtils.Log(Level.WARNING,"Agent name does not match agent in game.");
+                    // Minecraft.getMinecraft().world.sendQuittingDisconnectingPacket();
+                    // Minecraft.getMinecraft().loadWorld((WorldClient)null);
+                }
+                this.waitingForPlayer = false;
+            }
+        }
+
+        protected void handleLan()
+        {
+            // Get our name from the Mission:
+            /*List<AgentSection> agents = currentMissionInit().getMission().getAgentSection();
+            this.agentName = agents.get(currentMissionInit().getClientRole()).getName();
+
+            if (agents.size() > 1 && currentMissionInit().getClientRole() == 0) // Multi-agent mission - make sure the server is open to the LAN:
+            {
+                MinecraftServerConnection msc = new MinecraftServerConnection();
+                String address = currentMissionInit().getClientAgentConnection().getClientIPAddress();
+                // Do we need to open to LAN?
+                if (Minecraft.getMinecraft().isSingleplayer() && !Minecraft.getMinecraft().getIntegratedServer().getPublic())
+                {
+                    String portstr = Minecraft.getMinecraft().getIntegratedServer().shareToLAN(GameType.SURVIVAL, true); // Set to true to stop spam kicks.
+                    ClientStateMachine.this.integratedServerPort = Integer.valueOf(portstr);
+                }
+
+                TCPUtils.Log(Level.INFO,"Integrated server port: " + ClientStateMachine.this.integratedServerPort);
+                msc.setPort(ClientStateMachine.this.integratedServerPort);
+                msc.setAddress(address);
+
+                currentMissionInit().setMinecraftServerConnection(msc);
+            }*/
+        }
+
+        @Override
+        public void onMessage(MalmoMessageType messageType, Map<String, String> data)
+        {
+            super.onMessage(messageType, data);
+
+            if (messageType != MalmoMessageType.SERVER_ALLPLAYERSJOINED)
+                return;
+
+            List<Object> handlers = new ArrayList<Object>();
+            for (Map.Entry<String, String> entry : data.entrySet())
+            {
+                if (entry.getKey().equals("startPosition"))
+                {
+                    try
+                    {
+                        String[] parts = entry.getValue().split(":");
+                        Float x = Float.valueOf(parts[0]);
+                        Float y = Float.valueOf(parts[1]);
+                        Float z = Float.valueOf(parts[2]);
+                        // Find the starting position we ought to have:
+                        List<AgentSection> agents = currentMissionInit().getMission().getAgentSection();
+                        if (agents != null && agents.size() > currentMissionInit().getClientRole())
+                        {
+                            // And write this new position into it:
+                            AgentSection as = agents.get(currentMissionInit().getClientRole());
+                            AgentStart startSection = as.getAgentStart();
+                            if (startSection != null)
+                            {
+                                PosAndDirection pos = startSection.getPlacement();
+                                if (pos == null)
+                                    pos = new PosAndDirection();
+                                pos.setX(new BigDecimal(x));
+                                pos.setY(new BigDecimal(y));
+                                pos.setZ(new BigDecimal(z));
+                                startSection.setPlacement(pos);
+                                as.setAgentStart(startSection);
+                            }
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        System.out.println("Couldn't interpret position data");
+                    }
+                }
+                else
+                {
+                    String extraHandler = entry.getValue();
+                    if (extraHandler != null && extraHandler.length() > 0)
+                    {
+                        try
+                        {
+                            Class<?> handlerClass = Class.forName(entry.getKey());
+                            Object handler = SchemaHelper.deserialiseObject(extraHandler, MissionInit.class);
+                            // Object handler = SchemaHelper.deserialiseObject(extraHandler, "MissionInit.xsd", handlerClass);
+                            handlers.add(handler);
+                        }
+                        catch (Exception e)
+                        {
+                            System.out.println("Error trying to create extra handlers: " + e);
+                            // Do something... like episodeHasCompletedWithErrors(nextState, error)?
+                        }
+                    }
+                }
+            }
+            if (!handlers.isEmpty())
+                currentMissionBehaviour().addExtraHandlers(handlers);
+            this.waitingForChunk = true;
+        }
+
+        private void proceed()
+        {
+            // The server is ready, so send our MissionInit back to the agent and go!
+            // We launch the agent by sending it the MissionInit message we were sent
+            // (but with the Launcher's IP address included)
+            String xml = null;
+            boolean sentOkay = false;
+            String errorReport = "";
+            try
+            {
+                xml = SchemaHelper.serialiseObject(currentMissionInit(), MissionInit.class);
+                if (AddressHelper.getMissionControlPort() == 0) {
+                    sentOkay = true;
+                } else {
+                    sentOkay = ClientStateMachine.this.getMissionControlSocket().sendTCPString(xml, 1);
+                }
+            }
+            catch (JAXBException e)
+            {
+                errorReport = e.getMessage();
+            }
+            if (sentOkay)
+                episodeHasCompleted(ClientState.RUNNING);
+            else
+            {
+                ClientStateMachine.this.getScreenHelper().addFragment("ERROR: Could not contact agent to start mission - mission will abort.",
+                        ScreenHelper.TextCategory.TXT_CLIENT_WARNING, 10000);
+                if (!errorReport.isEmpty())
+                {
+                    ClientStateMachine.this.getScreenHelper().addFragment("ERROR DETAILS: " + errorReport, ScreenHelper.TextCategory.TXT_CLIENT_WARNING, 10000);
+                    errorReport = ": " + errorReport;
+                }
+                episodeHasCompletedWithErrors(ClientState.ERROR_CANNOT_START_AGENT, "Failed to send MissionInit back to agent" + errorReport);
+            }
+        }
+
+        @Override
+        public void cleanup()
+        {
+            super.cleanup();
+            SidesMessageHandler.server2client.deregisterForMessage(this, MalmoMessageType.SERVER_ALLPLAYERSJOINED);
+        }
+    }
+
+    // ---------------------------------------------------------------------------------------------------------
+    /**
+     * State in which a mission is running.<br>
+     * This state is ended by the death of the player or by the IWantToQuit
+     * handler, or by the server declaring the mission is over.
+     */
+    public class MissionRunningEpisode extends ErrorAwareEpisode implements VideoProducedObserver
+    {
+        public static final int FailedTCPSendCountTolerance = 3; // Number of TCP timeouts before we cancel the mission
+
+        protected MissionRunningEpisode(ClientStateMachine machine)
+        {
+            super(machine);
+            SidesMessageHandler.server2client.registerForMessage(this, MalmoMessageType.SERVER_STOPAGENTS);
+            SidesMessageHandler.server2client.registerForMessage(this, MalmoMessageType.SERVER_GO);
+        }
+
+        boolean serverHasFiredStartingPistol = false;
+        boolean playerDied = false;
+        private int failedTCPRewardSendCount = 0;
+        private int failedTCPObservationSendCount = 0;
+        private boolean wantsToQuit = false; // We have decided our mission is at an end
+        private List<VideoHook> videoHooks = new ArrayList<VideoHook>();
+        private String quitCode = "";
+        private TCPSocketChannel observationSocket = null;
+        private TCPSocketChannel rewardSocket = null;
+        private long lastPingSent = 0;
+        private long pingFrequencyMs = 1000;
+
+        private long frameTimestamp = 0;
+
+        public void frameProduced() {
+            this.frameTimestamp = System.currentTimeMillis();
+        }
+
+        protected void onMissionStarted()
+        {
+            frameTimestamp = 0;
+
+            // Open our communication channels:
+            openSockets();
+
+            // Tell the server we have started:
+            HashMap<String, String> map = new HashMap<String, String>();
+            map.put("username", MinecraftClient.getInstance().player.getName().asString());
+            MalmoMessage msg = new MalmoMessage(MalmoMessageType.CLIENT_AGENTRUNNING, 0, map);
+            ClientPlayNetworking.send(NetworkConstants.CLIENT2SERVER,  msg.toBytes());
+
+            // Set up our mission handlers:
+            if (currentMissionBehaviour().commandHandler != null)
+            {
+                currentMissionBehaviour().commandHandler.install(currentMissionInit());
+                currentMissionBehaviour().commandHandler.setOverriding(true);
+            }
+
+            if (currentMissionBehaviour().observationProducer != null)
+                currentMissionBehaviour().observationProducer.prepare(currentMissionInit());
+
+            if (currentMissionBehaviour().quitProducer != null)
+                currentMissionBehaviour().quitProducer.prepare(currentMissionInit());
+
+            if (currentMissionBehaviour().rewardProducer != null)
+                currentMissionBehaviour().rewardProducer.prepare(currentMissionInit());
+
+            for (IVideoProducer videoProducer : currentMissionBehaviour().videoProducers)
+            {
+                VideoHook hook = new VideoHook();
+                this.videoHooks.add(hook);
+                frameProduced();
+                hook.start(currentMissionInit(), videoProducer, this);
+            }
+
+            // Make sure we have mouse control:
+            ClientStateMachine.this.inputController.setInputType(VereyaModClient.InputType.AI);
+            /*
+            Minecraft.getMinecraft().inGameHasFocus = true; // Otherwise auto-repeat won't work for mouse clicks.
+
+            // Overclocking:
+            ModSettings modsettings = currentMissionInit().getMission().getModSettings();
+            if (modsettings != null && modsettings.getMsPerTick() != null)
+                TimeHelper.setMinecraftClientClockSpeed(1000 / modsettings.getMsPerTick());
+            if (modsettings != null && modsettings.isPrioritiseOffscreenRendering() == Boolean.TRUE)
+                TimeHelper.displayGranularityMs = 1000;*/
+        }
+
+        protected void onMissionEnded(IState nextState, String errorReport)
+        {
+            // Tidy up our mission handlers:
+            if (currentMissionBehaviour().rewardProducer != null)
+                currentMissionBehaviour().rewardProducer.cleanup();
+
+            if (currentMissionBehaviour().quitProducer != null)
+                currentMissionBehaviour().quitProducer.cleanup();
+
+            if (currentMissionBehaviour().observationProducer != null)
+                currentMissionBehaviour().observationProducer.cleanup();
+
+            if (currentMissionBehaviour().commandHandler != null)
+            {
+                currentMissionBehaviour().commandHandler.setOverriding(false);
+                currentMissionBehaviour().commandHandler.deinstall(currentMissionInit());
+            }
+
+            // Close our communication channels:
+            closeSockets();
+
+            for (VideoHook hook : this.videoHooks)
+                hook.stop(ClientStateMachine.this.missionEndedData);
+
+            // Return Minecraft speed to "normal":
+            // TimeHelper.setMinecraftClientClockSpeed(20);
+            // TimeHelper.displayGranularityMs = 0;
+
+            ClientStateMachine.this.missionQuitCode = this.quitCode;
+            if (errorReport != null)
+                episodeHasCompletedWithErrors(nextState, errorReport);
+            else
+                episodeHasCompleted(nextState);
+        }
+
+        @Override
+        protected void execute()
+        {
+            onMissionStarted();
+        }
+
+        @Override
+        public void onClientTick(MinecraftClient event)
+        {
+            // Check to see whether anything has caused us to abort - if so, go to the abort state.
+            if (inAbortState())
+                onMissionEnded(ClientState.MISSION_ABORTED, "Mission was aborted by server: " + ClientStateMachine.this.getErrorDetails());
+
+            // Check to see whether we've been kicked from the server.
+            /*
+            NetworkManager netman = Minecraft.getMinecraft().getConnection().getNetworkManager();
+            if (netman != null && !netman.hasNoChannel() && !netman.isChannelOpen())
+            {
+                // Connection has been lost.
+                onMissionEnded(ClientState.ERROR_LOST_NETWORK_CONNECTION, "Client was kicked from server - " + netman.getExitMessage().getUnformattedText());
+            }*/
+
+            // Check we are still in touch with the agent:
+            if (System.currentTimeMillis() > this.lastPingSent + this.pingFrequencyMs)
+            {
+                this.lastPingSent = System.currentTimeMillis();
+                // Ping the agent - if serverHasFiredStartingPistol is true, we don't need to abort -
+                // we can simply set the wantsToQuit flag and end the mission cleanly.
+                // If serverHasFiredStartingPistol is false, then the mission isn't yet running, and
+                // setting the quit flag will do nothing - so we need to abort.
+                if (!pingAgent(false))
+                {
+                    if (!this.serverHasFiredStartingPistol)
+                        onMissionEnded(ClientState.ERROR_LOST_AGENT, "Lost contact with the agent");
+                    else
+                    {
+                        System.out.println("Error - agent is not responding to pings.");
+                        this.wantsToQuit = true;
+                        this.quitCode = VereyaModClient.AGENT_UNRESPONSIVE_CODE;
+                    }
+                }
+            }
+
+            if (this.frameTimestamp != 0 && (System.currentTimeMillis() - this.frameTimestamp >  VIDEO_MAX_WAIT)) {
+                System.out.println("No video produced recently. Aborting mission.");
+                if (!this.serverHasFiredStartingPistol)
+                    onMissionEnded(ClientState.ERROR_LOST_VIDEO, "No video produced recently.");
+                else
+                {
+                    System.out.println("Error - not receiving video.");
+                    this.wantsToQuit = true;
+                    this.quitCode = VereyaModClient.VIDEO_UNRESPONSIVE_CODE;
+                }
+            }
+
+            // Check here to see whether the player has died or not:
+            if (!this.playerDied && !MinecraftClient.getInstance().player.isAlive())
+            {
+                this.playerDied = true;
+                this.quitCode = VereyaModClient.AGENT_DEAD_QUIT_CODE;
+            }
+
+            // Although we only arrive in this episode once the server has determined that all clients are ready to go,
+            // the server itself waits for all clients to begin running before it enters the running state itself.
+            // This creates a small vulnerability, since a running client could theoretically *finish* its mission
+            // before the server manages to *start*.
+            // (This has potentially disastrous effects for the state machine, and is easy to reproduce by,
+            // for example, setting the start point and goal of the mission to the same coordinates.)
+
+            // To guard against this happening, although we are running, we don't act on anything -
+            // we don't check for commands, or send observations or rewards - until we get the SERVER_GO signal,
+            // which is sent once the server's running episode has started.
+            if (!this.serverHasFiredStartingPistol)
+                return;
+
+            // Check whether or not we want to quit:
+            IWantToQuit quitHandler = (currentMissionBehaviour() != null) ? currentMissionBehaviour().quitProducer : null;
+            boolean quitHandlerFired = (quitHandler != null && quitHandler.doIWantToQuit(currentMissionInit()));
+            if (quitHandlerFired || this.wantsToQuit || this.playerDied)
+            {
+                if (quitHandlerFired)
+                {
+                    this.quitCode = quitHandler.getOutcome();
+                }
+                /*
+                try
+                {
+                    // Save the quit code for anything that needs it:
+                    MalmoMod.getPropertiesForCurrentThread().put("QuitCode", this.quitCode);
+                }
+                catch (Exception e)
+                {
+                    System.out.println("Failed to get properties - final reward may go missing.");
+                }*/
+
+                // Get the final reward data:
+                ClientAgentConnection cac = currentMissionInit().getClientAgentConnection();
+                /*if (currentMissionBehaviour() != null && currentMissionBehaviour().rewardProducer != null && cac != null)
+                    currentMissionBehaviour().rewardProducer.getReward(currentMissionInit(), ClientStateMachine.this.finalReward);*/
+
+                // Now send a message to the server saying that we have finished our mission:
+                List<AgentSection> agents = currentMissionInit().getMission().getAgentSection();
+                String agentName = agents.get(currentMissionInit().getClientRole()).getName();
+                HashMap<String, String> map = new HashMap<String, String>();
+                map.put("agentname", agentName);
+                map.put("username", MinecraftClient.getInstance().player.getName().asString());
+                map.put("quitcode", this.quitCode);
+                ServerPlayerEntity player = event.getServer().getPlayerManager().getPlayer(MinecraftClient.getInstance().player.getUuid());
+                ServerPlayNetworking.send(player,
+                        NetworkConstants.CLIENT2SERVER, (new MalmoMessage(MalmoMessageType.CLIENT_AGENTFINISHEDMISSION, 0, map)).toBytes());
+                onMissionEnded(ClientState.IDLING, null);
+            }
+            else
+            {
+                // Send off observation and reward data:
+                sendData();
+                // And see if we have any incoming commands to act upon:
+                checkForControlCommand();
+            }
+
+        }
+
+        private void openSockets()
+        {
+            ClientAgentConnection cac = currentMissionInit().getClientAgentConnection();
+            this.observationSocket = new TCPSocketChannel(cac.getAgentIPAddress(), cac.getAgentObservationsPort(), "obs");
+            this.rewardSocket = new TCPSocketChannel(cac.getAgentIPAddress(), cac.getAgentRewardsPort(), "rew");
+        }
+
+        private void closeSockets()
+        {
+            this.observationSocket.close();
+            this.rewardSocket.close();
+        }
+
+        private void sendData()
+        {
+            TCPUtils.LogSection ls = new TCPUtils.LogSection("Sending data");
+            //Minecraft.getMinecraft().mcProfiler.endStartSection("malmoSendData");
+            // Create the observation data:
+            String data = "";
+           // Minecraft.getMinecraft().mcProfiler.startSection("malmoGatherObservationJSON");
+            if (currentMissionBehaviour() != null && currentMissionBehaviour().observationProducer != null)
+            {
+                JsonObject json = new JsonObject();
+                currentMissionBehaviour().observationProducer.writeObservationsToJSON(json, currentMissionInit());
+                data = json.toString();
+            }
+            // Minecraft.getMinecraft().mcProfiler.endStartSection("malmoSendTCPObservations");
+
+            ClientAgentConnection cac = currentMissionInit().getClientAgentConnection();
+
+            if (data != null && data.length() > 2 && cac != null) // An empty json string will be "{}" (length 2) - don't send these.
+            {
+                if (AddressHelper.getMissionControlPort() == 0) {
+
+                } else {
+                    // Bung the whole shebang off via TCP:
+                    if (this.observationSocket.sendTCPString(data)) {
+                        this.failedTCPObservationSendCount = 0;
+                    } else {
+                        // Failed to send observation message.
+                        this.failedTCPObservationSendCount++;
+                        TCPUtils.Log(Level.WARNING, "Observation signal delivery failure count at " + this.failedTCPObservationSendCount);
+                        ClientStateMachine.this.getScreenHelper().addFragment("ERROR: Agent missed observation signal", ScreenHelper.TextCategory.TXT_CLIENT_WARNING, 5000);
+                    }
+                }
+            }
+
+            // Minecraft.getMinecraft().mcProfiler.endStartSection("malmoGatherRewardSignal");
+            // Now create the reward signal:
+            /*
+            if (currentMissionBehaviour() != null && currentMissionBehaviour().rewardProducer != null && cac != null)
+            {
+                MultidimensionalReward reward = new MultidimensionalReward();
+                currentMissionBehaviour().rewardProducer.getReward(currentMissionInit(), reward);
+                if (!reward.isEmpty())
+                {
+                    String strReward = reward.getAsSimpleString();
+                    Minecraft.getMinecraft().mcProfiler.startSection("malmoSendTCPReward");
+
+                    ScoreHelper.logReward(strReward);
+
+                    if (AddressHelper.getMissionControlPort() == 0) {
+                        // MalmoEnvServer - reward
+                        if (envServer != null) {
+                            envServer.addRewards(reward.getRewardTotal());
+                        }
+                    } else {
+                        if (this.rewardSocket.sendTCPString(strReward)) {
+                            this.failedTCPRewardSendCount = 0; // Reset the count of consecutive TCP failures.
+                        } else {
+                            // Failed to send TCP message - probably because the agent has quit under our feet.
+                            // (This happens a lot when developing a Python agent - the developer has no easy way to quit
+                            // the agent cleanly, so tends to kill the process.)
+                            this.failedTCPRewardSendCount++;
+                            TCPUtils.Log(Level.WARNING, "Reward signal delivery failure count at " + this.failedTCPRewardSendCount);
+                            ClientStateMachine.this.getScreenHelper().addFragment("ERROR: Agent missed reward signal", TextCategory.TXT_CLIENT_WARNING, 5000);
+                        }
+                    }
+                }
+            }
+            Minecraft.getMinecraft().mcProfiler.endSection();
+            */
+            int maxFailedTCPSendCount = 0;
+            for (VideoHook hook : this.videoHooks)
+            {
+                if (hook.failedTCPSendCount > maxFailedTCPSendCount)
+                    maxFailedTCPSendCount = hook.failedTCPSendCount;
+            }
+            if (maxFailedTCPSendCount > 0)
+                TCPUtils.Log(Level.WARNING, "Video signal failure count at " + maxFailedTCPSendCount);
+            // Check that our messages are getting through:
+            int maxFailed = Math.max(this.failedTCPRewardSendCount, maxFailedTCPSendCount);
+            maxFailed = Math.max(maxFailed, this.failedTCPObservationSendCount);
+            if (maxFailed > FailedTCPSendCountTolerance)
+            {
+                // They're not - and we've exceeded the count of allowed TCP failures.
+                System.out.println("ERROR: TCP messages are not getting through - quitting mission.");
+                this.wantsToQuit = true;
+                this.quitCode = VereyaModClient.AGENT_UNRESPONSIVE_CODE;
+            }
+            ls.close();
+        }
+
+        /**
+         * Check to see if any control instructions have been received and act on them if so.
+         */
+        private void checkForControlCommand()
+        {
+            // Minecraft.getMinecraft().mcProfiler.endStartSection("malmoCommandHandling");
+            String command;
+            boolean quitHandlerFired = false;
+            IWantToQuit quitHandler = (currentMissionBehaviour() != null) ? currentMissionBehaviour().quitProducer : null;
+            command = ClientStateMachine.this.controlInputPoller.getCommand();
+
+            while (command != null && command.length() > 0 && !quitHandlerFired)
+            {
+                // TCPUtils.Log(Level.INFO, "Act on " + command);
+                // Pass the command to our various control overrides:
+                // Minecraft.getMinecraft().mcProfiler.startSection("malmoCommandAct");
+                boolean handled = handleCommand(command);
+                // Get the next command:
+                command = ClientStateMachine.this.controlInputPoller.getCommand();
+
+                // If there *is* another command (commands came in faster than one per client tick),
+                // then we should check our quit producer before deciding whether to execute it.
+                // Minecraft.getMinecraft().mcProfiler.endStartSection("malmoCommandRecheckQuitHandlers");
+                if (command != null && command.length() > 0 && handled)
+                    quitHandlerFired = (quitHandler != null && quitHandler.doIWantToQuit(currentMissionInit()));
+                // Minecraft.getMinecraft().mcProfiler.endSection();
+            }
+        }
+
+        /**
+         * Attempt to handle a command string by passing it to our various external controllers in turn.
+         *
+         * @param command the command string to be handled.
+         * @return true if the command was handled.
+         */
+        private boolean handleCommand(String command)
+        {
+            if (currentMissionBehaviour() != null && currentMissionBehaviour().commandHandler != null)
+            {
+                return currentMissionBehaviour().commandHandler.execute(command, currentMissionInit());
+            }
+            return false;
+        }
+
+        @Override
+        public void onMessage(MalmoMessageType messageType, Map<String, String> data)
+        {
+            super.onMessage(messageType, data);
+            // This message will be sent to us once the server has decided the mission is over.
+            if (messageType == MalmoMessageType.SERVER_STOPAGENTS)
+            {
+                this.quitCode = data.containsKey("QuitCode") ? data.get("QuitCode") : "";
+                /*
+                try
+                {
+                    // Save the quit code for anything that needs it:
+                    MalmoMod.getPropertiesForCurrentThread().put("QuitCode", this.quitCode);
+                }
+                catch (Exception e)
+                {
+                    System.out.println("Failed to get properties - final reward may go missing.");
+                }*/
+                // Get the final reward data:
+                ClientAgentConnection cac = currentMissionInit().getClientAgentConnection();/*
+                if (currentMissionBehaviour() != null && currentMissionBehaviour().rewardProducer != null && cac != null)
+                    currentMissionBehaviour().rewardProducer.getReward(currentMissionInit(), ClientStateMachine.this.finalReward);
+                    */
+
+                onMissionEnded(ClientState.MISSION_ENDED, null);
+            }/*
+            else if (messageType == MalmoMessageType.SERVER_GO)
+            {
+                // First, force all entities to get re-added to their chunks, clearing out any old entities in the process.
+                // We need to do this because the process of teleporting all agents to their start positions, combined
+                // with setting them to/from spectator mode, leaves the client chunk entity lists etc in a parlous state.
+
+                List lel = Minecraft.getMinecraft().world.loadedEntityList;
+                for (int i = 0; i < lel.size(); i++)
+                {
+                    Entity entity = (Entity)lel.get(i);
+                    Chunk chunk = Minecraft.getMinecraft().world.getChunkFromChunkCoords(entity.chunkCoordX, entity.chunkCoordZ);
+                    List<Entity> entitiesToRemove = new ArrayList<Entity>();
+                    for (int k = 0; k < chunk.getEntityLists().length; k++)
+                    {
+                        Iterator iterator = chunk.getEntityLists()[k].iterator();
+                        while (iterator.hasNext())
+                        {
+                            Entity chunkent = (Entity)iterator.next();
+                            if (chunkent.getEntityId() == entity.getEntityId())
+                            {
+                                entitiesToRemove.add(chunkent);
+                            }
+                        }
+                    }
+                    for (Entity removeEnt : entitiesToRemove)
+                    {
+                        chunk.removeEntity(removeEnt);
+                    }
+                    entity.addedToChunk = false;    // Will force it to get re-added to the chunk list.
+                    if (entity instanceof EntityLivingBase)
+                    {
+                        // If we want the entities to be rendered with the correct yaw from the outset,
+                        // we need to set their render offset manually.
+                        // (Set the offset from the outset to avoid the onset of upset.)
+                        ((EntityLivingBase)entity).renderYawOffset = entity.rotationYaw;
+                        ((EntityLivingBase)entity).prevRenderYawOffset = entity.rotationYaw;
+                    }
+                    if (entity instanceof EntityPlayerSP)
+                    {
+                        // Although the following call takes place on the server, and should have taken effect already,
+                        // there is some discontinuity which is causing the effects to get lost, so we call it here too:
+                        entity.setInvisible(false);
+                    }
+                }*/
+                this.serverHasFiredStartingPistol = true; // GO GO GO!
+            }
+
+        @Override
+        public void cleanup()
+        {
+            super.cleanup();
+            SidesMessageHandler.server2client.deregisterForMessage(this, MalmoMessageType.SERVER_STOPAGENTS);
+            SidesMessageHandler.server2client.deregisterForMessage(this, MalmoMessageType.SERVER_GO);
         }
     }
 }

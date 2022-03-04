@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "id": "vereya",
+  "version": "${version}",
+
+  "name": "Vereya project",
+  "description": "This is an example description! Tell everyone what your mod is about!",
+  "authors": [
+    "Anatoly Belikov"
+  ],
+  "contact": {
+    "homepage": "https://fabricmc.net/",
+    "sources": "https://github.com/FabricMC/fabric-example-mod"
+  },
+
+  "license": "CC0-1.0",
+  "icon": "assets/modid/icon.png",
+
+  "environment": "*",
+  "entrypoints": {
+    "client": [ "io.singularitynet.Client.VereyaModClient" ],
+    "main": [ "io.singularitynet.SidesMessageHandler",  "io.singularitynet.Server.VereyaModServer" ]
+  },
+  "mixins": [
+    "vereya.mixins.json"
+  ],
+
+  "depends": {
+    "fabricloader": ">=0.12.12",
+    "fabric": "*",
+    "minecraft": "1.18.x",
+    "java": ">=17"
+  },
+  "suggests": {
+    "another-mod": "*"
+  }
+}

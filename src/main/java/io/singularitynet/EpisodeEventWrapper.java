@@ -40,7 +40,8 @@ public class EpisodeEventWrapper implements ClientTickEvents.EndTick,
         ServerTickEvents.EndTick,
         ClientChunkEvents.Load,
         ClientLifecycleEvents.ClientStarted,
-        TitleScreenEvents.EndInit {
+        TitleScreenEvents.EndInit,
+        ServerTickEvents.StartTick {
     /** The current episode, if there is one. */
     private StateEpisode stateEpisode = null;
 
@@ -161,6 +162,17 @@ public class EpisodeEventWrapper implements ClientTickEvents.EndTick,
         if (this.stateEpisode != null && this.stateEpisode.isLive())
         {
             this.stateEpisode.onTitleScreen();
+        }
+        this.stateEpisodeLock.readLock().unlock();
+    }
+
+    @Override
+    public void onStartTick(MinecraftServer server) {
+        // Pass the event on to the active episode, if there is one:
+        this.stateEpisodeLock.readLock().lock();
+        if (this.stateEpisode != null && this.stateEpisode.isLive())
+        {
+            this.stateEpisode.onServerTickStart(server);
         }
         this.stateEpisodeLock.readLock().unlock();
     }

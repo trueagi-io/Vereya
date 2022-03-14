@@ -85,7 +85,7 @@ public abstract class StateEpisode
     /** Subclass should overrride this to act on client ticks.
      * @throws Exception */
     protected void onClientTick(MinecraftClient client) throws Exception {}
-    /** Subclass should overrride this to act on server ticks.*/
+    /** Subclass should overrride this to act on server tick end.*/
     protected void onServerTick(MinecraftServer server) {}
 
     /** Subclass should overrride this to act on player ticks.*/
@@ -98,4 +98,7 @@ public abstract class StateEpisode
     /** Subclass should overrride this to act on player death events.*/
     // protected void onPlayerDies(LivingDeathEvent event) {}
     protected void onTitleScreen(){};
+
+    /** Subclass should overrride this to act on server tick start.*/
+    protected void onServerTickStart(MinecraftServer ev) {};
 }

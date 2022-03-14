@@ -94,6 +94,7 @@ abstract public class StateMachine
         WorldRenderEvents.END.register((context) -> {this.eventWrapper.onRenderTick(context);});
         ClientLifecycleEvents.CLIENT_STARTED.register((client) -> {this.eventWrapper.onClientStarted(client);});
         TitleScreenEvents.END_TITLESCREEN_INIT.register(()-> {this.eventWrapper.onTitleScreenEndInit();});
+        ServerTickEvents.START_SERVER_TICK.register(server -> {this.eventWrapper.onStartTick(server);});
         //MinecraftForge.EVENT_BUS.register(this.eventWrapper);
     }
     

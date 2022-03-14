@@ -44,7 +44,9 @@ public class MalmoMessage implements SidesMessageHandler.IMessage
     {
         this.messageType = messageType;
         this.uid = uid;
-        this.data = data;
+        if (data != null) {
+            this.data = data;
+        }
     }
 
     /** Read a UTF8 string that could potentially be larger than 64k<br>

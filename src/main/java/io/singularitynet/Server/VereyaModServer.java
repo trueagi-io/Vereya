@@ -28,8 +28,15 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 public class VereyaModServer implements ModInitializer {
+    private ServerStateMachine stateMachine = null;
+    private static VereyaModServer instance = null;
+
+    public static VereyaModServer getInstance() {
+        return instance;
+    }
     @Override
     public void onInitialize() {
+        instance = this;
         ServerLifecycleEvents.SERVER_STARTED.register(server -> this.onServerStarted(server));
     }
 

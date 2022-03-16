@@ -13,17 +13,17 @@ import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.network.ClientPlayerEntity;
+import net.minecraft.client.util.Window;
 import net.minecraft.util.math.Matrix4f;
 import net.minecraft.util.math.Vec3d;
 import org.lwjgl.BufferUtils;
 import static org.lwjgl.opengl.GL11.*;
 
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
+import java.nio.channels.ClosedChannelException;
 
 
 /**
@@ -160,14 +160,20 @@ public class VideoHook {
     private void resizeIfNeeded()
     {
         MinecraftClient instance = MinecraftClient.getInstance();
-        Screen screen = instance.currentScreen;
+        Window window = instance.getWindow();
+        if (window == null){
+            return;
+        }
         // resize the window if we need to
-        int oldRenderWidth = screen.width;
-        int oldRenderHeight = screen.height;
+        int oldRenderWidth = window.getFramebufferWidth();
+        int oldRenderHeight = window.getFramebufferHeight();
         if( this.renderWidth == oldRenderWidth && this.renderHeight == oldRenderHeight )
             return;
 
-        screen.resize(instance, this.renderWidth, this.renderHeight);
+        window.setWindowedSize(this.renderWidth, this.renderHeight);
+        // these will cause a number of visual artefacts
+//        window.setFramebufferHeight(this.renderHeight);
+//        window.setFramebufferWidth(this.renderWidth);
     }
 
     /**
@@ -256,12 +262,12 @@ public class VideoHook {
         float yaw = player.prevRotationYaw + (player.rotationYaw - player.prevRotationYaw) * event.getPartialTicks();
         float pitch = player.prevRotationPitch + (player.rotationPitch - player.prevRotationPitch) * event.getPartialTicks();*/
 
-        long time_before_ns = System.nanoTime();
+        long time_now = System.nanoTime();
 
         if (observer != null)
             observer.frameProduced();
 
-        if (time_before_ns < retry_time_ns)
+        if (time_now < retry_time_ns)
             return;
 
         boolean success = false;
@@ -306,7 +312,7 @@ public class VideoHook {
 
             long time_after_ns = System.nanoTime();
             float ms_send = (time_after_ns - time_after_render_ns) / 1000000.0f;
-            float ms_render = (time_after_render_ns - time_before_ns) / 1000000.0f;
+            float ms_render = (time_after_render_ns - time_now) / 1000000.0f;
             if (success)
             {
                 this.failedTCPSendCount = 0;    // Reset count of failed sends.
@@ -325,7 +331,12 @@ public class VideoHook {
 
         if (!success) {
             System.out.format("Failed to send frame - will retry in %d seconds\n", RETRY_GAP_NS / 1000000000L);
-            retry_time_ns = time_before_ns + RETRY_GAP_NS;
+            if (this.connection.exception != null){
+                System.out.println("reconnecting");
+                this.connection = new TCPSocketChannel(connection.getAddress(), connection.getPort(), "vid");
+            }
+
+            retry_time_ns = time_now + RETRY_GAP_NS;
             this.failedTCPSendCount++;
         }
     }

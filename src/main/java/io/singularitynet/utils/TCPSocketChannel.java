@@ -17,6 +17,7 @@ public class TCPSocketChannel
     private String address;
     private int port;
     private String logname;
+    public Exception exception;
 
     /**
      * Create a TCPSocketChannel that is blocking but times out connects and writes.
@@ -174,6 +175,7 @@ public class TCPSocketChannel
         try
         {
             ByteBuffer header = createHeader(length);
+            Log(Level.INFO, "Bytes size: " + length);
             ByteBuffer[] buffers = new ByteBuffer[1 + srcbuffers.length];
             buffers[0] = header;
             for (int i = 0; i < srcbuffers.length; i++)
@@ -191,11 +193,13 @@ public class TCPSocketChannel
                 write(buffers);
             }
             success = true;
+            this.exception = null;
         }
         catch (Exception e)
         {
             SysLog(Level.SEVERE, "Failed to send TCP bytes: " + e);
             try { channel.close(); } catch (IOException ioe) {}
+            this.exception = e;
         }
         return success;
     }

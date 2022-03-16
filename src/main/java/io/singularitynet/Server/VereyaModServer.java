@@ -20,9 +20,8 @@
 package io.singularitynet.Server;
 
 
+import io.singularitynet.projectmalmo.MissionInit;
 import net.fabricmc.api.ModInitializer;
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.minecraft.server.MinecraftServer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -37,11 +36,11 @@ public class VereyaModServer implements ModInitializer {
     @Override
     public void onInitialize() {
         instance = this;
-        ServerLifecycleEvents.SERVER_STARTED.register(server -> this.onServerStarted(server));
     }
 
-    private void onServerStarted(MinecraftServer server){
+    public void initIntegratedServer(MissionInit init, MinecraftServer server){
         Logger LOGGER = LogManager.getLogger();
         LOGGER.info("Server initialized");
+        stateMachine = new ServerStateMachine(ServerState.WAITING_FOR_MOD_READY, init, server);
     }
 }

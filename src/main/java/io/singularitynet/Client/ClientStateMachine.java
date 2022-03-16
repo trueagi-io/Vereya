@@ -24,6 +24,7 @@ import io.singularitynet.*;
 import io.singularitynet.MissionHandlerInterfaces.IVideoProducer;
 import io.singularitynet.MissionHandlerInterfaces.IWantToQuit;
 import io.singularitynet.MissionHandlers.MissionBehaviour;
+import io.singularitynet.Server.VereyaModServer;
 import io.singularitynet.projectmalmo.*;
 import io.singularitynet.utils.*;
 import io.singularitynet.utils.TCPInputPoller.CommandAndIPAddress;
@@ -177,7 +178,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
 
         // Register ourself on the event busses, so we can harness the client tick:
         ClientTickEvents.END_CLIENT_TICK.register(client -> this.onClientTick(client));
-        // Vereya.MalmoMessageHandler.registerForMessage(this, MalmoMessageType.SERVER_TEXT);
+        SidesMessageHandler.server2client.registerForMessage(this, MalmoMessageType.SERVER_TEXT);
     }
 
     @Override
@@ -927,7 +928,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
                 // The server has started ticking - we can set up its state machine,
                 // and move on to the next state in our own machine.
                 this.serverStarted = true;
-                // MalmoMod.instance.initIntegratedServer(currentMissionInit()); // Needs to be done from the server thread.
+                VereyaModServer.getInstance().initIntegratedServer(currentMissionInit(), server); // Needs to be done from the server thread.
                 episodeHasCompleted(ClientState.WAITING_FOR_SERVER_READY);
             }
         }

@@ -2,6 +2,7 @@ package io.singularitynet.Client;
 
 
 import io.singularitynet.utils.ScreenHelper;
+import io.singularitynet.utils.TCPUtils;
 import net.fabricmc.api.ClientModInitializer;
 import net.minecraft.client.MinecraftClient;
 
@@ -15,6 +16,7 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient
     public void onInitializeClient() {
         // Register for various events:
         // MinecraftForge.EVENT_BUS.register(this);
+        TCPUtils.setLogging(TCPUtils.SeverityLevel.LOG_DETAILED);
         this.stateMachine = new ClientStateMachine(ClientState.WAITING_FOR_MOD_READY, (IMalmoModClient) this);
     }
 
@@ -56,6 +58,6 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient
             MinecraftClient.getInstance().mouse.unlockCursor();
         }
 
-        this.stateMachine.getScreenHelper().addFragment("Mouse: " + input, ScreenHelper.TextCategory.TXT_INFO, INFO_MOUSE_CONTROL);
+        // this.stateMachine.getScreenHelper().addFragment("Mouse: " + input, ScreenHelper.TextCategory.TXT_INFO, INFO_MOUSE_CONTROL);
     }
 }

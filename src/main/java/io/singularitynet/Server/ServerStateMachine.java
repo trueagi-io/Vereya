@@ -25,14 +25,13 @@ import io.singularitynet.utils.SchemaHelper;
 import io.singularitynet.utils.ScreenHelper;
 import jakarta.xml.bind.JAXBElement;
 import jakarta.xml.bind.JAXBException;
-import net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents;
-import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
+
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.inventory.Inventory;
-import net.minecraft.item.Item;
+
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.server.MinecraftServer;
@@ -41,9 +40,8 @@ import net.minecraft.server.world.ServerWorld;
 import net.minecraft.world.GameMode;
 import net.minecraft.world.GameRules;
 import net.minecraft.world.World;
-import org.apache.logging.log4j.core.jmx.Server;
 
-import java.lang.reflect.Field;
+
 import java.util.*;
 
 import static io.singularitynet.MalmoMessageType.CLIENT_BAILED;
@@ -72,10 +70,13 @@ public class ServerStateMachine extends StateMachine {
      * @param initialState Initial state of the machine
      * @param minit The MissionInit object requested
      */
-    public ServerStateMachine(ServerState initialState, MissionInit minit)
+    public ServerStateMachine(ServerState initialState, MissionInit minit, MinecraftServer server)
     {
         super(initialState);
         this.currentMissionInit = minit;
+        this.server = server;
+        // Register ourself on the event busses, so we can harness the server tick:
+        ServerTickEvents.END_SERVER_TICK.register(s -> this.onServerTick(s));
     }
 
     protected void setUserTurnSchedule(ArrayList<String> schedule)

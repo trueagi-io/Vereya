@@ -231,8 +231,10 @@ public class VideoHook {
         resizeIfNeeded();
     }
 
-    protected void writeProjectionMatrix(FloatBuffer buffer, Matrix4f result){
-        result.writeRowMajor(buffer);
+    protected void writeProjectionMatrix(ByteBuffer buffer, Matrix4f result){
+        FloatBuffer buf = buffer.asFloatBuffer();
+        result.writeRowMajor(buf);
+        buffer.position(buffer.position() + 16 * 4);
     }
 
     /**
@@ -298,8 +300,9 @@ public class VideoHook {
                 Matrix4f modelViewMatrix = new Matrix4f();
                 modelViewMatrix.readColumnMajor(modelview.asReadOnlyBuffer());
 
-                this.writeProjectionMatrix(this.headerbuffer.asFloatBuffer(), modelViewMatrix);
-                this.writeProjectionMatrix(this.headerbuffer.asFloatBuffer(), projectionMatrix);
+                this.writeProjectionMatrix(this.headerbuffer, modelViewMatrix);
+                this.writeProjectionMatrix(this.headerbuffer, projectionMatrix);
+                assert(this.headerbuffer.remaining() == 0);
                 // Write the frame data:
                 this.videoProducer.getFrame(this.missionInit, this.buffer);
                 // The buffer gets flipped by getFrame(), but we need to flip our header buffer ourselves:

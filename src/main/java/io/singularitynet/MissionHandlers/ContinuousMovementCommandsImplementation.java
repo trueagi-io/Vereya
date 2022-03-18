@@ -19,31 +19,10 @@
 
 package io.singularitynet.MissionHandlers;
 
-import io.singularitynet.MissionHandlerInterfaces.ICommandHandler;
+public class ContinuousMovementCommandsImplementation extends CommandGroup {
 
-import java.util.ArrayList;
-
-public class CommandGroup {
-    private ArrayList<ICommandHandler> handlers;
-    private boolean isOverriding = false;
-    private boolean shareParametersWithChildren = false;
-
-    void addCommandHandler(ICommandHandler handler)
-    {
-        if (handler != null)
-        {
-            this.handlers.add(handler);
-            handler.setOverriding(this.isOverriding);
-        }
+    public ContinuousMovementCommandsImplementation(){
+        setShareParametersWithChildren(true);	// Pass our parameter block on to the following children:
+        this.addCommandHandler(new CommandForWheeledRobotNavigationImplementation());
     }
-    public boolean isFixed()
-    {
-        return false;   // Return true to stop MissionBehaviour from adding new handlers to this group.
-    }
-
-    protected void setShareParametersWithChildren(boolean share)
-    {
-        this.shareParametersWithChildren = share;
-    }
-
 }

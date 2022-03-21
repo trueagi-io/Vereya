@@ -114,6 +114,11 @@ abstract public class StateMachine
         }
     }
 
+    protected synchronized void stop() {
+        _setState(null);
+        this.stateQueue.clear();
+    }
+
     private void setState(IState toState)
     {
         // We want to make sure state changes happen purely on the "home" thread,

@@ -38,9 +38,22 @@ public class VereyaModServer implements ModInitializer {
         instance = this;
     }
 
+    public void sendMissionInitDirectToServer(MissionInit minit) throws Exception
+    {
+        if (this.stateMachine == null)
+            throw new Exception("Trying to send a mission request directly when no server has been created!");
+
+        this.stateMachine.setMissionInit(minit);
+    }
+
     public void initIntegratedServer(MissionInit init, MinecraftServer server){
         Logger LOGGER = LogManager.getLogger();
         LOGGER.info("Server initialized");
-        stateMachine = new ServerStateMachine(ServerState.WAITING_FOR_MOD_READY, init, server);
+        if (stateMachine == null ) {
+            stateMachine = new ServerStateMachine(ServerState.WAITING_FOR_MOD_READY, init, server);
+        } else {
+            this.stateMachine.setMissionInit(init);
+            this.stateMachine.queueStateChange(ServerState.WAITING_FOR_MOD_READY);
+        }
     }
 }

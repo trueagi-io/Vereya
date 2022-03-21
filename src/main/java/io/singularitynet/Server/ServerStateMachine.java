@@ -26,7 +26,7 @@ import io.singularitynet.utils.ScreenHelper;
 import jakarta.xml.bind.JAXBElement;
 import jakarta.xml.bind.JAXBException;
 
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.client.MinecraftClient;
@@ -77,6 +77,16 @@ public class ServerStateMachine extends StateMachine {
         this.server = server;
         // Register ourself on the event busses, so we can harness the server tick:
         ServerTickEvents.END_SERVER_TICK.register(s -> this.onServerTick(s));
+        ServerLifecycleEvents.SERVER_STOPPED.register(s -> this.onServerStopped(s));
+    }
+    private void onServerStopped(MinecraftServer s){
+        this.stop();
+        this.releaseQueuedMissionInit();
+    }
+
+    public void setMissionInit(MissionInit minit)
+    {
+        this.queuedMissionInit = minit;
     }
 
     protected void setUserTurnSchedule(ArrayList<String> schedule)

@@ -588,6 +588,8 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
         Thread deadMansHandle = new Thread(new Runnable() {
             @Override
             public void run() {
+                MinecraftClient.getInstance().getServer().stop(true);
+                MinecraftClient.getInstance().stop();
                 for (int i = 10; i > 0; i--) {
                     try {
                         Thread.sleep(1000);
@@ -598,7 +600,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
                 }
 
                 // Kill it with fire!!!
-                System.out.println("Attempting hard exit");
+                System.out.println("giving up exit");
                // FMLCommonHandler.instance().exitJava(0, true);
             }
         });

@@ -10,11 +10,14 @@ import net.minecraft.world.gen.GeneratorOptions;
 import net.minecraft.world.level.LevelInfo;
 
 import java.util.OptionalLong;
+import java.util.Properties;
+import java.util.UUID;
 
 public class WorldUtil {
     public static void createLevel(boolean hardcore, Long seed, Difficulty difficulty) {
-        String saveDirectoryName = "../save";
-        String levelName = "Vereya-test";
+        UUID uuid = UUID.randomUUID();
+        String worldName = uuid.toString().substring(0, 5);
+        String levelName = "Vereya-test" + worldName;
         LevelInfo levelInfo;
         GameRules gameRules = new GameRules();
         GeneratorOptions generatorOptions = WorldUtil.getGeneratorOptionsDefault(hardcore, OptionalLong.of(seed));
@@ -22,7 +25,7 @@ public class WorldUtil {
                 hardcore, difficulty,
                 true, gameRules, DataPackSettings.SAFE_MODE);
         DynamicRegistryManager.Impl impl = DynamicRegistryManager.create();
-        MinecraftClient.getInstance().createWorld(saveDirectoryName, levelInfo, impl, generatorOptions);
+        MinecraftClient.getInstance().createWorld(worldName, levelInfo, impl, generatorOptions);
     }
 
     static GeneratorOptions getGeneratorOptionsDefault(boolean hardcore, OptionalLong seed){
@@ -30,4 +33,24 @@ public class WorldUtil {
         GeneratorOptions generatorOptions = GeneratorOptions.getDefaultOptions(impl);
         return generatorOptions.withHardcore(hardcore, seed);
     }
+
+    public static void createLevel(boolean hardcore,
+                                   Difficulty difficulty, Properties properties) {
+        UUID uuid = UUID.randomUUID();
+        String worldName = uuid.toString().substring(0, 5);
+        String levelName = "Vereya-test" + worldName;
+        GameRules gameRules = new GameRules();
+        LevelInfo levelInfo = new LevelInfo(levelName.trim(), GameMode.DEFAULT,
+                hardcore, difficulty,
+                true, gameRules, DataPackSettings.SAFE_MODE);
+        DynamicRegistryManager.Impl impl = DynamicRegistryManager.create();
+        GeneratorOptions generatorOptions = getGeneratorOptions(properties);
+        MinecraftClient.getInstance().createWorld(worldName, levelInfo, impl, generatorOptions);
+    }
+    static GeneratorOptions getGeneratorOptions(Properties properties) {
+        DynamicRegistryManager.Impl impl = DynamicRegistryManager.create();
+        GeneratorOptions generatorOptions =  GeneratorOptions.fromProperties(impl, properties);
+        return generatorOptions;
+    }
+
 }

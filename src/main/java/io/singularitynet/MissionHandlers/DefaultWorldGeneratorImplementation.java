@@ -23,16 +23,23 @@ import io.singularitynet.MissionHandlerInterfaces.IWorldGenerator;
 import io.singularitynet.projectmalmo.DefaultWorldGenerator;
 import io.singularitynet.projectmalmo.MissionInit;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.world.ServerWorld;
+import net.minecraft.util.registry.RegistryKey;
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.World;
+import net.minecraft.world.gen.GeneratorOptions;
 import org.apache.logging.log4j.LogManager;
 
+import java.util.HashSet;
+import java.util.Map;
 import java.util.Random;
+import java.util.Set;
 
 public class DefaultWorldGeneratorImplementation extends HandlerBase implements IWorldGenerator
 {
 	DefaultWorldGenerator dwparams;
-	
+
 	@Override
 	public boolean parseParameters(Object params)
 	{
@@ -42,7 +49,12 @@ public class DefaultWorldGeneratorImplementation extends HandlerBase implements 
 		this.dwparams = (DefaultWorldGenerator)params;
 		return true;
 	}
-	
+
+    @Override
+	public Object getOptions(){
+        return dwparams;
+    }
+
     public static long getWorldSeedFromString(String seedString)
     {
         // This seed logic mirrors the Minecraft code in GuiCreateWorld.actionPerformed:
@@ -80,19 +92,21 @@ public class DefaultWorldGeneratorImplementation extends HandlerBase implements 
     }
 
     @Override
-    public boolean shouldCreateWorld(MissionInit missionInit, World world)
+    public boolean shouldCreateWorld(MissionInit missionInit, Object genOptions)
     {
         if (this.dwparams != null && this.dwparams.isForceReset())
             return true;
 
-    	if (MinecraftClient.getInstance().world == null || world == null) {
+    	if (MinecraftClient.getInstance().world == null || genOptions == null) {
             return true;    // Definitely need to create a world if there isn't one in existence!
         }
-
-        world.getLevelProperties();
-        //String genOptions = world.getWorldInfo().getGeneratorOptions();
+        if (genOptions != null && DefaultWorldGenerator.class.isInstance(genOptions) ) {
+            DefaultWorldGenerator oldParams = (DefaultWorldGenerator)genOptions;
+            // seed is all we have
+            boolean result = (oldParams.getSeed() == dwparams.getSeed());
+            return result;
+        }
         LogManager.getLogger().warn("Can't compare worlds yet");
-
         /*
         if (genOptions != null && !genOptions.isEmpty()) {
             return true;    // Default world has no generator options.

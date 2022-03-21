@@ -20,11 +20,17 @@
 package io.singularitynet.MissionHandlerInterfaces;
 
 import io.singularitynet.projectmalmo.MissionInit;
+import net.minecraft.server.world.ServerWorld;
+import net.minecraft.util.registry.RegistryKey;
 import net.minecraft.world.World;
+
+import java.util.Map;
+import java.util.Properties;
 
 /** Interface for objects which can determine the world structure for the Minecraft mission.
  */
 public interface IWorldGenerator {
+
     /** Provide a world - eg by loading it from a basemap file, or by creating one procedurally.
      * @param missionInit the MissionInit object for the currently running mission, which may contain parameters for the observation requirements.
      * @return true if a world has been created, false otherwise
@@ -38,7 +44,9 @@ public interface IWorldGenerator {
      * @param missionInit the MissionInit object for the currently running mission, which may contain parameters for the observation requirements.
      * @return true if the world should be created, false otherwise.
      */
-    public boolean shouldCreateWorld(MissionInit missionInit, World world);
+    public boolean shouldCreateWorld(MissionInit missionInit, Object genOptions);
 
     public String getErrorDetails();
+
+    public Object getOptions();
 }

@@ -24,6 +24,7 @@ import io.singularitynet.*;
 import io.singularitynet.MissionHandlerInterfaces.IVideoProducer;
 import io.singularitynet.MissionHandlerInterfaces.IWantToQuit;
 import io.singularitynet.MissionHandlers.MissionBehaviour;
+import io.singularitynet.MissionHandlers.MultidimensionalReward;
 import io.singularitynet.Server.VereyaModServer;
 import io.singularitynet.projectmalmo.*;
 import io.singularitynet.utils.*;
@@ -34,8 +35,10 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
+import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.util.registry.RegistryKey;
 import net.minecraft.world.World;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -44,6 +47,7 @@ import org.xml.sax.SAXException;
 import javax.xml.stream.XMLStreamException;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.math.BigDecimal;
 import java.net.UnknownHostException;
 import java.util.*;
@@ -69,6 +73,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
     private MissionInit currentMissionInit = null; // The MissionInit object for the mission currently being loaded/run.
     private MissionBehaviour missionBehaviour = null;// new MissionBehaviour();
     private String missionQuitCode = ""; // The reason why this mission ended.
+    Map<RegistryKey<World>, Object> generatorProperties = null;
 
     private MissionDiagnostics missionEndedData = new MissionDiagnostics();
     private IScreenHelper screenHelper = null; // new ScreenHelper();
@@ -97,6 +102,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
     String reservationID = "";   // empty if we are not reserved, otherwise "RESERVED" + the experiment ID we are reserved for.
     long reservationExpirationTime = 0;
     private TCPSocketChannel missionControlSocket;
+    private MultidimensionalReward finalReward = new MultidimensionalReward(true); // The reward at the end of the mission, sent separately to ensure timely delivery.
 
     private void reserveClient(String id)
     {
@@ -248,6 +254,14 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
                 return new WaitingForServerEpisode(this);
             case RUNNING:
                 return new MissionRunningEpisode(this);
+            case PAUSING_OLD_SERVER:
+                return new PauseOldServerEpisode(this);
+            case CLOSING_OLD_SERVER:
+                return new CloseOldServerEpisode(this);
+            case MISSION_ABORTED:
+                return new MissionEndedEpisode(this, MissionResult.MOD_SERVER_ABORTED_MISSION, true, false, true);  // Don't inform the server - it already knows (we're acting on its notification)
+            case WAITING_FOR_SERVER_MISSION_END:
+                return new WaitingForServerMissionEndEpisode(this);
             default:
                 break;
         }
@@ -900,8 +914,12 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
                 MissionBehaviour serverHandlers = MissionBehaviour.createServerHandlersFromMissionInit(currentMissionInit());
                 if (serverHandlers != null && serverHandlers.worldGenerator != null)
                 {
+
                     if (serverHandlers.worldGenerator.createWorld(currentMissionInit()))
                     {
+                        ClientStateMachine.this.generatorProperties.clear();
+                        ClientStateMachine.this.generatorProperties.put(MinecraftClient.getInstance().world.getRegistryKey(),
+                                serverHandlers.worldGenerator.getOptions());
                         this.worldCreated = true;
                         if (MinecraftClient.getInstance().getServer() != null) {
                             MinecraftClient.getInstance().getServer().setOnlineMode(false);
@@ -969,15 +987,9 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
                 episodeHasCompletedWithErrors(ClientState.ERROR_DUFF_HANDLERS, "Could not create server mission handlers: " + e.getMessage());
             }
 
-            World world = null;
-            if (MinecraftClient.getInstance().getServer() != null) {
-                // alternative: there's getWorld which accepts key
-                for (World w : MinecraftClient.getInstance().getServer().getWorlds()) {
-                    world = w;
-                }
-            }
-
-            boolean needsNewWorld = serverHandlers != null && serverHandlers.worldGenerator != null && serverHandlers.worldGenerator.shouldCreateWorld(currentMissionInit(), world);
+            World world = MinecraftClient.getInstance().world;
+            Object genOptions = generatorProperties.get(world);
+            boolean needsNewWorld = serverHandlers != null && serverHandlers.worldGenerator != null && serverHandlers.worldGenerator.shouldCreateWorld(currentMissionInit(), genOptions);
             boolean worldCurrentlyExists = world != null;
             if (worldCurrentlyExists) {
                 // If a world already exists, we need to check that our requested agent name matches the name
@@ -1005,6 +1017,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
                     @Override
                     public void run() {
                         try {
+                            VereyaModServer.getInstance().sendMissionInitDirectToServer(currentMissionInit);
                             //MalmoMod.instance.sendMissionInitDirectToServer(currentMissionInit);
                         } catch (Exception e) {
                             episodeHasCompletedWithErrors(ClientState.ERROR_INTEGRATED_SERVER_UNREACHABLE, "Could not send MissionInit to our integrated server: " + e.getMessage());
@@ -1800,4 +1813,238 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
             SidesMessageHandler.server2client.deregisterForMessage(this, MalmoMessageType.SERVER_GO);
         }
     }
+
+    // ---------------------------------------------------------------------------------------------------------
+    /**
+     * Pause the old server. It's vital that we do this, otherwise it will
+     * respond to the quit disconnect package straight away and kill the server
+     * thread, which means there will be no server to respond to the loadWorld
+     * code. (This was the cause of the infamous "Holder Lookups" hang.)
+     */
+    public class PauseOldServerEpisode extends ErrorAwareEpisode
+    {
+        PauseOldServerEpisode(ClientStateMachine machine)
+        {
+            super(machine);
+        }
+
+        @Override
+        protected void execute()
+        {
+
+            MinecraftServer server = MinecraftClient.getInstance().getServer();
+            if (server != null && MinecraftClient.getInstance().world != null)
+            {
+                server.stop(true);
+            }
+            ClientStateMachine.this.generatorProperties.clear();
+            episodeHasCompleted(ClientState.CLOSING_OLD_SERVER);
+        }
+    }
+
+
+    // ---------------------------------------------------------------------------------------------------------
+    /**
+     * Dummy state, just in case if we need to wait for something before creating a new world
+     */
+    public class CloseOldServerEpisode extends ErrorAwareEpisode
+    {
+        int totalTicks;
+
+        CloseOldServerEpisode(ClientStateMachine machine)
+        {
+            super(machine);
+        }
+
+        @Override
+        protected void execute() {}
+
+        public void onClientTick(MinecraftClient ev)
+        {
+            // Check to see whether anything has caused us to abort - if so, go to the abort state.
+            if (inAbortState())
+                episodeHasCompleted(ClientState.MISSION_ABORTED);
+
+            episodeHasCompleted(ClientState.CREATING_NEW_WORLD);
+        }
+    }
+
+    // ---------------------------------------------------------------------------------------------------------
+    /**
+     * State that occurs at the end of the mission, whether due to death,
+     * failure, success, error, or whatever.
+     */
+    public class MissionEndedEpisode extends ErrorAwareEpisode
+    {
+        private MissionResult result;
+        private boolean aborting;
+        private boolean informServer;
+        private boolean informAgent;
+        private int totalTicks = 0;
+
+        public MissionEndedEpisode(ClientStateMachine machine, MissionResult mr, boolean aborting, boolean informServer, boolean informAgent)
+        {
+            super(machine);
+            this.result = mr;
+            this.aborting = aborting;
+            this.informServer = informServer;
+            this.informAgent = informAgent;
+        }
+
+        @Override
+        protected void execute()
+        {
+            totalTicks = 0;
+
+            // Get a text report:
+            String errorFeedback = ClientStateMachine.this.getErrorDetails();
+            String quitFeedback = ClientStateMachine.this.missionQuitCode;
+            String concatenation = (errorFeedback != null && !errorFeedback.isEmpty() && quitFeedback != null && !quitFeedback.isEmpty()) ? ";\n" : "";
+            String report = quitFeedback + concatenation + errorFeedback;
+
+            if (this.informServer)
+            {
+                // Inform the server of what has happened.
+                HashMap<String, String> map = new HashMap<String, String>();
+                PlayerEntity player = MinecraftClient.getInstance().player;
+                if (player != null) // Might not be a player yet.
+                    map.put("username", player.getName().asString());
+                map.put("error", ClientStateMachine.this.getErrorDetails());
+                ClientPlayNetworking.send(NetworkConstants.CLIENT2SERVER,
+                        new MalmoMessage(MalmoMessageType.CLIENT_BAILED, 0, map).toBytes());
+            }
+
+            if (this.informAgent)
+            {
+                // Create a MissionEnded instance for this result:
+                MissionEnded missionEnded = new MissionEnded();
+                missionEnded.setStatus(this.result);
+                if (ClientStateMachine.this.missionQuitCode != null &&
+                        ClientStateMachine.this.missionQuitCode.equals(VereyaModClient.AGENT_DEAD_QUIT_CODE))
+                    missionEnded.setStatus(MissionResult.PLAYER_DIED); // Need to do this manually.
+                missionEnded.setHumanReadableStatus(report);
+                if (!ClientStateMachine.this.finalReward.isEmpty())
+                {
+                    missionEnded.setReward(ClientStateMachine.this.finalReward.getAsReward());
+                    ClientStateMachine.this.finalReward.clear();
+                }
+                missionEnded.setMissionDiagnostics(ClientStateMachine.this.missionEndedData);	// send our diagnostics
+                ClientStateMachine.this.missionEndedData = new MissionDiagnostics();			// and clear them for the next mission
+                // And send MissionEnded message to the agent to inform it that the mission has ended:
+                sendMissionEnded(missionEnded);
+            }
+
+            if (this.aborting) // Take the shortest path back to dormant.
+                episodeHasCompleted(ClientState.DORMANT);
+        }
+
+        private void sendMissionEnded(MissionEnded missionEnded)
+        {
+            // Send a MissionEnded message to the agent to inform it that the mission has ended.
+            // Create a string XML representation:
+            String missionEndedString = null;
+            try
+            {
+                missionEndedString = SchemaHelper.serialiseObject(missionEnded, MissionEnded.class);
+                /*
+                if (ScoreHelper.isScoring()) {
+                    Reward reward = missionEnded.getReward();
+                    if (reward == null) {
+                        reward = new Reward();
+                    }
+                    ScoreHelper.logMissionEndRewards(reward);
+                } */
+            }
+            catch (JAXBException e)
+            {
+                TCPUtils.Log(Level.SEVERE, "Failed mission end XML serialization: " + e);
+            }
+
+            boolean sentOkay = false;
+            if (missionEndedString != null)
+            {
+                if (AddressHelper.getMissionControlPort() == 0) {
+                    sentOkay = true;
+                } else {
+                    TCPSocketChannel sender = ClientStateMachine.this.getMissionControlSocket();
+                    System.out.println(String.format("Sending mission ended message to %s:%d.", sender.getAddress(), sender.getPort()));
+                    sentOkay = sender.sendTCPString(missionEndedString);
+                    sender.close();
+                }
+            }
+
+            if (!sentOkay)
+            {
+                // Couldn't formulate a reply to the agent - bit of a problem.
+                // Can't do much to alert the agent itself,
+                // will have to settle for alerting anyone who is watching the mod:
+                ClientStateMachine.this.getScreenHelper().addFragment("ERROR: Could not send mission ended message - agent may need manually resetting.", ScreenHelper.TextCategory.TXT_CLIENT_WARNING, 10000);
+            }
+        }
+
+        @Override
+        public void onClientTick(MinecraftClient event)
+        {
+            if (!this.aborting)
+                episodeHasCompleted(ClientState.WAITING_FOR_SERVER_MISSION_END);
+
+            if (++totalTicks > WAIT_MAX_TICKS)
+            {
+                String msg = "Too long waiting for server to end mission.";
+                TCPUtils.Log(Level.SEVERE, msg);
+                episodeHasCompletedWithErrors(ClientState.ERROR_TIMED_OUT_WAITING_FOR_MISSION_END, msg);
+            }
+        }
+    }
+
+    /**
+     * Wait for the server to decide the mission has ended.<br>
+     * We're not allowed to return to dormant until the server decides everyone can.
+     */
+    public class WaitingForServerMissionEndEpisode extends ErrorAwareEpisode
+    {
+        protected WaitingForServerMissionEndEpisode(ClientStateMachine machine)
+        {
+            super(machine);
+            SidesMessageHandler.server2client.registerForMessage(this, MalmoMessageType.SERVER_MISSIONOVER);
+        }
+
+        @Override
+        protected void execute() throws Exception
+        {
+            // Get our name from the Mission:
+            List<AgentSection> agents = currentMissionInit().getMission().getAgentSection();
+            if (agents == null || agents.size() <= currentMissionInit().getClientRole())
+                throw new Exception("No agent section for us!"); // TODO
+            String agentName = agents.get(currentMissionInit().getClientRole()).getName();
+
+            // Now send a message to the server saying that we are ready:
+            HashMap<String, String> map = new HashMap<String, String>();
+            map.put("agentname", agentName);
+            ClientPlayNetworking.send(NetworkConstants.CLIENT2SERVER,
+                    new MalmoMessage(MalmoMessageType.CLIENT_AGENTSTOPPED, 0, map).toBytes());
+        }
+
+        @Override
+        public void onMessage(MalmoMessageType messageType, Map<String, String> data)
+        {
+            super.onMessage(messageType, data);
+            if (messageType == MalmoMessageType.SERVER_MISSIONOVER)
+                episodeHasCompleted(ClientState.DORMANT);
+        }
+
+        @Override
+        public void cleanup()
+        {
+            super.cleanup();
+            SidesMessageHandler.server2client.deregisterForMessage(this, MalmoMessageType.SERVER_MISSIONOVER);
+        }
+
+        @Override
+        protected void onAbort(Map<String, String> errorData)
+        {
+            episodeHasCompleted(ClientState.MISSION_ABORTED);
+        }
+    }
+
 }

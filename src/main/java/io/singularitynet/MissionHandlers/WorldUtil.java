@@ -9,6 +9,7 @@ import net.minecraft.world.GameRules;
 import net.minecraft.world.gen.GeneratorOptions;
 import net.minecraft.world.level.LevelInfo;
 
+import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Properties;
 import java.util.UUID;
@@ -34,7 +35,7 @@ public class WorldUtil {
         return generatorOptions.withHardcore(hardcore, seed);
     }
 
-    public static void createLevel(boolean hardcore,
+    public static void createLevelFlat(boolean hardcore,
                                    Difficulty difficulty, Properties properties) {
         UUID uuid = UUID.randomUUID();
         String worldName = uuid.toString().substring(0, 5);
@@ -44,6 +45,7 @@ public class WorldUtil {
                 hardcore, difficulty,
                 true, gameRules, DataPackSettings.SAFE_MODE);
         DynamicRegistryManager.Impl impl = DynamicRegistryManager.create();
+
         GeneratorOptions generatorOptions = getGeneratorOptions(properties);
         MinecraftClient.getInstance().createWorld(worldName, levelInfo, impl, generatorOptions);
     }

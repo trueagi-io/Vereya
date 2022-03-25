@@ -26,6 +26,7 @@ import io.singularitynet.MissionHandlerInterfaces.IWantToQuit;
 import io.singularitynet.MissionHandlers.MissionBehaviour;
 import io.singularitynet.MissionHandlers.MultidimensionalReward;
 import io.singularitynet.Server.VereyaModServer;
+import io.singularitynet.mixin.SessionMixin;
 import io.singularitynet.projectmalmo.*;
 import io.singularitynet.utils.*;
 import io.singularitynet.utils.TCPInputPoller.CommandAndIPAddress;
@@ -36,6 +37,7 @@ import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.network.PacketByteBuf;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.util.registry.RegistryKey;
@@ -50,6 +52,7 @@ import java.io.IOException;
 import java.lang.reflect.Field;
 import java.math.BigDecimal;
 import java.net.UnknownHostException;
+import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.logging.Level;
 
@@ -72,11 +75,12 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
     private static final Logger LOGGER = LogManager.getLogger();
     private MissionInit currentMissionInit = null; // The MissionInit object for the mission currently being loaded/run.
     private MissionBehaviour missionBehaviour = null;// new MissionBehaviour();
+    private MissionBehaviour serverHandlers = null;
     private String missionQuitCode = ""; // The reason why this mission ended.
-    Map<RegistryKey<World>, Object> generatorProperties = null;
+    Map<RegistryKey<World>, Object> generatorProperties = new HashMap<>();
 
     private MissionDiagnostics missionEndedData = new MissionDiagnostics();
-    private IScreenHelper screenHelper = null; // new ScreenHelper();
+    private IScreenHelper screenHelper = new ScreenHelper();
     protected IMalmoModClient inputController;
     private static String mod_version = "- 21";
     static {
@@ -208,10 +212,10 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
     @Override
     public void onMessage(MalmoMessageType messageType, Map<String, String> data)
     {
+        LOGGER.info("got message type " + messageType.toString());
         if (messageType == MalmoMessageType.SERVER_TEXT)
         {
-        	System.out.println("got server message");
-              
+        	LOGGER.info("got server text message" + data.toString());
         }
     }
 
@@ -262,6 +266,15 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
                 return new MissionEndedEpisode(this, MissionResult.MOD_SERVER_ABORTED_MISSION, true, false, true);  // Don't inform the server - it already knows (we're acting on its notification)
             case WAITING_FOR_SERVER_MISSION_END:
                 return new WaitingForServerMissionEndEpisode(this);
+            case IDLING:
+                return new MissionIdlingEpisode(this);
+            case MISSION_ENDED:
+                return new MissionEndedEpisode(this, MissionResult.ENDED, false, false, true);
+            case ERROR_LOST_AGENT:
+            case ERROR_LOST_VIDEO:
+                return new MissionEndedEpisode(this, MissionResult.MOD_HAS_NO_AGENT_AVAILABLE, true, true, false);
+            case ERROR_CANNOT_CREATE_WORLD:
+                return new MissionEndedEpisode(this, MissionResult.MOD_FAILED_TO_CREATE_WORLD, true, true, true);
             default:
                 break;
         }
@@ -825,14 +838,8 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
             ClientStateMachine.this.cancelReservation();
 
             // Now try creating the handlers:
-            try
-            {
-                ClientStateMachine.this.missionBehaviour = MissionBehaviour.createAgentHandlersFromMissionInit(currentMissionInit());
-            }
-            catch (Exception e)
-            {
-                // TODO
-            }
+            ClientStateMachine.this.missionBehaviour = MissionBehaviour.createAgentHandlersFromMissionInit(currentMissionInit());
+
             // Set up our command input poller. This is only checked during the MissionRunning episode, but
             // it needs to be started now, so we can report the port it's using back to the agent.
             TCPUtils.LogSection ls = new TCPUtils.LogSection("Initialise Command Input Poller");
@@ -913,15 +920,12 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
                 totalTicks = 0;
 
                 // We need to use the server's MissionHandlers here:
-                MissionBehaviour serverHandlers = MissionBehaviour.createServerHandlersFromMissionInit(currentMissionInit());
-                if (serverHandlers != null && serverHandlers.worldGenerator != null)
+                ClientStateMachine.this.serverHandlers = MissionBehaviour.createServerHandlersFromMissionInit(currentMissionInit());
+                if (ClientStateMachine.this.serverHandlers != null && ClientStateMachine.this.serverHandlers.worldGenerator != null)
                 {
-
-                    if (serverHandlers.worldGenerator.createWorld(currentMissionInit()))
+                    if (ClientStateMachine.this.serverHandlers.worldGenerator.createWorld(currentMissionInit()))
                     {
                         ClientStateMachine.this.generatorProperties.clear();
-                        ClientStateMachine.this.generatorProperties.put(MinecraftClient.getInstance().world.getRegistryKey(),
-                                serverHandlers.worldGenerator.getOptions());
                         this.worldCreated = true;
                         if (MinecraftClient.getInstance().getServer() != null) {
                             MinecraftClient.getInstance().getServer().setOnlineMode(false);
@@ -936,6 +940,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
             }
             catch (Exception e)
             {
+                LOGGER.error("world creation failed:", e);
                 episodeHasCompletedWithErrors(ClientState.ERROR_CANNOT_CREATE_WORLD, "Server world-creation handler failed to create a world: " + e.getMessage());
             }
         }
@@ -989,20 +994,29 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
                 episodeHasCompletedWithErrors(ClientState.ERROR_DUFF_HANDLERS, "Could not create server mission handlers: " + e.getMessage());
             }
 
+
             World world = MinecraftClient.getInstance().world;
-            Object genOptions = generatorProperties.get(world);
+            Object genOptions = null;
+            if (world != null) {
+                genOptions = generatorProperties.get(world.getRegistryKey());
+            }
             boolean needsNewWorld = serverHandlers != null && serverHandlers.worldGenerator != null && serverHandlers.worldGenerator.shouldCreateWorld(currentMissionInit(), genOptions);
             boolean worldCurrentlyExists = world != null;
+            List<AgentSection> agents = currentMissionInit().getMission().getAgentSection();
+            String agentName = agents.get(currentMissionInit().getClientRole()).getName();
             if (worldCurrentlyExists) {
                 // If a world already exists, we need to check that our requested agent name matches the name
                 // of the player. If not, the safest thing to do is start a new server.
                 // Get our name from the Mission:
-                List<AgentSection> agents = currentMissionInit().getMission().getAgentSection();
-                String agentName = agents.get(currentMissionInit().getClientRole()).getName();
-                if (MinecraftClient.getInstance().player != null) {
-                    if (!MinecraftClient.getInstance().player.getName().equals(agentName))
+                PlayerEntity player = MinecraftClient.getInstance().player;
+                if (player != null) {
+                    String playerName = player.getName().asString();
+                    if (!playerName.equals(agentName))
                         needsNewWorld = true;
                 }
+            }
+            if (needsNewWorld) {
+                ((SessionMixin)MinecraftClient.getInstance().getSession()).setName(agentName);
             }
             if (needsNewWorld && worldCurrentlyExists) {
                 // We want a new world, and there is currently a world running,
@@ -1091,6 +1105,17 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
             return true;    // No starting position specified, so doesn't matter where we start.
         }
 
+        private void setClientPos(){
+            List<AgentSection> agents = currentMissionInit().getMission().getAgentSection();
+            AgentSection as = agents.get(currentMissionInit().getClientRole());
+            PosAndDirection pos = as.getAgentStart().getPlacement();
+            LOGGER.info("Setting agent pos to: x(" + pos.getX() + ") z(" + pos.getZ()  + ") y(" + pos.getY() + ")");
+            MinecraftClient.getInstance().player.setPos(
+                    pos.getX().doubleValue(),
+                    pos.getY().doubleValue(),
+                    pos.getZ().doubleValue());
+        }
+
         @Override
         protected void onClientTick(MinecraftClient client)
         {
@@ -1102,6 +1127,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
             {
                 if (client.player != null)
                 {
+                    setClientPos();
                     this.waitingForPlayer = false;
                     handleLan();
                 }
@@ -1121,7 +1147,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
                     map.put("agentname", agentName);
                     map.put("username", client.player.getName().asString());
                     currentMissionBehaviour().appendExtraServerInformation(map);
-                    System.out.println("***Telling server we are ready - " + agentName);
+                    LOGGER.info("***Telling server we are ready - " + agentName);
                     ClientPlayNetworking.send(NetworkConstants.CLIENT2SERVER,
                             (new MalmoMessage(MalmoMessageType.CLIENT_AGENTREADY, 0, map)).toBytes());
                 }
@@ -1239,13 +1265,15 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
 
             if (messageType != MalmoMessageType.SERVER_ALLPLAYERSJOINED)
                 return;
-
+            MinecraftClient client = MinecraftClient.getInstance();
+            ClientStateMachine.this.generatorProperties.put(client.world.getRegistryKey(),
+                    ClientStateMachine.this.serverHandlers.worldGenerator.getOptions());
             List<Object> handlers = new ArrayList<Object>();
             for (Map.Entry<String, String> entry : data.entrySet())
             {
                 if (entry.getKey().equals("startPosition"))
                 {
-                    try
+                    /*try
                     {
                         String[] parts = entry.getValue().split(":");
                         Float x = Float.valueOf(parts[0]);
@@ -1274,7 +1302,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
                     catch (Exception e)
                     {
                         System.out.println("Couldn't interpret position data");
-                    }
+                    }*/
                 }
                 else
                 {
@@ -1525,6 +1553,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
             {
                 this.playerDied = true;
                 this.quitCode = VereyaModClient.AGENT_DEAD_QUIT_CODE;
+                LOGGER.info("player died!");
             }
 
             // Although we only arrive in this episode once the server has determined that all clients are ready to go,
@@ -1572,9 +1601,8 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
                 map.put("agentname", agentName);
                 map.put("username", MinecraftClient.getInstance().player.getName().asString());
                 map.put("quitcode", this.quitCode);
-                ServerPlayerEntity player = event.getServer().getPlayerManager().getPlayer(MinecraftClient.getInstance().player.getUuid());
-                ServerPlayNetworking.send(player,
-                        NetworkConstants.CLIENT2SERVER, (new MalmoMessage(MalmoMessageType.CLIENT_AGENTFINISHEDMISSION, 0, map)).toBytes());
+                LOGGER.info("informing server that player has quited");
+                ClientPlayNetworking.send(NetworkConstants.CLIENT2SERVER, (new MalmoMessage(MalmoMessageType.CLIENT_AGENTFINISHEDMISSION, 0, map)).toBytes());
                 onMissionEnded(ClientState.IDLING, null);
             }
             else
@@ -1839,6 +1867,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
             {
                 server.stop(true);
             }
+            LOGGER.info("clean generator properties");
             ClientStateMachine.this.generatorProperties.clear();
             episodeHasCompleted(ClientState.CLOSING_OLD_SERVER);
         }
@@ -1904,7 +1933,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
             String concatenation = (errorFeedback != null && !errorFeedback.isEmpty() && quitFeedback != null && !quitFeedback.isEmpty()) ? ";\n" : "";
             String report = quitFeedback + concatenation + errorFeedback;
 
-            if (this.informServer)
+            if (this.informServer && (MinecraftClient.getInstance().getServer() != null))
             {
                 // Inform the server of what has happened.
                 HashMap<String, String> map = new HashMap<String, String>();
@@ -1912,8 +1941,9 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
                 if (player != null) // Might not be a player yet.
                     map.put("username", player.getName().asString());
                 map.put("error", ClientStateMachine.this.getErrorDetails());
-                ClientPlayNetworking.send(NetworkConstants.CLIENT2SERVER,
-                        new MalmoMessage(MalmoMessageType.CLIENT_BAILED, 0, map).toBytes());
+                PacketByteBuf buf = new MalmoMessage(MalmoMessageType.CLIENT_BAILED, 0, map).toBytes();
+                LOGGER.debug("informing server of a failure with: " + map.toString());
+                ClientPlayNetworking.send(NetworkConstants.CLIENT2SERVER, buf);
             }
 
             if (this.informAgent)
@@ -2049,4 +2079,50 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
         }
     }
 
+
+    /**
+     * State in which an agent has finished the mission, but is waiting for the server to draw stumps.
+     */
+    public class MissionIdlingEpisode extends ErrorAwareEpisode
+    {
+        int totalTicks = 0;
+
+        protected MissionIdlingEpisode(ClientStateMachine machine)
+        {
+            super(machine);
+            SidesMessageHandler.server2client.registerForMessage(this, MalmoMessageType.SERVER_STOPAGENTS);
+        }
+
+        @Override
+        protected void execute()
+        {
+            totalTicks = 0;
+        }
+
+        @Override
+        public void onMessage(MalmoMessageType messageType, Map<String, String> data)
+        {
+            super.onMessage(messageType, data);
+            // This message will be sent to us once the server has decided the mission is over.
+            if (messageType == MalmoMessageType.SERVER_STOPAGENTS)
+                episodeHasCompleted(ClientState.MISSION_ENDED);
+        }
+
+        @Override
+        public void cleanup()
+        {
+            super.cleanup();
+            SidesMessageHandler.server2client.deregisterForMessage(this, MalmoMessageType.SERVER_STOPAGENTS);
+        }
+
+        @Override
+        public void onClientTick(MinecraftClient ev)
+        {
+            // Check to see whether anything has caused us to abort - if so, go to the abort state.
+            if (inAbortState())
+                episodeHasCompleted(ClientState.MISSION_ABORTED);
+
+            ++totalTicks;
+        }
+    }
 }

@@ -150,6 +150,7 @@ public class VideoHook {
         catch(Exception e)
         {
             System.out.println("Failed to register video hook: " + e);
+            throw e;
         }
         this.isRunning = true;
     }

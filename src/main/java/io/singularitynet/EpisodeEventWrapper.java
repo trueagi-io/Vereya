@@ -29,6 +29,7 @@ import net.minecraft.client.world.ClientWorld;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.chunk.WorldChunk;
 import io.singularitynet.StateEpisode;
+import org.apache.logging.log4j.LogManager;
 
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
@@ -116,7 +117,7 @@ public class EpisodeEventWrapper implements ClientTickEvents.EndTick,
             }
             catch (Exception e)
             {
-                // Do what??
+                LogManager.getLogger().error("Exception onClientTick", e);
             }
         }
         this.stateEpisodeLock.readLock().unlock();

@@ -16,7 +16,7 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient
     public void onInitializeClient() {
         // Register for various events:
         // MinecraftForge.EVENT_BUS.register(this);
-        TCPUtils.setLogging(TCPUtils.SeverityLevel.LOG_DETAILED);
+        // TCPUtils.setLogging(TCPUtils.SeverityLevel.LOG_DETAILED);
         this.stateMachine = new ClientStateMachine(ClientState.WAITING_FOR_MOD_READY, (IMalmoModClient) this);
     }
 
@@ -52,8 +52,7 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient
             MinecraftClient.getInstance().mouse.lockCursor();
             // Minecraft.getMinecraft().mouseHelper.grabMouseCursor();
         }
-        else
-        {
+        else {
             // Minecraft.getMinecraft().mouseHelper.ungrabMouseCursor();
             MinecraftClient.getInstance().mouse.unlockCursor();
         }

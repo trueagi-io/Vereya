@@ -39,6 +39,9 @@ public class FlatWorldGeneratorImplementation extends HandlerBase implements IWo
             return false;
 
         this.fwparams = (FlatWorldGenerator)params;
+        String generatorString = this.fwparams.getGeneratorString();
+        generatorString = generatorString.replace("%ESC", "\"");
+        this.fwparams.setGeneratorString(generatorString);
         return true;
     }
 
@@ -46,12 +49,14 @@ public class FlatWorldGeneratorImplementation extends HandlerBase implements IWo
     public boolean createWorld(MissionInit missionInit)
     {
         long seed = DefaultWorldGeneratorImplementation.getWorldSeedFromString(this.fwparams.getSeed());
-        Properties props = new Properties();
-        props.setProperty("level-type", "flat");
-        props.setProperty("level-seed", fwparams.getSeed());
-        props.setProperty("generator-settings", fwparams.getGeneratorString());
+
         try{
-            WorldUtil.createLevel(false, Difficulty.NORMAL, props);
+            LogManager.getLogger().info("Creating flat world");
+            Properties props = new Properties();
+            props.setProperty("level-type", "flat");
+            props.setProperty("level-seed", String.valueOf(seed));
+            props.setProperty("generator-settings", this.fwparams.getGeneratorString());
+            WorldUtil.createLevelFlat(false, Difficulty.NORMAL, props);
             return true;
         } catch (RuntimeException e) {
             LogManager.getLogger().error(e);

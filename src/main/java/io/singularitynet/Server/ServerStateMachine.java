@@ -26,10 +26,13 @@ import io.singularitynet.utils.ScreenHelper;
 import jakarta.xml.bind.JAXBElement;
 import jakarta.xml.bind.JAXBException;
 
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.EntityType;
 import net.minecraft.entity.player.PlayerEntity;
 
 import net.minecraft.item.ItemStack;
@@ -40,6 +43,9 @@ import net.minecraft.server.world.ServerWorld;
 import net.minecraft.world.GameMode;
 import net.minecraft.world.GameRules;
 import net.minecraft.world.World;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.core.jmx.Server;
 
 
 import java.util.*;
@@ -59,6 +65,7 @@ public class ServerStateMachine extends StateMachine {
     private MissionBehaviour missionHandlers = null;	// The Mission handlers for the mission currently being loaded/run.
     protected String quitCode = "";						// Code detailing the reason for quitting this mission.
     private MinecraftServer server;
+    private static final Logger LOGGER = LogManager.getLogger();
 
     // agentConnectionWatchList is used to keep track of the clients in a multi-agent mission. If, at any point, a username appears in
     // this list, but can't be found in the MinecraftServer.getServer().getAllUsernames(), that constitutes an error, and the mission will exit.
@@ -78,7 +85,49 @@ public class ServerStateMachine extends StateMachine {
         // Register ourself on the event busses, so we can harness the server tick:
         ServerTickEvents.END_SERVER_TICK.register(s -> this.onServerTick(s));
         ServerLifecycleEvents.SERVER_STOPPED.register(s -> this.onServerStopped(s));
+        ServerEntityEvents.ENTITY_LOAD.register((e, w) -> this.onGetPotentialSpawns(e, w));
     }
+
+    /** Used to prevent spawning in our world.*/
+    public void onGetPotentialSpawns(Entity entity, ServerWorld world)
+    {
+        // Decide whether or not to allow spawning.
+        // We shouldn't allow spawning unless it has been specifically turned on - whether
+        // a mission is running or not. (Otherwise spawning may happen in between missions.)
+        boolean allowSpawning = false;
+        if (currentMissionInit() != null && currentMissionInit().getMission() != null)
+        {
+            // There is a mission running - does it allow spawning?
+            ServerSection ss = currentMissionInit().getMission().getServerSection();
+            ServerInitialConditions sic = (ss != null) ? ss.getServerInitialConditions() : null;
+            if (sic != null)
+                allowSpawning = (sic.isAllowSpawning() == Boolean.TRUE);
+
+            if (allowSpawning && sic.getAllowedMobs() != null && !sic.getAllowedMobs().isEmpty())
+            {
+                // Spawning is allowed, but restricted to our list:
+                // Is this on our list?
+                EntityType type = entity.getType();
+                String mobName = type.getUntranslatedName();
+                boolean allowed = false;
+                for (EntityTypes mob : sic.getAllowedMobs())
+                {
+                    if (mob.value().toLowerCase().equals(mobName.toLowerCase())) { allowed = true; }
+                }
+                if (!allowed) {
+                    if (entity.isPlayer()) return;
+                    LOGGER.trace("removing mob " + mobName + ": it's disabled");
+                    entity.remove(Entity.RemovalReason.DISCARDED);
+                }
+            }
+        }
+        // Cancel spawn event:
+        if (!allowSpawning) {
+            LOGGER.trace("removing mob: spawning is disabled");
+            entity.remove(Entity.RemovalReason.DISCARDED);
+        }
+    }
+
     private void onServerStopped(MinecraftServer s){
         this.stop();
         this.releaseQueuedMissionInit();
@@ -206,6 +255,7 @@ public class ServerStateMachine extends StateMachine {
 
     protected MissionInit releaseQueuedMissionInit()
     {
+        if (this.queuedMissionInit == null) return null;
         MissionInit minit = null;
         synchronized (this.queuedMissionInit)
         {
@@ -296,6 +346,8 @@ public class ServerStateMachine extends StateMachine {
         @Override
         public void onMessage(MalmoMessageType messageType, Map<String, String> data)
         {
+            LOGGER.info("Got message: " + messageType.name());
+            LOGGER.info(data.toString());
             if (messageType == CLIENT_BAILED)
             {
                 synchronized(this.errorFlag)
@@ -609,6 +661,7 @@ public class ServerStateMachine extends StateMachine {
                             PosAndDirection pos = as.getAgentStart().getPlacement();
 
                             if (pos != null) {
+                                LOGGER.info("Setting agent pos to: x(" + pos.getX() + ") z(" + pos.getZ()  + ") y(" + pos.getY() + ")");
                                 player.setPos(pos.getX().doubleValue(),
                                         pos.getY().doubleValue(),
                                         pos.getZ().doubleValue());
@@ -677,6 +730,7 @@ public class ServerStateMachine extends StateMachine {
                 if (pos != null) {
                     player.setYaw(pos.getYaw().floatValue());
                     player.setPitch(pos.getPitch().floatValue());
+                    LOGGER.info("Setting agent pos to: x(" + pos.getX() + ") z(" + pos.getZ()  + ") y(" + pos.getY() + ")");
                     player.setPosition(pos.getX().doubleValue(),pos.getY().doubleValue(),pos.getZ().doubleValue());
                 }
                 player.setVelocity(0, 0, 0);	// Minimise chance of drift!
@@ -689,8 +743,6 @@ public class ServerStateMachine extends StateMachine {
                     initialiseEnderInventory(player, as.getAgentStart().getEnderBoxInventory());
                 this.setGameType(player, GameMode.SPECTATOR);
                 // Set their game mode to spectator for now, to protect them while we wait for the rest of the cast to assemble:
-
-                //player.setGameType(GameType.SPECTATOR);
             }
         }
 
@@ -891,6 +943,8 @@ public class ServerStateMachine extends StateMachine {
                 if (agentName != null)
                 {
                     this.runningAgents.remove(agentName);
+                    LOGGER.info("Removed agent " + agentName);
+                    LOGGER.info("agents left" + this.runningAgents.toString());
                     // If this agent is part of a turn-based scenario, it no longer needs
                     // to take its turn - we must remove it from the schedule or everything
                     // else will stall waiting for it.
@@ -1017,9 +1071,6 @@ public class ServerStateMachine extends StateMachine {
 
         @Override
         protected void onServerTick(MinecraftServer ev) {
-            if (this.missionHasEnded)
-                return;    // In case we get in here after deciding the mission is over.
-
             if (!ServerStateMachine.this.checkWatchList())
                 onError(null);  // We've lost a connection - abort the mission.
 
@@ -1037,6 +1088,7 @@ public class ServerStateMachine extends StateMachine {
             }
             else if (this.runningAgents.isEmpty())
             {
+                LOGGER.info("ALL agents finished");
                 ServerStateMachine.this.quitCode = "All agents finished";
                 onMissionEnded(true);
             }

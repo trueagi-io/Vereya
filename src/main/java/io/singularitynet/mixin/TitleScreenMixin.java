@@ -19,8 +19,5 @@ public class TitleScreenMixin {
             TitleScreenEvents.END_TITLESCREEN_INIT.invoker().onTitleScreenEndInit();
             System.out.println("This line is printed by an example mod mixin!");
         }
-
-
-        
     }
 }

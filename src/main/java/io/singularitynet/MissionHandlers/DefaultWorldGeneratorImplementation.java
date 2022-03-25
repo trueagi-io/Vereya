@@ -83,9 +83,11 @@ public class DefaultWorldGeneratorImplementation extends HandlerBase implements 
         // Create a filename for this map - we use the time stamp to make sure it is different from other worlds, otherwise no new world
         // will be created, it will simply load the old one.
         try{
+            LogManager.getLogger().info("Creating default world");
             WorldUtil.createLevel(false, seed, Difficulty.NORMAL);
             return true;
         } catch (RuntimeException e) {
+            LogManager.getLogger().error("Failed to create world");
             LogManager.getLogger().error(e);
             return false;
         }

@@ -23,10 +23,14 @@ import io.singularitynet.MissionHandlerInterfaces.ICommandHandler;
 
 import java.util.ArrayList;
 
-public class CommandGroup {
+public class CommandGroup extends HandlerBase{
     private ArrayList<ICommandHandler> handlers;
     private boolean isOverriding = false;
     private boolean shareParametersWithChildren = false;
+
+    public CommandGroup(){
+        handlers = new ArrayList<>();
+    }
 
     void addCommandHandler(ICommandHandler handler)
     {

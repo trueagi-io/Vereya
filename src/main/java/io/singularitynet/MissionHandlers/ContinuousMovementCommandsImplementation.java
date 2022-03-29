@@ -18,10 +18,31 @@
 // --------------------------------------------------------------------------------------------------
 package io.singularitynet.MissionHandlers;
 
-public class ContinuousMovementCommandsImplementation extends CommandGroup {
+import io.singularitynet.MissionHandlerInterfaces.ICommandHandler;
+import io.singularitynet.projectmalmo.ContinuousMovementCommands;
+import io.singularitynet.projectmalmo.MissionInit;
+
+
+public class ContinuousMovementCommandsImplementation extends CommandGroup implements ICommandHandler {
 
     public ContinuousMovementCommandsImplementation(){
         setShareParametersWithChildren(true);	// Pass our parameter block on to the following children:
         this.addCommandHandler(new CommandForWheeledRobotNavigationImplementation());
     }
+
+    @Override
+    public boolean parseParameters(Object params)
+    {
+        super.parseParameters(params);
+
+        if (params == null || !(params instanceof ContinuousMovementCommands))
+            return false;
+
+        ContinuousMovementCommands cmparams = (ContinuousMovementCommands)params;
+        setUpAllowAndDenyLists(cmparams.getModifierList());
+        return true;
+    }
+
+    @Override
+    public boolean isFixed() { return true; }
 }

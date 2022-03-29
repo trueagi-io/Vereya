@@ -91,7 +91,8 @@ abstract public class StateMachine
         ServerTickEvents.END_SERVER_TICK.register(server -> {this.eventWrapper.onEndTick(server);});
         ClientChunkEvents.CHUNK_LOAD.register((world, chunk) ->
                     {this.eventWrapper.onChunkLoad(world, chunk);});
-        WorldRenderEvents.END.register((context) -> {this.eventWrapper.onRenderTick(context);});
+        WorldRenderEvents.END.register((context) -> {this.eventWrapper.onRenderTickEnd(context);});
+        WorldRenderEvents.START.register((context) -> {this.eventWrapper.onRenderTickStart(context);});
         ClientLifecycleEvents.CLIENT_STARTED.register((client) -> {this.eventWrapper.onClientStarted(client);});
         TitleScreenEvents.END_TITLESCREEN_INIT.register(()-> {this.eventWrapper.onTitleScreenEndInit();});
         ServerTickEvents.START_SERVER_TICK.register(server -> {this.eventWrapper.onStartTick(server);});

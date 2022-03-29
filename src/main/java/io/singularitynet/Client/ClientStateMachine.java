@@ -33,6 +33,7 @@ import io.singularitynet.utils.TCPInputPoller.CommandAndIPAddress;
 import jakarta.xml.bind.JAXBException;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
@@ -42,6 +43,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.util.registry.RegistryKey;
 import net.minecraft.world.World;
+import net.minecraft.world.level.storage.LevelStorage;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.xml.sax.SAXException;
@@ -53,6 +55,7 @@ import java.lang.reflect.Field;
 import java.math.BigDecimal;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
+import java.nio.file.Path;
 import java.util.*;
 import java.util.logging.Level;
 
@@ -651,6 +654,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
         {
             // We wait until we start to get render ticks, at which point we assume Minecraft has finished starting up.
             episodeHasCompleted(ClientState.DORMANT);
+            ClientStateMachine.this.inputController.setup();
         }
     }
     
@@ -1404,6 +1408,20 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
 
         private long frameTimestamp = 0;
 
+        @Override
+        public void onRenderTickEnd(WorldRenderContext ev) {
+            for(VideoHook hook: this.videoHooks){
+                hook.postRender(ev);
+            }
+        }
+
+        @Override
+        public void onRenderTickStart(WorldRenderContext ev){
+            for(VideoHook hook: this.videoHooks){
+                hook.onRenderStart(ev);
+            }
+        }
+
         public void frameProduced() {
             this.frameTimestamp = System.currentTimeMillis();
         }
@@ -1476,6 +1494,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
                 currentMissionBehaviour().commandHandler.deinstall(currentMissionInit());
             }
 
+            ClientStateMachine.this.inputController.setInputType(VereyaModClient.InputType.HUMAN);
             // Close our communication channels:
             closeSockets();
 
@@ -1863,11 +1882,15 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
         {
 
             MinecraftServer server = MinecraftClient.getInstance().getServer();
-            if (server != null && MinecraftClient.getInstance().world != null)
+            LOGGER.info("clean generator properties, delete the world");
+            World world = MinecraftClient.getInstance().world;
+            if (server != null && world != null)
             {
                 server.stop(true);
+                LevelStorage levelStorage = MinecraftClient.getInstance().getLevelStorage();
+                Path path = levelStorage.getSavesDirectory();
+                LOGGER.info("save directory " + path.toString());
             }
-            LOGGER.info("clean generator properties");
             ClientStateMachine.this.generatorProperties.clear();
             episodeHasCompleted(ClientState.CLOSING_OLD_SERVER);
         }

@@ -140,18 +140,6 @@ public class VideoHook {
 
         this.connection = new TCPSocketChannel(agentIPAddress, agentPort, "vid");
         this.failedTCPSendCount = 0;
-
-        try
-        {
-            WorldRenderEvents.START.register((context -> { this.onRenderStart(context);}));
-            WorldRenderEvents.END.register((context -> { this.postRender(context);}));
-            // MinecraftForge.EVENT_BUS.register(this);
-        }
-        catch(Exception e)
-        {
-            System.out.println("Failed to register video hook: " + e);
-            throw e;
-        }
         this.isRunning = true;
     }
 

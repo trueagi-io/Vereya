@@ -91,7 +91,8 @@ public abstract class StateEpisode
     /** Subclass should overrride this to act on player ticks.*/
     // protected void onPlayerTick(PlayerTickEvent ev) {}
     /** Subclass should overrride this to act on render ticks.*/
-    protected void onRenderTick(WorldRenderContext ev) {}
+    protected void onRenderTickEnd(WorldRenderContext ev) {}
+    protected void onRenderTickStart(WorldRenderContext ev) {}
     protected void onClientStarted(MinecraftClient ev) {}
     /** Subclass should overrride this to act on chunk load events.*/
     protected void onChunkLoad(ClientWorld world, WorldChunk chunk) {}

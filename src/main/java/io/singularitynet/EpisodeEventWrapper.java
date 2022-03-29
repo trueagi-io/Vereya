@@ -28,7 +28,6 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.chunk.WorldChunk;
-import io.singularitynet.StateEpisode;
 import org.apache.logging.log4j.LogManager;
 
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -79,17 +78,27 @@ public class EpisodeEventWrapper implements ClientTickEvents.EndTick,
     }*/
 
 
-    public void onRenderTick(WorldRenderContext ev)
+    public void onRenderTickEnd(WorldRenderContext ev)
     {
         // Pass the event on to the active episode, if there is one:
         this.stateEpisodeLock.readLock().lock();
         if (this.stateEpisode != null && this.stateEpisode.isLive())
         {
-            this.stateEpisode.onRenderTick(ev);
+            this.stateEpisode.onRenderTickEnd(ev);
         }
         this.stateEpisodeLock.readLock().unlock();
     }
 
+    public void onRenderTickStart(WorldRenderContext ev)
+    {
+        // Pass the event on to the active episode, if there is one:
+        this.stateEpisodeLock.readLock().lock();
+        if (this.stateEpisode != null && this.stateEpisode.isLive())
+        {
+            this.stateEpisode.onRenderTickStart(ev);
+        }
+        this.stateEpisodeLock.readLock().unlock();
+    }
 
     // use https://github.com/ByMartrixx/player-events
     /*

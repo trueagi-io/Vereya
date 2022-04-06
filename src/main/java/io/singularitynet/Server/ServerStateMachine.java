@@ -473,6 +473,10 @@ public class ServerStateMachine extends StateMachine {
                 // TODO: What?
             }
             // Move on to next state:
+            ServerSection ss = currentMissionInit().getMission().getServerSection();
+            ServerInitialConditions sic = (ss != null) ? ss.getServerInitialConditions() : null;
+            String allowed_mobs = (sic != null) ? sic.getAllowedMobs().toString() : "";
+            LOGGER.info("setting mission init, allowed mobs:\n" + allowed_mobs);
             episodeHasCompleted(ServerState.BUILDING_WORLD);
         }
     }

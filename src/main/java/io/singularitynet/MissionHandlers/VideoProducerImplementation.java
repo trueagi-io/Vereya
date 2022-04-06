@@ -17,7 +17,6 @@ import static org.lwjgl.opengl.GL11.*;
 public class VideoProducerImplementation extends HandlerBase implements IVideoProducer
 {
     private VideoProducer videoParams;
-    private Framebuffer fbo;
     private FloatBuffer depthBuffer;
 
     @Override
@@ -70,14 +69,12 @@ public class VideoProducerImplementation extends HandlerBase implements IVideoPr
         final int width = this.videoParams.getWidth();
         final int height = this.videoParams.getHeight();
 
-        // Render the Minecraft frame into our own FBO, at the desired size:
         // Now read the pixels out from that:
         // glReadPixels appears to be faster than doing:
         // GlStateManager.bindTexture(this.fbo.framebufferTexture);
         // GL11.glGetTexImage(GL11.GL_TEXTURE_2D, 0, format, GL_UNSIGNED_BYTE,
         // buffer);
         GlStateManager._readPixels(0, 0, width, height, format, GL_UNSIGNED_BYTE, buffer);
-        this.fbo.delete();
         // Minecraft.getMinecraft().getFramebuffer().bindFramebuffer(true);
     }
 
@@ -85,8 +82,6 @@ public class VideoProducerImplementation extends HandlerBase implements IVideoPr
     public void prepare(MissionInit missionInit)
     {
         boolean useDepth = this.videoParams.isWantDepth();
-        this.fbo = new SimpleFramebuffer(this.videoParams.getWidth(), this.videoParams.getHeight(),
-                useDepth, true);
         // Create a buffer for retrieving the depth map, if requested:
         if (this.videoParams.isWantDepth())
             this.depthBuffer = BufferUtils.createFloatBuffer(this.videoParams.getWidth() * this.videoParams.getHeight());
@@ -95,8 +90,5 @@ public class VideoProducerImplementation extends HandlerBase implements IVideoPr
     }
 
     @Override
-    public void cleanup()
-    {
-        this.fbo.delete(); // Must do this or we leak resources.
-    }
+    public void cleanup() {}
 }

@@ -191,7 +191,7 @@ public class ObservationFromRayImplementation extends HandlerBase implements IOb
                         jsonMop.addProperty(property.getName(), entry.getValue().toString());
                     }
                     Identifier id = Registry.BLOCK.getId(blockState.getBlock());
-                    jsonMop.addProperty("block_id", id.toString());
+                    jsonMop.addProperty("type", id.toString());
                 }
                 break;
             case ENTITY:

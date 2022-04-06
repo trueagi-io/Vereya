@@ -27,7 +27,9 @@ import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.input.Input;
+import net.minecraft.client.input.KeyboardInput;
 import net.minecraft.client.network.ClientPlayerEntity;
+import net.minecraft.client.option.GameOptions;
 
 /** Class which overrides movement of the Minecraft player and exposes control of it to external agents.<br>
  * This allows the player to act as a robot with the ability to move backwards/forwards, strafe left/right, and turn clockwise/anticlockwise,
@@ -47,6 +49,8 @@ public class CommandForWheeledRobotNavigationImplementation extends CommandBase
     private float yawScale = 0;
     private float maxAngularVelocityDegreesPerSecond = 180;
 	private long lastAngularUpdateTime;
+    private boolean jumping = false;
+    private boolean sneaking = false;
 
     private Input overrideMovement = null;
     private Input originalMovement = null;
@@ -58,16 +62,25 @@ public class CommandForWheeledRobotNavigationImplementation extends CommandBase
      * This object is used by Minecraft to decide how to move the player.
      */
     @Environment(value= EnvType.CLIENT)
-    public class AIMovementInput extends Input {
+    public class AIMovementInput extends KeyboardInput {
+
+        public AIMovementInput(GameOptions settings) {
+            super(settings);
+        }
 
         @Override
         public void tick(boolean slowDown) {
-            CommandForWheeledRobotNavigationImplementation.this.updateState();
-            this.movementForward = CommandForWheeledRobotNavigationImplementation.this.mVelocity;
-            this.movementSideways = CommandForWheeledRobotNavigationImplementation.this.mStrafeVelocity;
-            if (slowDown) {
-                this.movementSideways = (float)((double)this.movementSideways * 0.3);
-                this.movementForward = (float)((double)this.movementForward * 0.3);
+            if (CommandForWheeledRobotNavigationImplementation.this.updateState()) {
+                this.jumping = CommandForWheeledRobotNavigationImplementation.this.jumping;
+                this.sneaking = CommandForWheeledRobotNavigationImplementation.this.sneaking;
+                this.movementForward = CommandForWheeledRobotNavigationImplementation.this.mVelocity;
+                this.movementSideways = CommandForWheeledRobotNavigationImplementation.this.mStrafeVelocity;
+                if (slowDown) {
+                    this.movementSideways = (float) ((double) this.movementSideways * 0.3);
+                    this.movementForward = (float) ((double) this.movementForward * 0.3);
+                }
+            } else {
+                super.tick(slowDown);
             }
         }
     }
@@ -228,12 +241,12 @@ public class CommandForWheeledRobotNavigationImplementation extends CommandBase
             boolean value = parameter.equalsIgnoreCase(ON_COMMAND_STRING);
             if (verb.equals(ContinuousMovementCommand.JUMP.value()))
             {
-                this.overrideMovement.jumping = value;
+                this.jumping = value;
                 return true;
             }
             else if (verb.equalsIgnoreCase(ContinuousMovementCommand.CROUCH.value()))
             {
-                this.overrideMovement.sneaking = value;
+                this.sneaking = value;
                 return true;
             }
         }
@@ -270,7 +283,7 @@ public class CommandForWheeledRobotNavigationImplementation extends CommandBase
     public void install(MissionInit missionInit)
     {
         // Create our movement hook, which allows us to override the Minecraft movement.
-        this.overrideMovement = new AIMovementInput();
+        this.overrideMovement = new AIMovementInput(MinecraftClient.getInstance().options);
         ClientPlayerEntity player = MinecraftClient.getInstance().player;
         if (player != null)
         {

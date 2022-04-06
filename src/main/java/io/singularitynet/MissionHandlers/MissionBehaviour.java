@@ -197,7 +197,7 @@ public class MissionBehaviour implements IMissionBehaviour {
     }
 
     public void addObservationProducer(IObservationProducer handler)
-    {/*
+    {
         if (this.observationProducer == null)
             this.observationProducer = handler;
         else
@@ -209,7 +209,7 @@ public class MissionBehaviour implements IMissionBehaviour {
                 this.observationProducer = group;
             }
             ((ObservationFromComposite)this.observationProducer).addObservationProducer(handler);
-        }*/
+        }
     }
 
     public void addWorldDecorator(IWorldDecorator handler)

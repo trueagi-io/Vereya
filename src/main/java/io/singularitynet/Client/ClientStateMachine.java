@@ -1031,6 +1031,12 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
                 // so jump to world creation:
                 episodeHasCompleted(ClientState.CREATING_NEW_WORLD);
             } else if (!needsNewWorld && worldCurrentlyExists) {
+                // do not reset agent pos
+                AgentSection as = agents.get(currentMissionInit().getClientRole());
+                as.getAgentStart().setPlacement(null);
+
+                ClientPlayerEntity player = MinecraftClient.getInstance().player;
+                if (player.isDead()) player.requestRespawn();
                 // We don't want a new world, and we can use the current one -
                 // but we own the server, so we need to pass it the new mission init:
                 MinecraftClient.getInstance().getServer().execute(new Runnable() {
@@ -1113,11 +1119,13 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
             List<AgentSection> agents = currentMissionInit().getMission().getAgentSection();
             AgentSection as = agents.get(currentMissionInit().getClientRole());
             PosAndDirection pos = as.getAgentStart().getPlacement();
-            LOGGER.info("Setting agent pos to: x(" + pos.getX() + ") z(" + pos.getZ()  + ") y(" + pos.getY() + ")");
-            MinecraftClient.getInstance().player.setPos(
-                    pos.getX().doubleValue(),
-                    pos.getY().doubleValue(),
-                    pos.getZ().doubleValue());
+            if (pos != null) {
+                LOGGER.info("Setting agent pos to: x(" + pos.getX() + ") z(" + pos.getZ() + ") y(" + pos.getY() + ")");
+                MinecraftClient.getInstance().player.setPos(
+                        pos.getX().doubleValue(),
+                        pos.getY().doubleValue(),
+                        pos.getZ().doubleValue());
+            }
         }
 
         @Override
@@ -1566,7 +1574,10 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
                     this.quitCode = VereyaModClient.VIDEO_UNRESPONSIVE_CODE;
                 }
             }
-
+            if(MinecraftClient.getInstance().player == null) {
+                onMissionEnded(ClientState.ERROR_LOST_AGENT, "Lost contact with the agent");
+                return;
+            }
             // Check here to see whether the player has died or not:
             if (!this.playerDied && !MinecraftClient.getInstance().player.isAlive())
             {

@@ -28,10 +28,7 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayNetworkHandler;
 import net.minecraft.network.PacketByteBuf;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import io.singularitynet.NetworkConstants;
 import net.minecraft.server.MinecraftServer;
@@ -39,6 +36,7 @@ import net.minecraft.server.network.ServerPlayNetworkHandler;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.thread.ThreadExecutor;
+import org.jetbrains.annotations.Nullable;
 
 
 /** Handler for messages from the server to the clients. Register with this to receive specific messages.
@@ -55,7 +53,7 @@ public class SidesMessageHandler implements ModInitializer
                 (client, handler, buf, responseSender) -> { server2client.onMessage(client, buf) ; });
 
         ServerPlayNetworking.registerGlobalReceiver(NetworkConstants.CLIENT2SERVER,
-                (server, player, handler, buf, responseSender) -> { client2server.onMessage(server, buf); });
+                (server, player, handler, buf, responseSender) -> { client2server.onMessage(server, buf, player); });
     }
 
     public interface IMessage {};
@@ -66,33 +64,36 @@ public class SidesMessageHandler implements ModInitializer
 
     public boolean registerForMessage(IMalmoMessageListener listener,  MalmoMessageType messageType)
     {
-        if (!listeners.containsKey(messageType))
-            listeners.put(messageType,  new ArrayList<IMalmoMessageListener>());
+        synchronized (listeners) {
+            if (!listeners.containsKey(messageType))
+                listeners.put(messageType, new ArrayList<IMalmoMessageListener>());
 
-        if (listeners.get(messageType).contains(listener))
-            return false;	// Already registered.
+            if (listeners.get(messageType).contains(listener))
+                return false;    // Already registered.
 
-        listeners.get(messageType).add(listener);
+            listeners.get(messageType).add(listener);
+        }
         return true;
     }
 
     public boolean deregisterForMessage(IMalmoMessageListener listener, MalmoMessageType messageType)
     {
-        if (!listeners.containsKey(messageType)) {
-            return false;    // Not registered.
-        }
+        synchronized (listeners) {
+            if (!listeners.containsKey(messageType)) {
+                return false;    // Not registered.
+            }
 
-        return listeners.get(messageType).remove(listener);	// Will return false if not present.
+            return listeners.get(messageType).remove(listener);    // Will return false if not present.
+        }
     }
 
     public void onMessage(ThreadExecutor executor, PacketByteBuf buf)
     {
         final MalmoMessage message = new MalmoMessage();
         message.fromBytes(buf);
-        final List<IMalmoMessageListener> interestedParties = listeners.get(message.getMessageType());
-        if (interestedParties == null) {
-            return;
-        }
+
+        final List<IMalmoMessageListener> interestedParties = getMessageListeners(message);
+        if (interestedParties == null) return;
         executor.execute(() -> {
             for (IMalmoMessageListener l : interestedParties)
             {
@@ -101,6 +102,38 @@ public class SidesMessageHandler implements ModInitializer
                 // if (message.uid == 0 || System.identityHashCode(l) == message.uid)
                 //    l.onMessage(message.messageType,  message.data);
                 l.onMessage(message.getMessageType(), message.getData());
+            }
+        });
+    }
+
+    @Nullable
+    private List<IMalmoMessageListener> getMessageListeners(MalmoMessage message) {
+        List<IMalmoMessageListener> interestedParties;
+        synchronized (listeners) {
+            interestedParties = listeners.get(message.getMessageType());
+            if (interestedParties == null) {
+                return null;
+            }
+            // avoid raises by copy
+            interestedParties = new ArrayList<>(interestedParties);
+        }
+        return interestedParties;
+    }
+
+    public void onMessage(ThreadExecutor executor, PacketByteBuf buf, ServerPlayerEntity player)
+    {
+        final MalmoMessage message = new MalmoMessage();
+        message.fromBytes(buf);
+        final List<IMalmoMessageListener> interestedParties = getMessageListeners(message);
+        if (interestedParties == null) return;
+        executor.execute(() -> {
+            for (IMalmoMessageListener l : interestedParties)
+            {
+                // If the message's uid is set (ie non-zero), then use it to ensure that only the matching listener receives this message.
+                // Otherwise, let all listeners who are interested get a look.
+                // if (message.uid == 0 || System.identityHashCode(l) == message.uid)
+                //    l.onMessage(message.messageType,  message.data);
+                l.onMessage(message.getMessageType(), message.getData(), player);
             }
         });
     }

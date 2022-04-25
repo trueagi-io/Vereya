@@ -33,6 +33,11 @@ public class VereyaModServer implements ModInitializer {
     public static VereyaModServer getInstance() {
         return instance;
     }
+
+    public boolean hasServer(){
+        return stateMachine != null;
+    }
+
     @Override
     public void onInitialize() {
         instance = this;

@@ -45,7 +45,6 @@ import net.minecraft.world.GameRules;
 import net.minecraft.world.World;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.apache.logging.log4j.core.jmx.Server;
 
 
 import java.util.*;
@@ -344,7 +343,7 @@ public class ServerStateMachine extends StateMachine {
         }
 
         @Override
-        public void onMessage(MalmoMessageType messageType, Map<String, String> data)
+        public void onMessage(MalmoMessageType messageType, Map<String, String> data, ServerPlayerEntity player)
         {
             LOGGER.info("Got message: " + messageType.name());
             LOGGER.info(data.toString());
@@ -357,6 +356,11 @@ public class ServerStateMachine extends StateMachine {
                     onError(data);
                 }
             }
+        }
+
+        @Override
+        public void onMessage(MalmoMessageType messageType, Map<String, String> data){
+            throw new RuntimeException("Got client message in Server side");
         }
 
         @Override
@@ -618,9 +622,14 @@ public class ServerStateMachine extends StateMachine {
         }
 
         @Override
-        public void onMessage(MalmoMessageType messageType, Map<String, String> data)
+        public void onMessage(MalmoMessageType messageType, Map<String, String> data) {
+            throw new RuntimeException("Unexpected message to client: " + messageType.name());
+        }
+
+        @Override
+        public void onMessage(MalmoMessageType messageType, Map<String, String> data, ServerPlayerEntity player)
         {
-            super.onMessage(messageType, data);
+            super.onMessage(messageType, data, player);
             if (messageType == MalmoMessageType.CLIENT_AGENTREADY)
             {
                 // A client has joined and is waiting for us to tell us it can proceed.
@@ -658,7 +667,6 @@ public class ServerStateMachine extends StateMachine {
                     if (agentname != null && !agentname.isEmpty())
                     {
                         AgentSection as = getAgentSectionFromAgentName(agentname);
-                        PlayerEntity player = getPlayerFromUsername(username);
                         if (player != null && as != null)
                         {
                             // Set their initial position and speed:
@@ -938,11 +946,13 @@ public class ServerStateMachine extends StateMachine {
         }
 
         @Override
-        public void onMessage(MalmoMessageType messageType, Map<String, String> data)
+        public void onMessage(MalmoMessageType messageType, Map<String, String> data, ServerPlayerEntity player)
         {
-            super.onMessage(messageType, data);
+            super.onMessage(messageType, data, player);
             if (messageType == MalmoMessageType.CLIENT_AGENTFINISHEDMISSION)
             {
+                // this agentname is legacy from old malmo code
+                // we can use player object passed from messaging code
                 String agentName = data.get("agentname");
                 if (agentName != null)
                 {
@@ -976,7 +986,6 @@ public class ServerStateMachine extends StateMachine {
                 else
                 {
                     // Find the relevant agent; send a message to it.
-                    ServerPlayerEntity player = MinecraftClient.getInstance().getServer().getPlayerManager().getPlayer(nextAgentName);
                     if (player != null)
                     {
                         MalmoMessage msg = new MalmoMessage(MalmoMessageType.SERVER_YOUR_TURN, 0, null);
@@ -1167,9 +1176,14 @@ public class ServerStateMachine extends StateMachine {
         }
 
         @Override
-        public void onMessage(MalmoMessageType messageType, Map<String, String> data)
+        public void onMessage(MalmoMessageType messageType, Map<String, String> data) {
+            throw new RuntimeException("Unexpected message to client");
+        }
+
+        @Override
+        public void onMessage(MalmoMessageType messageType, Map<String, String> data, ServerPlayerEntity player)
         {
-            super.onMessage(messageType, data);
+            super.onMessage(messageType, data, player);
             if (messageType == MalmoMessageType.CLIENT_AGENTSTOPPED)
             {
                 String name = data.get("agentname");

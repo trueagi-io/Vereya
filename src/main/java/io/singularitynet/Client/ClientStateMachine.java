@@ -223,6 +223,11 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
     }
 
     @Override
+    public void onMessage(MalmoMessageType messageType, Map<String, String> data, ServerPlayerEntity player) {
+        LOGGER.info("got message type " + messageType.toString());
+    }
+
+    @Override
     protected String getName()
     {
         return "CLIENT";
@@ -767,6 +772,11 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
         }
 
         @Override
+        public void onMessage(MalmoMessageType messageType, Map<String, String> data, ServerPlayerEntity player) {
+            throw new RuntimeException("Got server message in client");
+        }
+
+        @Override
         public void onMessage(MalmoMessageType messageType, Map<String, String> data)
         {
             if (messageType == MalmoMessageType.SERVER_ABORT)
@@ -1016,7 +1026,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
                 if (player != null) {
                     String playerName = player.getName().asString();
                     if (!playerName.equals(agentName))
-                        needsNewWorld = true;
+                        ((SessionMixin)MinecraftClient.getInstance().getSession()).setName(agentName);
                 }
             }
             if (needsNewWorld) {
@@ -1037,13 +1047,30 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
 
                 ClientPlayerEntity player = MinecraftClient.getInstance().player;
                 if (player.isDead()) player.requestRespawn();
+
+                if(ClientStateMachine.this.serverHandlers == null){
+                    // We need to use the server's MissionHandlers here:
+                    try {
+                        ClientStateMachine.this.serverHandlers = MissionBehaviour.createServerHandlersFromMissionInit(currentMissionInit());
+                    } catch (Exception e) {
+                        LOGGER.error("Exception creating servserHandlers", e);
+                        episodeHasCompletedWithErrors(ClientState.ERROR_INTEGRATED_SERVER_UNREACHABLE,
+                                "Could not send create mission handlers");
+                        return;
+                    }
+                }
                 // We don't want a new world, and we can use the current one -
                 // but we own the server, so we need to pass it the new mission init:
                 MinecraftClient.getInstance().getServer().execute(new Runnable() {
                     @Override
                     public void run() {
                         try {
-                            VereyaModServer.getInstance().sendMissionInitDirectToServer(currentMissionInit);
+                            // check that ServerStateMachine exists
+                            if(VereyaModServer.getInstance().hasServer()) {
+                                VereyaModServer.getInstance().sendMissionInitDirectToServer(currentMissionInit);
+                            } else {
+                                VereyaModServer.getInstance().initIntegratedServer(currentMissionInit(), MinecraftClient.getInstance().getServer()); // Needs to be done from the server thread.
+                            }
                             //MalmoMod.instance.sendMissionInitDirectToServer(currentMissionInit);
                         } catch (Exception e) {
                             episodeHasCompletedWithErrors(ClientState.ERROR_INTEGRATED_SERVER_UNREACHABLE, "Could not send MissionInit to our integrated server: " + e.getMessage());
@@ -1341,6 +1368,11 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
             this.waitingForChunk = true;
         }
 
+        @Override
+        public void onMessage(MalmoMessageType messageType, Map<String, String> data, ServerPlayerEntity player) {
+            throw new RuntimeException("Unexpected message to server");
+        }
+
         private void proceed()
         {
             // The server is ready, so send our MissionInit back to the agent and go!
@@ -1633,6 +1665,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
                 map.put("quitcode", this.quitCode);
                 LOGGER.info("informing server that player has quited");
                 ClientPlayNetworking.send(NetworkConstants.CLIENT2SERVER, (new MalmoMessage(MalmoMessageType.CLIENT_AGENTFINISHEDMISSION, 0, map)).toBytes());
+                ClientStateMachine.this.cancelReservation();
                 onMissionEnded(ClientState.IDLING, null);
             }
             else

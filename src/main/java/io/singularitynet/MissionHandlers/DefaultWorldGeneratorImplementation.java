@@ -96,11 +96,21 @@ public class DefaultWorldGeneratorImplementation extends HandlerBase implements 
     @Override
     public boolean shouldCreateWorld(MissionInit missionInit, Object genOptions)
     {
+
         if (this.dwparams != null && this.dwparams.isForceReset())
             return true;
 
-    	if (MinecraftClient.getInstance().world == null || genOptions == null) {
+    	if (MinecraftClient.getInstance().world == null ) {
             return true;    // Definitely need to create a world if there isn't one in existence!
+        }
+
+        // world exists and forceReuse is set
+        if (this.dwparams != null && this.dwparams.isForceReuse() ) {
+            return false;
+        }
+
+        if (genOptions == null) {
+            return true;
         }
         if (genOptions != null && DefaultWorldGenerator.class.isInstance(genOptions) ) {
             DefaultWorldGenerator oldParams = (DefaultWorldGenerator)genOptions;

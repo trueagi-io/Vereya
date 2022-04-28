@@ -58,7 +58,7 @@ public class CraftingHelper {
      */
     public static List<Recipe> getRecipesForRequestedOutput(String output, boolean variant) {
 
-         Item item = Registry.ITEM.getOrEmpty(new Identifier(output)).orElseThrow(() -> new RuntimeException("Unknown item '" + output + "'"));
+        Item item = Registry.ITEM.getOrEmpty(new Identifier(output)).orElseThrow(() -> new RuntimeException("Unknown item '" + output + "'"));
         if (item == Items.AIR) {
             throw new JsonSyntaxException("Invalid item: " + output);
         }
@@ -249,8 +249,9 @@ public class CraftingHelper {
         assert recipe.getType() == RecipeType.SMELTING;
         if (player == null || recipe == null)
             return false;
-        ItemStack itemStack = new ItemStack(Items.FURNACE_MINECART);
-        if (!player.getInventory().contains(itemStack)){
+        ItemStack itemStackFurnace = new ItemStack(Items.FURNACE);
+        ItemStack blastStackFurnace = new ItemStack(Items.BLAST_FURNACE);
+        if (!(player.getInventory().contains(itemStackFurnace) || player.getInventory().contains(blastStackFurnace))){
             return false;
         }
 
@@ -282,7 +283,11 @@ public class CraftingHelper {
 
     public static boolean attemptCampfireCooking(ServerPlayerEntity player, Recipe input) {
         assert input.getType() == RecipeType.CAMPFIRE_COOKING;
-        return false;
+        ItemStack itemStackCampfire = new ItemStack(Items.CAMPFIRE);
+        if (!player.getInventory().contains(itemStackCampfire)) {
+            return false;
+        }
+        return attemptCrafting(player, input);
     }
 
 

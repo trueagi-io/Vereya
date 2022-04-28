@@ -25,6 +25,7 @@ import io.singularitynet.projectmalmo.MissionInit;
 import io.singularitynet.projectmalmo.SimpleCraftCommand;
 import io.singularitynet.utils.CraftingHelper;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.recipe.Recipe;
 import net.minecraft.recipe.RecipeType;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -99,6 +100,8 @@ public class SimpleCraftCommandsImplementation extends CommandBase  implements I
             if (CraftingHelper.attemptSmelting(player, recipe, fuel_type))
                 return;
         }
+
+        // blasting is the same as smelting
     }
 
     @Override

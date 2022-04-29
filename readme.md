@@ -20,3 +20,11 @@ now build python library
 python library is in ./build/Malmo/src/PythonWrapper/MalmoPython.so
 
 It can be place somewhere in $PYTHONPATH **or** to the directory of your script..
+
+Vereya requires fabric loader and fabric api to installed. Please see instructions
+
+https://fabricmc.net/use/installer/
+
+https://www.curseforge.com/minecraft/mc-mods/fabric-api
+
+

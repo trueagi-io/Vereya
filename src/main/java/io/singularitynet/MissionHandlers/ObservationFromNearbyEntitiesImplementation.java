@@ -99,6 +99,7 @@ public class ObservationFromNearbyEntitiesImplementation extends HandlerBase imp
         }
 
         // Now build up a JSON array for each populated list:
+
         index = 0;
         for (List<Entity> entsInRangeList : entitiesInRange)
         {
@@ -107,6 +108,7 @@ public class ObservationFromNearbyEntitiesImplementation extends HandlerBase imp
                 JsonArray arr = new JsonArray();
                 for (Entity e : entsInRangeList)
                 {
+                    if(player.equals(e)) continue;
                     Vec3d e_pos = e.getPos();
                     Direction e_motion = e.getMovementDirection();
                     JsonObject jsent = new JsonObject();

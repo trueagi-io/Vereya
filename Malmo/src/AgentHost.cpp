@@ -323,6 +323,7 @@ namespace malmo
             LOGINFO(LT("Reserving client, received reply from "), item->ip_address, LT(": "), reply);
 
             const std::string malmo_reservation_prefix = "MALMOOK";
+            const std::string malmo_mismatch = "MALMOERRORVERSIONMISMATCH";
             if (reply.find(malmo_reservation_prefix) == 0)
             {
                 // Successfully reserved this client.
@@ -331,6 +332,12 @@ namespace malmo
                 if (clients_required == 0)
                     break;  // We've got all the clients we need.
             }
+            if( reply.find(malmo_mismatch) == 0 ) {
+                // report about mismatch
+                LOGWARNING(LT("Version mismatch - throwing MissionException."));
+                throw MissionException( "Failed to find an available client for this mission - tried all the clients in the supplied client pool.", MissionException::MISSION_VERSION_MISMATCH);
+            }
+
         }
         // Were there enough clients available?
         if (clients_required > 0)

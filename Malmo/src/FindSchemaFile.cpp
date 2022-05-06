@@ -37,7 +37,7 @@ namespace malmo
     std::string FindSchemaFile( const std::string& name )
     {
         // first preference: location specified in MALMO_XSD_PATH environment variable
-        char *malmo_xsd_path = getenv("MALMO_XSD_PATH");
+        char *malmo_xsd_path = getenv("VEREYA_XSD_PATH");
         if( malmo_xsd_path )
         {
             ostringstream path_using_env;

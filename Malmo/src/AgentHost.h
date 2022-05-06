@@ -57,7 +57,8 @@ namespace malmo
             MISSION_NO_COMMAND_PORT,
             MISSION_BAD_INSTALLATION,
             MISSION_CAN_NOT_KILL_BUSY_CLIENT,
-            MISSION_CAN_NOT_KILL_IRREPLACEABLE_CLIENT
+            MISSION_CAN_NOT_KILL_IRREPLACEABLE_CLIENT,
+            MISSION_VERSION_MISMATCH
         };
 
         MissionException(const std::string& message, MissionErrorCode code) : message(message), code(code) {}

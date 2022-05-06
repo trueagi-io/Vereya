@@ -25,14 +25,14 @@ set( OTHER_FILES
   ${PROJECT_SOURCE_DIR}/Malmo/samples/Python_examples/tutorial_6.xml
 )
 
-python_add_module( MalmoPython SHARED ${CPP_SOURCES} )
-include_directories( MalmoPython ${PYTHON_INCLUDE_DIRS} )
-target_link_libraries( MalmoPython Malmo )
+python_add_module( VereyaPython SHARED ${CPP_SOURCES} )
+include_directories( VereyaPython ${PYTHON_INCLUDE_DIRS} )
+target_link_libraries( VereyaPython Malmo )
 if( MSVC )
-  set_property( TARGET MalmoPython APPEND PROPERTY COMPILE_DEFINITIONS "BOOST_PYTHON_STATIC_LIB=1" ) 
-  target_link_libraries( MalmoPython ${PYTHON_LIBRARIES} )
+  set_property( TARGET VereyaPython APPEND PROPERTY COMPILE_DEFINITIONS "BOOST_PYTHON_STATIC_LIB=1" ) 
+  target_link_libraries( VereyaPython ${PYTHON_LIBRARIES} )
 elseif( APPLE )
-  set_target_properties(MalmoPython
+  set_target_properties(VereyaPython
       PROPERTIES
       SUFFIX ".so"
       LINK_FLAGS "-undefined dynamic_lookup")
@@ -48,7 +48,7 @@ foreach( file ${OTHER_FILES} )
   endif()
 
   add_custom_command(
-    TARGET MalmoPython
+    TARGET VereyaPython
     POST_BUILD
     COMMAND ${CMAKE_COMMAND}
     ARGS -E copy_if_different ${file} ${out_file}
@@ -56,7 +56,7 @@ foreach( file ${OTHER_FILES} )
 endforeach()
 
 if ( ALE_FOUND )
-  target_compile_definitions(MalmoPython PRIVATE WRAP_ALE)
+  target_compile_definitions(VereyaPython PRIVATE WRAP_ALE)
 endif()
 
-install( TARGETS MalmoPython DESTINATION Python_Examples )
+install( TARGETS VereyaPython DESTINATION Python_Examples )

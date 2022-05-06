@@ -71,6 +71,7 @@ PyObject* createExceptionClass(const char* name, PyObject* baseTypeObj = PyExc_E
 {
     std::string scopeName = boost::python::extract<std::string>(boost::python::scope().attr("__name__"));
     std::string qualifiedName0 = scopeName + "." + name;
+    std::cout << "register exception " << qualifiedName0 << std::endl;
     char* qualifiedName1 = const_cast<char*>(qualifiedName0.c_str());
 
     PyObject* typeObj = PyErr_NewException(qualifiedName1, baseTypeObj, 0);
@@ -127,7 +128,7 @@ struct unsigned_char_vec_to_python_array
 };
 
 // Defines the API available to Python.
-BOOST_PYTHON_MODULE(MalmoPython)
+BOOST_PYTHON_MODULE(VereyaPython)
 {
     using namespace boost::python;
     missionExceptionType = createExceptionClass("MissionException", PyExc_RuntimeError);
@@ -149,6 +150,7 @@ BOOST_PYTHON_MODULE(MalmoPython)
         .value("MISSION_BAD_INSTALLATION", MissionException::MISSION_BAD_INSTALLATION)
         .value("MISSION_CAN_NOT_KILL_BUSY_CLIENT", MissionException::MISSION_CAN_NOT_KILL_BUSY_CLIENT)
         .value("MISSION_CAN_NOT_KILL_IRREPLACEABLE_CLIENT", MissionException::MISSION_CAN_NOT_KILL_IRREPLACEABLE_CLIENT)
+        .value("MISSION_VERSION_MISMATCH", MissionException::MISSION_VERSION_MISMATCH)
         ;
 
     enum_< Logger::LoggingSeverityLevel >("LoggingSeverityLevel")

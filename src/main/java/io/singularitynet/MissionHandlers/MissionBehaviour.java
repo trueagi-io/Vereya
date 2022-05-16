@@ -229,7 +229,7 @@ public class MissionBehaviour implements IMissionBehaviour {
     }
 
     public void addQuitProducer(IWantToQuit handler)
-    {/*
+    {
         if (this.quitProducer == null)
             this.quitProducer = handler;
         else
@@ -241,7 +241,7 @@ public class MissionBehaviour implements IMissionBehaviour {
                 this.quitProducer = group;
             }
             ((QuitFromComposite)this.quitProducer).addQuitter(handler);
-        }*/
+        }
     }
 
     public void addCommandHandler(ICommandHandler handler)

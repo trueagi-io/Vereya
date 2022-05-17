@@ -32,4 +32,6 @@ https://fabricmc.net/use/installer/
 
 https://www.curseforge.com/minecraft/mc-mods/fabric-api
 
+api docs [api.md](api.md)
+
 

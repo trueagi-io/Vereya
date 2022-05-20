@@ -66,7 +66,7 @@ if( INCLUDE_PYTHON )
         OUTPUT_VARIABLE BOOST_PYTHON_NAME
       )
     else()
-      set (BOOST_PYTHON_NAME "python")
+      set (BOOST_PYTHON_NAME "python3")
     endif()
     message("BOOST_PYTHON_NAME set to ${BOOST_PYTHON_NAME}. To override it, add
     the flag -DBOOST_PYTHON_NAME=<name> where <name> is the name of the Boost

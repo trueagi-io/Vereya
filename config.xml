@@ -6,7 +6,7 @@
     </Console>
     <File name="file" fileName="/home/leron/projects/eclipse-workspace/Vereya-fabric/logs/app.log" >
         <PatternLayout>
-            <Pattern>"%d{yyyy-MM-dd HH:mm:ss} %-5p %m%n"</Pattern>
+            <Pattern>"%d{HH:mm:ss.SSS} %-5p %m%n"</Pattern>
         </PatternLayout>
     </File>
   </Appenders>

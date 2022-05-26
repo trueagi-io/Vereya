@@ -16,32 +16,17 @@
 //  DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 // --------------------------------------------------------------------------------------------------
+
 package io.singularitynet.MissionHandlers;
 
-import io.singularitynet.MissionHandlerInterfaces.ICommandHandler;
-import io.singularitynet.projectmalmo.ContinuousMovementCommands;
-import io.singularitynet.projectmalmo.MissionInit;
-
-
-public class ContinuousMovementCommandsImplementation extends CommandGroup implements ICommandHandler {
-
-    public ContinuousMovementCommandsImplementation(){
-        setShareParametersWithChildren(true);	// Pass our parameter block on to the following children:
-        this.addCommandHandler(new CommandForAttackAndUseImplementation());
-        this.addCommandHandler(new CommandForWheeledRobotNavigationImplementation());
-    }
-
-    @Override
-    public boolean parseParameters(Object params)
+public class CommandForAttackAndUseImplementation extends CommandGroup
+{
+    public CommandForAttackAndUseImplementation()
     {
-        super.parseParameters(params);
-
-        if (params == null || !(params instanceof ContinuousMovementCommands))
-            return false;
-
-        ContinuousMovementCommands cmparams = (ContinuousMovementCommands)params;
-        setUpAllowAndDenyLists(cmparams.getModifierList());
-        return true;
+        super();
+        setShareParametersWithChildren(true);	// Pass our parameter block on to the following children:
+        addCommandHandler(new CommandForKey("key.attack"));
+        addCommandHandler(new CommandForKey("key.use"));
     }
 
     @Override

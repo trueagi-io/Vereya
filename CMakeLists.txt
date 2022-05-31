@@ -50,29 +50,28 @@ set( INCLUDE_PYTHON      ON  CACHE BOOL ${INCLUDE_PYTHON_DESC} )
 set( STATIC_BOOST        ON CACHE BOOL ${STATIC_BOOST_DESC} )
 
 if( INCLUDE_PYTHON )
-  set( USE_PYTHON_VERSIONS_DESC "Specifies which version of Python to build Malmo with Python bindings" )
-  set( USE_PYTHON_VERSIONS 3.6 CACHE STRING ${USE_PYTHON_VERSIONS_DESC} )
-  if (NOT BOOST_PYTHON_NAME)
-    message("The name of the Boost Python library has not been set - trying to
-    determine it automatically...")
-    set(BOOST_PYTHON_NAME_DESC "Specifies which Boost Python module to build Malmo with" )
-
-    if (Boost_VERSION VERSION_GREATER 1.67 )
-      # From version 1.67 and up, Boost appends the Python version number to
-      # the library name by default.
-      # (https://www.boost.org/users/history/version_1_67_0.html)
-      execute_process(
-        COMMAND python3 -c "import sys; print('python' + str(sys.version_info[0]) + str(sys.version_info[1]), end='')" 
-        OUTPUT_VARIABLE BOOST_PYTHON_NAME
-      )
-    else()
-      set (BOOST_PYTHON_NAME "python")
-    endif()
-    message("BOOST_PYTHON_NAME set to ${BOOST_PYTHON_NAME}. To override it, add
-    the flag -DBOOST_PYTHON_NAME=<name> where <name> is the name of the Boost
-    Python library on your system (see https://github.com/boostorg/build/pull/250).")
+  FIND_PACKAGE(Python 3 EXACT REQUIRED COMPONENTS Interpreter Development)
+  if (Python_Interpreter_FOUND)
+    SET (HAVE_PY_INTERP 1)
+    MESSAGE(STATUS "Python  ${Python_VERSION} interpreter found.")
+  else()
+    MESSAGE(STATUS "Python3 not found.")
   endif()
 endif()
+
+FIND_PACKAGE(PythonLibs)
+message(INFO "python libs ${PYTHONLIBS_VERSION_STRING}")
+IF ((HAVE_PY_INTERP AND 3.4.0 VERSION_LESS ${PYTHONLIBS_VERSION_STRING}))
+    SET (HAVE_PY_LIBS 1)
+else()
+    message( SEND_ERROR "not found python" )
+endif()
+
+if (NOT (HAVE_PY_INTERP AND HAVE_PY_LIBS))
+    set(INCLUDE_PYTHON 0)
+endif()
+   
+
 
 set( WARNINGS_AS_ERRORS OFF )
 

@@ -26,27 +26,6 @@ import java.util.Map;
 
 public class ObservationFromRayImplementation extends HandlerBase implements IObservationProducer
 {
-    private static Map<Object, String> material_names = new HashMap<>()
-    {{
-        put(Material.STONE, "stone");
-        put(Material.PLANT, "plant");
-        put(Material.AGGREGATE, "aggregate");
-        put(Material.WOOD, "wood");
-        put(Material.AMETHYST, "AMETHYST");
-        put(Material.BAMBOO, "BAMBOO");
-        put(Material.GOURD, "ground");
-        put(Material.METAL, "Metal");
-        put(Material.LAVA, "lava");
-        put(Material.WATER, "water");
-        put(Material.SNOW_BLOCK, "SNOW_BLOCK");
-        put(Material.SOIL, "SOIL");
-        put(Material.WOOL, "WOOL");
-        put(Material.ORGANIC_PRODUCT, "ORGANIC_PRODUCT");
-        put(Material.SOLID_ORGANIC, "SOLID_ORGANIC");
-        put(Material.CARPET, "CARPET");
-        put(Material.GLASS, "GLASS");
-        put(Material.LEAVES, "LEAVES");
-    }};
     private ObservationFromRay ofrparams;
 
     @Override

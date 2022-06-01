@@ -15,7 +15,7 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient
     public static final String AGENT_UNRESPONSIVE_CODE = "MALMO_AGENT_NOT_RESPONDING";
     public static final String VIDEO_UNRESPONSIVE_CODE = "MALMO_VIDEO_NOT_RESPONDING";
 
-    private class MyMouse extends Mouse {
+    public class MyMouse extends Mouse {
 
         public MyMouse(MinecraftClient client) {
             super(client);
@@ -27,6 +27,18 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient
                 return;
             }
             super.lockCursor();
+        }
+
+        @Override
+        public boolean isCursorLocked() {
+            if(VereyaModClient.this.inputType == InputType.AI) {
+                return true;
+            }
+            return super.isCursorLocked();
+        }
+
+        public boolean shouldUpdate(){
+            return VereyaModClient.this.inputType == InputType.HUMAN;
         }
     }
 

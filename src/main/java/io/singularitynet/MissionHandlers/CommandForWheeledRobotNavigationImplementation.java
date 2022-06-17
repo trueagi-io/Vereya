@@ -30,6 +30,7 @@ import net.minecraft.client.input.Input;
 import net.minecraft.client.input.KeyboardInput;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.option.GameOptions;
+import net.minecraft.util.math.MathHelper;
 
 /** Class which overrides movement of the Minecraft player and exposes control of it to external agents.<br>
  * This allows the player to act as a robot with the ability to move backwards/forwards, strafe left/right, and turn clockwise/anticlockwise,
@@ -182,6 +183,7 @@ public class CommandForWheeledRobotNavigationImplementation extends CommandBase
         {
             player.setPitch(this.mCameraPitch);
             player.setYaw(this.mYaw);
+            player.setPitch(MathHelper.clamp(player.getPitch(), -90.0f, 90.0f));
         }
 
     }

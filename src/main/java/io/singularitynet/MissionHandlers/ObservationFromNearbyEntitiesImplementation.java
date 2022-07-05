@@ -118,30 +118,11 @@ public class ObservationFromNearbyEntitiesImplementation extends HandlerBase imp
                     jsent.addProperty("z", e_pos.z);
                     jsent.addProperty("pitch", e.getPitch());
                     jsent.addProperty("id", e.getId());
+                    jsent.addProperty("type",  e.getType().getUntranslatedName());
                     jsent.addProperty("motionX", e_motion.getOffsetX());
                     jsent.addProperty("motionY", e_motion.getOffsetY());
                     jsent.addProperty("motionZ", e_motion.getOffsetZ());
-                    String name = e.getName().asString();
-                    /*if (e instanceof EntityItem)
-                    {
-                        ItemStack is = ((EntityItem)e).getEntityItem();
-                        DrawItem di = MinecraftTypeHelper.getDrawItemFromItemStack(is);
-                        if (di != null)
-                        {
-                            name = di.getType();
-                            if (di.getColour() != null)
-                                jsent.addProperty("colour", di.getColour().value());
-                            if (di.getVariant() != null)
-                                jsent.addProperty("variation",  di.getVariant().getValue());
-                        }
-                        jsent.addProperty("quantity", is.getCount());
-                    }
-                    else if (e instanceof EntityLivingBase)
-                    {
-                        EntityLivingBase el = (EntityLivingBase)e;
-                        jsent.addProperty("life", el.getHealth());
-                    }*/
-                    jsent.addProperty("name", name);
+                    jsent.addProperty("name", e.getName().asString());
                     arr.add(jsent);
                 }
                 json.add(this.oneparams.getRange().get(index).getName(), arr);

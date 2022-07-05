@@ -137,11 +137,11 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fvisibility=hidden -fvisibility-inlines
 
 if( WIN32 )
   SET(Boost_USE_STATIC_LIBS ON)
-  find_package( Boost COMPONENTS chrono date_time filesystem iostreams program_options ${BOOST_PYTHON_NAME} regex system thread REQUIRED )
+  find_package( Boost COMPONENTS chrono date_time filesystem iostreams program_options python regex system thread REQUIRED )
   add_definitions(-DBOOST_ALL_NO_LIB=1)  # Turn off auto-linking, creates problems when linking boost statically
 else()
   SET(Boost_USE_STATIC_LIBS ${STATIC_BOOST})
-  find_package( Boost COMPONENTS chrono date_time filesystem iostreams program_options ${BOOST_PYTHON_NAME} regex system thread REQUIRED )
+  find_package( Boost COMPONENTS chrono date_time filesystem iostreams program_options python regex system thread REQUIRED )
   set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
   find_package( Threads REQUIRED )
 endif()

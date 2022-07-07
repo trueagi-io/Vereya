@@ -100,10 +100,13 @@ public class MissionBehaviour implements IMissionBehaviour {
         try
         {
             // To avoid name collisions, the java class will have the suffix "Implementation".
-            Class<?> c = Class.forName("io.singularitynet.MissionHandlers." + handlerClass + "Implementation");
+            String classname = "io.singularitynet.MissionHandlers." + handlerClass + "Implementation";
+            Class<?> c = Class.forName(classname);
             handler = c.newInstance();
             if (!((HandlerBase)handler).parseParameters(xmlHandler))
                 this.failedHandlers += handlerClass + " failed to parse parameters.\n";
+            else
+                System.out.println("created handler " + classname);
         }
         catch (ClassNotFoundException e)
         {
@@ -137,19 +140,19 @@ public class MissionBehaviour implements IMissionBehaviour {
 
         if (handler instanceof IVideoProducer)
             addVideoProducer((IVideoProducer)handler);
-        else if (handler instanceof IAudioProducer)
+        if (handler instanceof IAudioProducer)
             addAudioProducer((IAudioProducer)handler);
-        else if (handler instanceof ICommandHandler)
+        if (handler instanceof ICommandHandler)
             addCommandHandler((ICommandHandler)handler);
-        else if (handler instanceof IObservationProducer)
+        if (handler instanceof IObservationProducer)
             addObservationProducer((IObservationProducer)handler);
-        else if (handler instanceof IRewardProducer)
+        if (handler instanceof IRewardProducer)
             addRewardProducer((IRewardProducer)handler);
-        else if (handler instanceof IWorldGenerator)
+        if (handler instanceof IWorldGenerator)
             addWorldGenerator((IWorldGenerator)handler);
-        else if (handler instanceof IWorldDecorator)
+        if (handler instanceof IWorldDecorator)
             addWorldDecorator((IWorldDecorator)handler);
-        else if (handler instanceof IWantToQuit)
+        if (handler instanceof IWantToQuit)
             addQuitProducer((IWantToQuit)handler);
         else
             this.failedHandlers += handler.getClass().getSimpleName() + " isn't of a recognised handler type.\n";

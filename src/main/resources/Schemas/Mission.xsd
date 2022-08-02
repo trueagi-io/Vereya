@@ -339,6 +339,7 @@
             <xs:element ref="ObservationFromChat" minOccurs="0"/>
             <xs:element ref="ObservationFromNearbyEntities" minOccurs="0"/>
             <xs:element ref="ObservationFromRay" minOccurs="0"/>
+            <xs:element ref="ObservationFromRecipes" minOccurs="0"/>
             <xs:element ref="ObservationFromTurnScheduler" minOccurs="0"/>
             <xs:element ref="ObservationFromHuman" minOccurs="0"/>
             <xs:element ref="ObservationFromSystem" minOccurs="0"/>

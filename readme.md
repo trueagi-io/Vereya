@@ -15,7 +15,7 @@ copy mod in mods directory:
 
 now build python library
 
-`mkdir p build && cd build && cmake .. && make`
+`mkdir -p build && cd build && cmake .. && make`
 
 python library is in ./build/Malmo/src/PythonWrapper/MalmoPython.so
 

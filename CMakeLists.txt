@@ -117,13 +117,6 @@ endif()
 
 set( CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake )
 
-SET(Boost_ADDITIONAL_VERSIONS "1.65" "1.65.0")
-SET(Boost_ADDITIONAL_VERSIONS "1.66" "1.66.0")
-SET(Boost_ADDITIONAL_VERSIONS "1.67" "1.67.0")
-SET(Boost_ADDITIONAL_VERSIONS "1.68" "1.68.0")
-SET(Boost_ADDITIONAL_VERSIONS "1.69" "1.69.0")
-SET(Boost_ADDITIONAL_VERSIONS "1.70" "1.70.0")
-
 # Boost release variant builds have symbol visibility set to hidden by default 
 # (https://boostorg.github.io/build/manual/develop/index.html#bbv2.overview.builtins.features)
 # The line below adds compilation flags to make the visibility settings for compiling Malmo
@@ -138,11 +131,11 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fvisibility=hidden -fvisibility-inlines
 
 if( WIN32 )
   SET(Boost_USE_STATIC_LIBS ON)
-  find_package( Boost COMPONENTS chrono date_time filesystem iostreams program_options python regex system thread REQUIRED )
+  find_package( Boost 1.65.0 COMPONENTS chrono date_time filesystem iostreams program_options python regex system thread REQUIRED )
   add_definitions(-DBOOST_ALL_NO_LIB=1)  # Turn off auto-linking, creates problems when linking boost statically
 else()
   SET(Boost_USE_STATIC_LIBS ${STATIC_BOOST})
-  find_package( Boost COMPONENTS chrono date_time filesystem iostreams program_options python3 regex system thread REQUIRED )
+  find_package( Boost 1.65.0 COMPONENTS chrono date_time filesystem iostreams program_options python3 regex system thread REQUIRED )
   set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
   find_package( Threads REQUIRED )
 endif()

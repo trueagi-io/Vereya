@@ -15,7 +15,7 @@ copy mod in mods directory:
 
 now build python library
 
-`mkdir -p build_cmake && cd build && cmake .. && make`
+`mkdir -p build_cmake && cd build_cmake && cmake .. && make`
 
 python library is in ./build_cmake/Malmo/src/PythonWrapper/VereyaPython.so
 

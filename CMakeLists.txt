@@ -117,12 +117,7 @@ endif()
 
 set( CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake )
 
-SET(Boost_ADDITIONAL_VERSIONS "1.65" "1.65.0")
-SET(Boost_ADDITIONAL_VERSIONS "1.66" "1.66.0")
-SET(Boost_ADDITIONAL_VERSIONS "1.67" "1.67.0")
-SET(Boost_ADDITIONAL_VERSIONS "1.68" "1.68.0")
-SET(Boost_ADDITIONAL_VERSIONS "1.69" "1.69.0")
-SET(Boost_ADDITIONAL_VERSIONS "1.70" "1.70.0")
+SET(BOOST_MIN_VERSION "1.65.0")
 
 # Boost release variant builds have symbol visibility set to hidden by default 
 # (https://boostorg.github.io/build/manual/develop/index.html#bbv2.overview.builtins.features)

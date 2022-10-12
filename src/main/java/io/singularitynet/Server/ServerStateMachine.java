@@ -115,6 +115,7 @@ public class ServerStateMachine extends StateMachine {
                 }
                 if (!allowed) {
                     if (entity.isPlayer()) return;
+                    if (!entity.isLiving()) return;
                     LOGGER.trace("removing mob " + mobName + ": it's disabled");
                     entity.remove(Entity.RemovalReason.DISCARDED);
                 }
@@ -212,7 +213,11 @@ public class ServerStateMachine extends StateMachine {
     }
 
     private void sendToAll(MalmoMessage msg){
-        for(ServerPlayerEntity player: MinecraftClient.getInstance().getServer().getPlayerManager().getPlayerList()){
+        MinecraftServer server = MinecraftClient.getInstance().getServer();
+        if (server == null){
+            LOGGER.error("server is null");
+        }
+        for(ServerPlayerEntity player: server.getPlayerManager().getPlayerList()){
             ServerPlayNetworking.send(player, NetworkConstants.SERVER2CLIENT,
                     msg.toBytes());
         }

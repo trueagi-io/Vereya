@@ -216,6 +216,7 @@ public class ServerStateMachine extends StateMachine {
         MinecraftServer server = MinecraftClient.getInstance().getServer();
         if (server == null){
             LOGGER.error("server is null");
+            return;
         }
         for(ServerPlayerEntity player: server.getPlayerManager().getPlayerList()){
             ServerPlayNetworking.send(player, NetworkConstants.SERVER2CLIENT,

@@ -19,26 +19,48 @@
 
 package io.singularitynet.MissionHandlers;
 
+import io.singularitynet.*;
 import io.singularitynet.projectmalmo.InventoryCommand;
 import io.singularitynet.projectmalmo.InventoryCommands;
 import io.singularitynet.projectmalmo.MissionInit;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.inventory.Inventory;
 import net.minecraft.item.ItemStack;
+import net.minecraft.network.packet.s2c.play.ScreenHandlerSlotUpdateS2CPacket;
+import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.util.math.BlockPos;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 /** Very basic control over inventory. Two commands are required: select and drop - each takes a slot.<br>
  * The effect is to swap the item stacks over - eg "select 10" followed by "drop 0" will swap the stacks
  * in slots 0 and 10.<br>
  * The hotbar slots are 0-8, so this mechanism allows an agent to move items in to/out of the hotbar.
  */
-public class InventoryCommandsImplementation extends CommandGroup
+public class InventoryCommandsImplementation extends CommandGroup implements IMalmoMessageListener
 {
-    public static class InventoryMessage {
+    private static final Logger LOGGER = LogManager.getLogger();
+
+    @Override
+    public void onMessage(MalmoMessageType messageType, Map<String, String> data) {
+        throw new RuntimeException("unexpected message from server " + messageType.toString());
+    }
+
+    @Override
+    public void onMessage(MalmoMessageType messageType, Map<String, String> data, ServerPlayerEntity player) {
+        InventoryMessage msg = new InventoryMessage(data);
+        runCommand(msg, player);
+    }
+
+    public static class InventoryMessage extends MalmoMessage {
         String invA;
         String invB;
         int slotA;
@@ -46,17 +68,35 @@ public class InventoryCommandsImplementation extends CommandGroup
         boolean combine;
         BlockPos containerPos;
 
-        public InventoryMessage() {
+        public InventoryMessage(Map<String, String> data) {
+            super(MalmoMessageType.CLIENT_INVENTORY_CHANGE, "inventory");
+            this.getData().putAll(data);
+            this.invA = data.get("invA");
+            this.invB = data.get("invB");
+            this.slotA = Integer.valueOf(data.get("slotA"));
+            this.slotB = Integer.valueOf(data.get("slotB"));
+            this.combine = Boolean.valueOf(data.get("combine"));
+            this.containerPos = null;
+            if (data.containsKey("containerPos"))
+                this.containerPos = BlockPos.fromLong(Long.valueOf(data.get("containerPos")));
         }
 
         public InventoryMessage(List<Object> params, boolean combine) {
+            super(MalmoMessageType.CLIENT_INVENTORY_CHANGE, "inventory");
             this.invA = (String) params.get(0);
             this.slotA = (Integer) params.get(1);
             this.invB = (String) params.get(2);
             this.slotB = (Integer) params.get(3);
-            if (params.size() == 5)
-                this.containerPos = (BlockPos) params.get(4);
             this.combine = combine;
+            if (params.size() == 5) {
+                this.containerPos = (BlockPos) params.get(4);
+                this.getData().put("containerPos", String.valueOf(this.containerPos.asLong()));
+            }
+            this.getData().put("invA", this.invA);
+            this.getData().put("slotA", String.valueOf(this.slotA));
+            this.getData().put("slotB", String.valueOf(this.slotB));
+            this.getData().put("invB", this.invB);
+            this.getData().put("combine", String.valueOf(combine));
         }
     }
 
@@ -70,13 +110,13 @@ public class InventoryCommandsImplementation extends CommandGroup
         }
     }
 
-    static ItemStack[] swapSlots(PlayerEntity player, String lhsInv, int lhs, String rhsInv, int rhs, BlockPos containerPos)
+    static ItemStack[] swapSlots(ServerPlayerEntity player, String lhsInv, int lhs, String rhsInv, int rhs, BlockPos containerPos)
     {
-        Inventory container = null;
+        PlayerInventory container = null;
         String containerName = "";
 
-        Inventory lhsInventory = lhsInv.equals("inventory") ? player.getInventory() : (lhsInv.equals(containerName) ? container : null);
-        Inventory rhsInventory = rhsInv.equals("inventory") ? player.getInventory() : (rhsInv.equals(containerName) ? container : null);
+        PlayerInventory lhsInventory = lhsInv.equals("inventory") ? player.getInventory() : (lhsInv.equals(containerName) ? container : null);
+        PlayerInventory rhsInventory = rhsInv.equals("inventory") ? player.getInventory() : (rhsInv.equals(containerName) ? container : null);
         if (lhsInventory == null || rhsInventory == null)
             return null; // Source or dest container not available.
         if (rhs < 0 || lhs < 0)
@@ -84,10 +124,24 @@ public class InventoryCommandsImplementation extends CommandGroup
         if (lhs >= lhsInventory.size() || rhs >= rhsInventory.size())
             return null; // Out of bounds.
 
-        ItemStack srcStack = lhsInventory.getStack(lhs);
-        ItemStack dstStack = rhsInventory.getStack(rhs);
-        lhsInventory.setStack(lhs, dstStack);
-        rhsInventory.setStack(rhs, srcStack);
+        ItemStack srcStack = lhsInventory.removeStack(lhs);
+        ItemStack dstStack = rhsInventory.removeStack(rhs);
+        LOGGER.info(String.format("setting %d to %s", lhs, dstStack.toString()));
+        LOGGER.info(String.format("setting %d to %s", rhs, srcStack.toString()));
+        lhsInventory.insertStack(lhs, dstStack);
+        rhsInventory.insertStack(rhs, srcStack);
+        lhsInventory.updateItems();
+        rhsInventory.updateItems();
+        if (lhsInventory.player instanceof ServerPlayerEntity) {
+            ServerPlayerEntity entity = ((ServerPlayerEntity)(lhsInventory.player));
+            entity.networkHandler.sendPacket(new ScreenHandlerSlotUpdateS2CPacket(-2, 0, lhs, lhsInventory.getStack(lhs)));
+            LOGGER.info(String.format("have now %d to %s", lhs, lhsInventory.getStack(lhs).toString()));
+        }
+        if (rhsInventory.player instanceof ServerPlayerEntity) {
+            ServerPlayerEntity entity = ((ServerPlayerEntity)(rhsInventory.player));
+            entity.networkHandler.sendPacket(new ScreenHandlerSlotUpdateS2CPacket(-2, 0, rhs, rhsInventory.getStack(rhs)));
+            LOGGER.info(String.format("have now %d to %s", rhs, rhsInventory.getStack(rhs).toString()));
+        }
         if (lhsInventory != rhsInventory)
         {
             // Items have moved between our inventory and the foreign inventory - may need to trigger
@@ -104,19 +158,22 @@ public class InventoryCommandsImplementation extends CommandGroup
         return null;
     }
 
-    private static InventoryChangeMessage runCommand(InventoryMessage message){
-        final PlayerEntity player = MinecraftClient.getInstance().player;
+    private static InventoryChangeMessage runCommand(InventoryMessage message, ServerPlayerEntity player){
             ItemStack[] changes = null;
-            if (message.combine)
+            if (message.combine) {
+                LOGGER.info("combine");
                 changes = combineSlots(player, message.invA, message.slotA, message.invB, message.slotB, message.containerPos);
-            else
+            }
+            else {
+                LOGGER.info("swapSlots");
                 changes = swapSlots(player, message.invA, message.slotA, message.invB, message.slotB, message.containerPos);
+            }
             if (changes != null)
                 return new InventoryChangeMessage(changes[0], changes[1]);
             return null;
     }
 
-    static ItemStack[] combineSlots(PlayerEntity player, String invDst, int dst, String invAdd, int add, BlockPos containerPos)
+    static ItemStack[] combineSlots(ServerPlayerEntity player, String invDst, int dst, String invAdd, int add, BlockPos containerPos)
     {
         Inventory container = null;
         String containerName = "";
@@ -219,7 +276,8 @@ public class InventoryCommandsImplementation extends CommandGroup
                 if (getParameters(parameter, params))
                 {
                     // All okay, so create a swap message for the server:
-                    runCommand(new InventoryMessage(params, false));
+                    // InventoryChangeMessage msg = runCommand(new InventoryMessage(params, false));
+                    ClientPlayNetworking.send(NetworkConstants.CLIENT2SERVER, (new InventoryMessage(params, false)).toBytes());
                     return true;
                 }
                 else
@@ -234,7 +292,8 @@ public class InventoryCommandsImplementation extends CommandGroup
                 if (getParameters(parameter, params))
                 {
                     // All okay, so create a combine message for the server:
-                    runCommand(new InventoryMessage(params, false));
+                    // runCommand(new InventoryMessage(params, false));
+                    ClientPlayNetworking.send(NetworkConstants.CLIENT2SERVER, (new InventoryMessage(params, false)).toBytes());
                     return true;
                 }
                 else
@@ -356,6 +415,17 @@ public class InventoryCommandsImplementation extends CommandGroup
         InventoryCommands iparams = (InventoryCommands) params;
         setUpAllowAndDenyLists(iparams.getModifierList());
         return true;
+    }
+
+    @Override
+    public void install(MissionInit missionInit)
+    {
+        SidesMessageHandler.client2server.registerForMessage(this, MalmoMessageType.CLIENT_INVENTORY_CHANGE);
+    }
+
+    @Override
+    public void deinstall(MissionInit missionInit) {
+        SidesMessageHandler.client2server.deregisterForMessage(this, MalmoMessageType.CLIENT_INVENTORY_CHANGE);
     }
 
 }

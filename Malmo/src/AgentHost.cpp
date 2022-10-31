@@ -128,7 +128,7 @@ namespace malmo
 
     void AgentHost::startMission(const MissionSpec& mission, const MissionRecordSpec& mission_record)
     {
-        ClientPool client_pool;
+	ClientPool client_pool;
         client_pool.add(ClientInfo("127.0.0.1"));
 
         startMission(mission, client_pool, mission_record, 0, "");
@@ -159,7 +159,6 @@ namespace malmo
     void AgentHost::startMission(const MissionSpec& mission, const ClientPool& client_pool, const MissionRecordSpec& mission_record, int role, std::string unique_experiment_id)
     {
         std::call_once(test_schemas_flag, testSchemasCompatible);
-
         if (role < 0 || role >= mission.getNumberOfAgents())
         {
             if (mission.getNumberOfAgents() == 1)
@@ -167,8 +166,10 @@ namespace malmo
             else
                 throw MissionException("Role " + std::to_string(role) + " is invalid for this multi-agent mission - must be in range 0-" + std::to_string(mission.getNumberOfAgents() - 1) + ".", MissionException::MISSION_BAD_ROLE_REQUEST);
         }
+		
         if( mission.isVideoRequested( role ) ) 
         {
+		
             if( mission.getVideoWidth( role ) % 4 )
                 throw MissionException("Video width must be divisible by 4.", MissionException::MISSION_BAD_VIDEO_REQUEST);
             if( mission.getVideoHeight( role ) % 2 )
@@ -182,6 +183,7 @@ namespace malmo
         }
 
         // Once initializeOurServers has completed, we MUST call AgentHost::close() before bailing out of this method with an exception.
+		
         initializeOurServers( mission, mission_record, role, unique_experiment_id );
 
         ClientPool pool = client_pool;
@@ -208,10 +210,12 @@ namespace malmo
             // this is a multi-agent mission and we are not the agent that connects to the client with the integrated server
             // so we need to ask the clients in the client pool until we find it
             findServer(pool);
+		
         }
         
         // work through the client pool until we find a client to run our mission for us
         findClient( pool );
+		
 
         this->world_state.clear();
         // NB. Sets is_mission_running to false. The Mod decides when the mission actually starts (it might need to wait for other agents to join, for example)
@@ -815,23 +819,23 @@ namespace malmo
         this->current_mission_record.reset();
     }
 
-    void AgentHost::onVideo(TimestampedVideoFrame message)
+    void AgentHost::onVideo(std::shared_ptr<TimestampedVideoFrame> message)
     {
         boost::lock_guard<boost::mutex> scope_guard(this->world_state_mutex);
         LOGSIMPLE(LOG_FINE, "processing video message");
 
         if (this->video_policy == VideoPolicy::LATEST_FRAME_ONLY) {
-            if (message.frametype == TimestampedVideoFrame::COLOUR_MAP) {
+            if (message->frametype == TimestampedVideoFrame::COLOUR_MAP) {
                 this->world_state.video_frames_colourmap.clear();
             } else {
                 this->world_state.video_frames.clear();
             }
         }
 
-        if (message.frametype == TimestampedVideoFrame::COLOUR_MAP) {
-            this->world_state.video_frames_colourmap.push_back( boost::make_shared<TimestampedVideoFrame>( message ) );
+        if (message->frametype == TimestampedVideoFrame::COLOUR_MAP) {
+            this->world_state.video_frames_colourmap.push_back( message );
         } else {
-            this->world_state.video_frames.push_back( boost::make_shared<TimestampedVideoFrame>( message ) );
+            this->world_state.video_frames.emplace_back( message );
         }
         
         this->world_state.number_of_video_frames_since_last_state++;

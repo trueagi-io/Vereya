@@ -183,7 +183,7 @@ namespace malmo
             void listenForObservations( int port );
             
             void onMissionControlMessage(TimestampedString message);
-            void onVideo(TimestampedVideoFrame message);
+            void onVideo(std::shared_ptr<TimestampedVideoFrame> message);
             void onReward(TimestampedString message);
             void onObservation(TimestampedString message);
             

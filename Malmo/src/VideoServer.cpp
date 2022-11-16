@@ -25,9 +25,10 @@
 // Boost:
 #include <boost/bind.hpp>
 
+
 namespace malmo 
 {
-    VideoServer::VideoServer( boost::asio::io_service& io_service, int port, short width, short height, short channels, TimestampedVideoFrame::FrameType frametype, const boost::function<void(TimestampedVideoFrame message)> handle_frame )
+    VideoServer::VideoServer( boost::asio::io_service& io_service, int port, short width, short height, short channels, TimestampedVideoFrame::FrameType frametype, const boost::function<void(std::shared_ptr<TimestampedVideoFrame> message)> handle_frame )
         : handle_frame( handle_frame )
         , width( width )
         , height( height )
@@ -144,13 +145,15 @@ namespace malmo
             // one when the same port has been reassigned. Could throw here but chose to silently ignore since very rare.
             return;
         }
-        TimestampedVideoFrame frame(this->width, this->height, this->channels, message, this->transform, this->frametype);
+	
+        auto frame = std::make_shared<TimestampedVideoFrame>(this->width, this->height, this->channels, message, this->transform, this->frametype);
         this->received_frames++;
         this->handle_frame(frame); 
 
         for (const auto& writer : this->writers){
             if (writer->isOpen()){
-                if (writer->write(frame)){
+		//std::cout<<"before writer " << frame->pixels.size()<<std::endl;
+                if (writer->write(*frame)){
                     this->queued_frames++;
                 }
             }

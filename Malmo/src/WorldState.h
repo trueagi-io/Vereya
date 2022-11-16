@@ -27,6 +27,8 @@
 
 // STL:
 #include <vector>
+#include <memory>
+
 
 namespace malmo
 {
@@ -66,8 +68,8 @@ namespace malmo
         /*! May differ from the number of video frames that were received, depending on the video policy that was used.
          * \see AgentHost::setVideoPolicy
          */
-        std::vector< boost::shared_ptr< TimestampedVideoFrame > > video_frames;
-        std::vector< boost::shared_ptr< TimestampedVideoFrame > > video_frames_colourmap;
+        std::vector< std::shared_ptr< TimestampedVideoFrame > > video_frames;
+        std::vector< std::shared_ptr< TimestampedVideoFrame > > video_frames_colourmap;
 
         //! Contains the timestamped rewards that are stored in this world state.
         /*! May differ from the number of rewards that were received, depending on the rewards policy that was used.

@@ -363,7 +363,7 @@ BOOST_PYTHON_MODULE(VereyaPython)
     class_<std::vector<float> >("FloatVec")
         .def(vector_indexing_suite<std::vector<float> >());
 
-    register_ptr_to_python< boost::shared_ptr< TimestampedVideoFrame > >();
+    register_ptr_to_python< std::shared_ptr< TimestampedVideoFrame > >();
     class_< TimestampedVideoFrame >( "TimestampedVideoFrame", no_init )
         .add_property( "timestamp",   make_getter(&TimestampedVideoFrame::timestamp, return_value_policy<return_by_value>()))
         .def_readonly( "width",       &TimestampedVideoFrame::width )
@@ -386,8 +386,8 @@ BOOST_PYTHON_MODULE(VereyaPython)
     class_< std::vector< boost::shared_ptr< TimestampedReward > > >( "TimestampedRewardVector" )
         .def( vector_indexing_suite< std::vector< boost::shared_ptr< TimestampedReward > >, true >() )
     ;
-    class_< std::vector< boost::shared_ptr< TimestampedVideoFrame > > >( "TimestampedVideoFrameVector" )
-        .def( vector_indexing_suite< std::vector< boost::shared_ptr< TimestampedVideoFrame > >, true >() )
+    class_< std::vector< std::shared_ptr< TimestampedVideoFrame > > >( "TimestampedVideoFrameVector" )
+        .def( vector_indexing_suite< std::vector< std::shared_ptr< TimestampedVideoFrame > >, true >() )
     ;
     class_< std::vector< std::string > >( "StringVector" )
         .def( vector_indexing_suite< std::vector< std::string >, true >() )

@@ -44,29 +44,29 @@ const int num_frames = 50;
 const std::string filename = "video_server_test.mp4";
 std::atomic<int> num_messages_received(0);
 
-void handleFrame(TimestampedVideoFrame frame)
+void handleFrame(std::shared_ptr<TimestampedVideoFrame> frame)
 {
-    if (frame.pixels[0] != num_messages_received)
+    if (frame->pixels[0] != num_messages_received)
     {
         std::cout << "Pixel not set, frames passed out of order." << endl;
         exit(EXIT_FAILURE);
     }
 
-    if (frame.width != width || frame.height != width || frame.channels != channels)
+    if (frame->width != width || frame->height != width || frame->channels != channels)
     {
         cout << "Mismatch in frame dimensions." << endl;
         exit(EXIT_FAILURE);
     }
 
-    if (frame.xPos != num_messages_received)
+    if (frame->xPos != num_messages_received)
     {
         cout << "xPos not set correctly - frames out of order, or float passing has failed." << endl;
         exit(EXIT_FAILURE);
     }
 
-    if (frame.pitch != 90.0f)
+    if (frame->pitch != 90.0f)
     {
-        cout << "Pitch not set correctly - float passing has failed - got " << frame.pitch << " - expected 90.0" << endl;
+        cout << "Pitch not set correctly - float passing has failed - got " << frame->pitch << " - expected 90.0" << endl;
         exit(EXIT_FAILURE);
     }
 
@@ -86,7 +86,7 @@ int main()
 
     try{
         boost::asio::io_service io_service;
-        boost::shared_ptr<VideoServer> server = boost::make_shared<VideoServer>(io_service, port, width, width, channels, TimestampedVideoFrame::VIDEO, boost::function<void(const TimestampedVideoFrame)>(handleFrame));
+        boost::shared_ptr<VideoServer> server = boost::make_shared<VideoServer>(io_service, port, width, width, channels, TimestampedVideoFrame::VIDEO, boost::function<void(std::shared_ptr<TimestampedVideoFrame>)>(handleFrame));
         server->recordMP4(filename, 10, 400000, true);
         server->startRecording();
         server->start(server);

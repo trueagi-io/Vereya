@@ -1026,7 +1026,9 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
                 if (player != null) {
                     String playerName = player.getName().asString();
                     if (!playerName.equals(agentName))
-                        ((SessionMixin)MinecraftClient.getInstance().getSession()).setName(agentName);
+                        ((SessionMixin) MinecraftClient.getInstance().getSession()).setName(agentName);
+                } else {
+                    LOGGER.error("error setting player name, player is null");
                 }
             }
             if (needsNewWorld) {
@@ -1269,6 +1271,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
                     // Minecraft.getMinecraft().loadWorld((WorldClient)null);
                 }
                 this.waitingForPlayer = false;
+                LOGGER.info("player exists and names match");
             }
         }
 

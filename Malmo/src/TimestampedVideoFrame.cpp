@@ -102,6 +102,7 @@ namespace malmo
         default:
             throw std::invalid_argument("Unknown transform");
         }
+	
     }
 
     bool TimestampedVideoFrame::operator==(const TimestampedVideoFrame& other) const

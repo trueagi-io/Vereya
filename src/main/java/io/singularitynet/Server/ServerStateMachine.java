@@ -93,6 +93,8 @@ public class ServerStateMachine extends StateMachine {
         // Decide whether or not to allow spawning.
         // We shouldn't allow spawning unless it has been specifically turned on - whether
         // a mission is running or not. (Otherwise spawning may happen in between missions.)
+        EntityType type = entity.getType();
+        String mobName = type.getUntranslatedName();
         boolean allowSpawning = false;
         if (currentMissionInit() != null && currentMissionInit().getMission() != null)
         {
@@ -106,8 +108,6 @@ public class ServerStateMachine extends StateMachine {
             {
                 // Spawning is allowed, but restricted to our list:
                 // Is this on our list?
-                EntityType type = entity.getType();
-                String mobName = type.getUntranslatedName();
                 boolean allowed = false;
                 for (EntityTypes mob : sic.getAllowedMobs())
                 {
@@ -118,12 +118,18 @@ public class ServerStateMachine extends StateMachine {
                     if (!entity.isLiving()) return;
                     LOGGER.trace("removing mob " + mobName + ": it's disabled");
                     entity.remove(Entity.RemovalReason.DISCARDED);
+                    return;
                 }
             }
         }
         // Cancel spawn event:
         if (!allowSpawning) {
-            LOGGER.trace("removing mob: spawning is disabled");
+            if (!entity.isLiving()) return;
+            LOGGER.trace("removing mob "  + mobName + " : spawning is disabled");
+            if (entity.isPlayer()) {
+                LOGGER.info("not removing player " + ((ServerPlayerEntity)entity).getName().getString());
+                return;
+            }
             entity.remove(Entity.RemovalReason.DISCARDED);
         }
     }
@@ -131,11 +137,14 @@ public class ServerStateMachine extends StateMachine {
     private void onServerStopped(MinecraftServer s){
         this.stop();
         this.releaseQueuedMissionInit();
+        ServerStateMachine.this.currentMissionInit = null;
+        LOGGER.info("server stopped");
     }
 
     public void setMissionInit(MissionInit minit)
     {
         this.queuedMissionInit = minit;
+        LOGGER.info("set queuedMissionInit" + minit.toString());
     }
 
     protected void setUserTurnSchedule(ArrayList<String> schedule)
@@ -215,7 +224,10 @@ public class ServerStateMachine extends StateMachine {
     private void sendToAll(MalmoMessage msg){
         MinecraftServer server = MinecraftClient.getInstance().getServer();
         if (server == null){
-            LOGGER.error("server is null");
+            LOGGER.error("server is null, msg type " + msg.getMessageType().toString());
+            for (Map.Entry entry: msg.getData().entrySet()){
+                LOGGER.debug(entry.getKey().toString() + ": " + entry.getValue().toString());
+            }
             return;
         }
         for(ServerPlayerEntity player: server.getPlayerManager().getPlayerList()){
@@ -238,7 +250,11 @@ public class ServerStateMachine extends StateMachine {
 
     protected boolean checkWatchList()
     {
-        String[] connected_users = MinecraftClient.getInstance().getServer().getPlayerManager().getPlayerNames();
+        MinecraftServer server = MinecraftClient.getInstance().getServer();
+        if (server == null) {
+            return false;
+        }
+        String[] connected_users = server.getPlayerManager().getPlayerNames();
         // String[] connected_users = FMLCommonHandler.instance().getMinecraftServerInstance().getOnlinePlayerNames();
         if (connected_users.length < this.userConnectionWatchList.size())
             return false;
@@ -267,6 +283,7 @@ public class ServerStateMachine extends StateMachine {
             minit = this.queuedMissionInit;
             this.queuedMissionInit = null;
         }
+        LOGGER.debug("releasing queued mission init");
         return minit;
     }
 
@@ -414,9 +431,7 @@ public class ServerStateMachine extends StateMachine {
                 // If a mission is queued up now, as we enter the dormant state, that would indicate an error - we've seen this in cases where the client
                 // has passed the mission across, then hit an error case and aborted. In such cases this mission is now stale, and should be abandoned.
                 // To guard against errors of this sort, simply clear the mission now:
-                MissionInit staleMinit = machine.releaseQueuedMissionInit();
-                String summary = staleMinit.getMission().getAbout().getSummary();
-                System.out.println("SERVER DITCHING SUSPECTED STALE MISSIONINIT: " + summary);
+                LOGGER.warn("POSSIBLY STALE MISSIONINIT");
             }
         }
 
@@ -1249,7 +1264,7 @@ public class ServerStateMachine extends StateMachine {
         protected void execute()
         {
             // Put in all cleanup code here.
-            ServerStateMachine.this.currentMissionInit = null;
+            // ServerStateMachine.this.currentMissionInit = null;
             episodeHasCompleted(ServerState.DORMANT);
         }
     }

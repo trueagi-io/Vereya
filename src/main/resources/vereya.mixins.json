@@ -5,7 +5,8 @@
   "compatibilityLevel": "JAVA_17",
   "mixins": [],
   "client": [
-    "TitleScreenMixin", "SessionMixin", "MinecraftClientMixin", "GameOptionsMixin", "KeyBindingMixin", "MouseMixin"
+    "TitleScreenMixin", "SessionMixin", "MinecraftClientMixin", "GameOptionsMixin",
+    "KeyBindingMixin", "MouseMixin", "InGameHudMixin"
   ],
   "server": [],
   "injectors": {

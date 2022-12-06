@@ -122,7 +122,7 @@ public class ObservationFromNearbyEntitiesImplementation extends HandlerBase imp
                     jsent.addProperty("motionX", e_motion.getOffsetX());
                     jsent.addProperty("motionY", e_motion.getOffsetY());
                     jsent.addProperty("motionZ", e_motion.getOffsetZ());
-                    jsent.addProperty("name", e.getName().asString());
+                    jsent.addProperty("name", e.getName().getString());
                     arr.add(jsent);
                 }
                 json.add(this.oneparams.getRange().get(index).getName(), arr);

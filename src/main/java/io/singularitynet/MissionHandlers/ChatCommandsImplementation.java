@@ -47,8 +47,8 @@ public class ChatCommandsImplementation extends CommandBase implements ICommandH
         {
             return false;
         }
-        player.sendChatMessage(parameter);
-        player.sendSystemMessage(Text.of(parameter), player.getUuid());
+        player.sendChatMessage(parameter, null);
+        //player.sendSystemMessage(Text.of(parameter), player.getUuid());
         return true;
     }
 

@@ -105,7 +105,7 @@ public class JSONWorldDataHelper {
         json.addProperty("XP", player.experienceLevel);
         json.addProperty("IsAlive", player.isAlive());
         json.addProperty("Air", player.getAir());
-        json.addProperty("Name", player.getName().asString());
+        json.addProperty("Name", player.getName().getString());
     }
 
     /** Builds the player position data to be used as observation signals by the listener.

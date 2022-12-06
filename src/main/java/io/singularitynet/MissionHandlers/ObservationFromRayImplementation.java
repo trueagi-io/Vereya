@@ -6,6 +6,7 @@ import io.singularitynet.projectmalmo.MissionInit;
 import io.singularitynet.projectmalmo.ObservationFromRay;
 import net.minecraft.block.*;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.option.SimpleOption;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.projectile.ProjectileUtil;
 import net.minecraft.state.property.Property;
@@ -102,7 +103,7 @@ public class ObservationFromRayImplementation extends HandlerBase implements IOb
                 cameraPos,
                 vec3d3,
                 box,
-                (entityx) -> !entityx.isSpectator() && entityx.collides(),
+                (entityx) -> !entityx.isSpectator() && entityx.isCollidable(),
                 extendedReach
         );
 
@@ -151,7 +152,8 @@ public class ObservationFromRayImplementation extends HandlerBase implements IOb
         int width = client.getWindow().getScaledWidth();
         int height = client.getWindow().getScaledHeight();
         Vec3d cameraDirection = client.cameraEntity.getRotationVec(1.0f);
-        double fov = client.options.fov;
+        SimpleOption<Integer> option = client.options.getFov();
+        double fov = option.getValue();
         double angleSize = fov/height;
         Vec3d direction = getDirection(width, height, cameraDirection, (float) angleSize);
         HitResult mop = raycastInDirection(client, 1.0f, direction);

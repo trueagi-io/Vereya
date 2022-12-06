@@ -1032,7 +1032,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
                 // Get our name from the Mission:
                 PlayerEntity player = MinecraftClient.getInstance().player;
                 if (player != null) {
-                    String playerName = player.getName().asString();
+                    String playerName = player.getName().getString();
                     if (!playerName.equals(agentName))
                         ((SessionMixin) MinecraftClient.getInstance().getSession()).setName(agentName);
                 } else {
@@ -1195,7 +1195,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
                 {
                     HashMap<String, String> map = new HashMap<String, String>();
                     map.put("agentname", agentName);
-                    map.put("username", client.player.getName().asString());
+                    map.put("username", client.player.getName().getString());
                     currentMissionBehaviour().appendExtraServerInformation(map);
                     LOGGER.info("***Telling server we are ready - " + agentName);
                     ClientPlayNetworking.send(NetworkConstants.CLIENT2SERVER,
@@ -1490,7 +1490,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
 
             // Tell the server we have started:
             HashMap<String, String> map = new HashMap<String, String>();
-            map.put("username", MinecraftClient.getInstance().player.getName().asString());
+            map.put("username", MinecraftClient.getInstance().player.getName().getString());
             MalmoMessage msg = new MalmoMessage(MalmoMessageType.CLIENT_AGENTRUNNING, 0, map);
             ClientPlayNetworking.send(NetworkConstants.CLIENT2SERVER,  msg.toBytes());
 
@@ -1676,7 +1676,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
                 String agentName = agents.get(currentMissionInit().getClientRole()).getName();
                 HashMap<String, String> map = new HashMap<String, String>();
                 map.put("agentname", agentName);
-                map.put("username", MinecraftClient.getInstance().player.getName().asString());
+                map.put("username", MinecraftClient.getInstance().player.getName().getString());
                 map.put("quitcode", this.quitCode);
                 LOGGER.info("informing server that player has quited");
                 ClientPlayNetworking.send(NetworkConstants.CLIENT2SERVER, (new MalmoMessage(MalmoMessageType.CLIENT_AGENTFINISHEDMISSION, 0, map)).toBytes());
@@ -2021,7 +2021,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
                 HashMap<String, String> map = new HashMap<String, String>();
                 PlayerEntity player = MinecraftClient.getInstance().player;
                 if (player != null) // Might not be a player yet.
-                    map.put("username", player.getName().asString());
+                    map.put("username", player.getName().getString());
                 map.put("error", ClientStateMachine.this.getErrorDetails());
                 PacketByteBuf buf = new MalmoMessage(MalmoMessageType.CLIENT_BAILED, 0, map).toBytes();
                 LOGGER.debug("informing server of a failure with: " + map.toString());

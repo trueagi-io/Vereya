@@ -31,6 +31,7 @@ import net.minecraft.world.World;
 import net.minecraft.world.gen.GeneratorOptions;
 import org.apache.logging.log4j.LogManager;
 
+import java.io.IOException;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Random;
@@ -86,7 +87,11 @@ public class DefaultWorldGeneratorImplementation extends HandlerBase implements 
             LogManager.getLogger().info("Creating default world");
             WorldUtil.createLevel(false, seed, Difficulty.NORMAL);
             return true;
-        } catch (RuntimeException e) {
+        } catch (RuntimeException | IOException e) {
+            LogManager.getLogger().error("Failed to create world");
+            LogManager.getLogger().error(e);
+            return false;
+        } catch (Exception e) {
             LogManager.getLogger().error("Failed to create world");
             LogManager.getLogger().error(e);
             return false;

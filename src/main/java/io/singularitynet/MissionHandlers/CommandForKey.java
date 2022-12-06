@@ -340,36 +340,36 @@ public class CommandForKey extends CommandBase
             }
         }
         // And then we replace the pointer in the array:
-        for (int i = 0; i < settings.keysAll.length; i++)
+        for (int i = 0; i < settings.allKeys.length; i++)
         {
-            if (settings.keysAll[i].getTranslationKey().equals(this.keyDescription))
+            if (settings.allKeys[i].getTranslationKey().equals(this.keyDescription))
             {
                 this.originalBindingIndex = i;
                 if (!createdHook)
                 {
-                    this.originalBinding = settings.keysAll[i];
+                    this.originalBinding = settings.allKeys[i];
                     this.keyHook = create(this.originalBinding);
                     createdHook = true;
                 }
-                settings.keysAll[i] = this.keyHook;
+                settings.allKeys[i] = this.keyHook;
             }
         }
         // And possibly in the hotbar array too:
-        for (int i = 0; i < settings.keysHotbar.length; i++)
+        for (int i = 0; i < settings.hotbarKeys.length; i++)
         {
-            if (settings.keysHotbar[i].getTranslationKey().equals(this.keyDescription))
+            if (settings.hotbarKeys[i].getTranslationKey().equals(this.keyDescription))
             {
                 this.originalBindingIndex = i;
                 if (!createdHook)
                 {
-                    this.originalBinding = settings.keysHotbar[i];
+                    this.originalBinding = settings.hotbarKeys[i];
                     this.keyHook = create(this.originalBinding);
                     createdHook = true;
                 }
-                settings.keysHotbar[i] = this.keyHook;
+                settings.hotbarKeys[i] = this.keyHook;
             }
         }
-        KeyBinding attack = settings.keyAttack;
+        KeyBinding attack = settings.attackKey;
         LogManager.getLogger().debug("attack overriden " + KeyHook.class.isInstance(attack) + attack.hashCode());
     }
 

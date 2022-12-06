@@ -5,14 +5,15 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonPrimitive;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import io.singularitynet.MyChatHud;
 import io.singularitynet.mixin.InGameHudMixin;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.ClientChatListener;
+import net.minecraft.client.gui.hud.ChatHud;
 import net.minecraft.client.gui.hud.InGameHud;
 import io.singularitynet.projectmalmo.MissionInit;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.nbt.visitor.NbtTextFormatter;
-import net.minecraft.network.MessageType;
+import net.minecraft.network.message.MessageType;
 import net.minecraft.text.Text;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -21,10 +22,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.UUID;
 
-public class ObservationFromChatImplementation extends HandlerBase implements IObservationProducer, ClientChatListener
-{
+public class ObservationFromChatImplementation extends HandlerBase implements IObservationProducer, io.singularitynet.MissionHandlerInterfaces.ClientChatListener {
     private static final Logger LOGGER = LogManager.getLogger();
-
+    private ChatHud backup;
     private class ChatMessage
     {
         public String messageType;
@@ -40,14 +40,25 @@ public class ObservationFromChatImplementation extends HandlerBase implements IO
 
     @Override
     public void cleanup() {
-        InGameHud hud = MinecraftClient.getInstance().inGameHud;
-        ((InGameHudMixin)hud).getListeners().get((Object) MessageType.CHAT).remove(this);
+        ChatHud hud = MinecraftClient.getInstance().inGameHud.getChatHud();
+
+        if (hud instanceof MyChatHud){
+            MyChatHud hud1 = (MyChatHud) hud;
+            hud1.getListeners().remove(this);
+        }
+
+        if (backup != null) {
+            ((InGameHudMixin) (MinecraftClient.getInstance().inGameHud)).setChatHud(backup);
+            backup = null;
+        }
     }
 
     @Override
     public void prepare(MissionInit missionInit) {
-        InGameHud hud = MinecraftClient.getInstance().inGameHud;
-        ((InGameHudMixin)hud).getListeners().get((Object) MessageType.CHAT).add(this);
+        backup = MinecraftClient.getInstance().inGameHud.getChatHud();
+        MyChatHud myHud = new MyChatHud(MinecraftClient.getInstance());
+        myHud.getListeners().add(this);
+        ((InGameHudMixin) (MinecraftClient.getInstance().inGameHud)).setChatHud(myHud);
     }
 
     @Override
@@ -80,7 +91,7 @@ public class ObservationFromChatImplementation extends HandlerBase implements IO
     }
 
     @Override
-    public void onChatMessage(MessageType messageType, Text text, UUID var3) {
+    public void onChatMessage(Text text) {
         LOGGER.info("got chat message " + text.getString());
         ClientPlayerEntity player = MinecraftClient.getInstance().player;
         if (player != null){

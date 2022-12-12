@@ -34,7 +34,6 @@ import jakarta.xml.bind.JAXBException;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
-import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.entity.player.PlayerEntity;
@@ -51,10 +50,7 @@ import org.xml.sax.SAXException;
 import javax.xml.stream.XMLStreamException;
 import java.io.DataOutputStream;
 import java.io.IOException;
-import java.lang.reflect.Field;
-import java.math.BigDecimal;
 import java.net.UnknownHostException;
-import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.logging.Level;
@@ -85,6 +81,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
     private MissionDiagnostics missionEndedData = new MissionDiagnostics();
     private IScreenHelper screenHelper = new ScreenHelper();
     protected IMalmoModClient inputController;
+    private static String mod_version_xml = "0.1.0";
     private static String mod_version = "- 21";
     static {
     	Properties properties = new Properties();
@@ -438,7 +435,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
                 // 5: MissionInit
 
                 String reservePrefixGeneral = "MALMO_REQUEST_CLIENT:";
-                String reservePrefix = reservePrefixGeneral + mod_version + ":";
+                String reservePrefix = reservePrefixGeneral + mod_version_xml + ":";
                 String findServerPrefix = "MALMO_FIND_SERVER";
                 String cancelRequestCommand = "MALMO_CANCEL_REQUEST";
                 String killClientCommand = "MALMO_KILL_CLIENT";
@@ -550,7 +547,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
                         // We've been sent a MissionInit message.
                         // First, check the version number:
                         String platformVersion = missionInit.getPlatformVersion();
-                        String ourVersion = mod_version;
+                        String ourVersion = mod_version_xml;
                         if (platformVersion == null || !platformVersion.equals(ourVersion))
                         {
                             reply("MALMOERRORVERSIONMISMATCH (Got " + platformVersion + ", expected " + ourVersion + " - check your path for old versions of MalmoPython/MalmoJava/Malmo.lib etc)", dos);

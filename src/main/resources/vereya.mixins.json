@@ -6,7 +6,8 @@
   "mixins": [],
   "client": [
     "TitleScreenMixin", "SessionMixin", "MinecraftClientMixin", "GameOptionsMixin",
-    "KeyBindingMixin", "MouseMixin", "InGameHudMixin"
+    "KeyBindingMixin", "MouseMixin", "InGameHudMixin", "ServerWorldEntityLoaderMixin",
+    "ServerEntityManagerMixin", "ServerWorldMixin"
   ],
   "server": [],
   "injectors": {

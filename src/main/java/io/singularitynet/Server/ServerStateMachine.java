@@ -20,13 +20,13 @@ package io.singularitynet.Server;
 
 import io.singularitynet.*;
 import io.singularitynet.MissionHandlers.MissionBehaviour;
+import io.singularitynet.events.ServerEntityEventsVereya;
 import io.singularitynet.projectmalmo.*;
 import io.singularitynet.utils.SchemaHelper;
 import io.singularitynet.utils.ScreenHelper;
 import jakarta.xml.bind.JAXBElement;
 import jakarta.xml.bind.JAXBException;
 
-import net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
@@ -40,6 +40,7 @@ import net.minecraft.nbt.NbtCompound;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
+import net.minecraft.util.ActionResult;
 import net.minecraft.world.GameMode;
 import net.minecraft.world.GameRules;
 import net.minecraft.world.World;
@@ -84,11 +85,11 @@ public class ServerStateMachine extends StateMachine {
         // Register ourself on the event busses, so we can harness the server tick:
         ServerTickEvents.END_SERVER_TICK.register(s -> this.onServerTick(s));
         ServerLifecycleEvents.SERVER_STOPPED.register(s -> this.onServerStopped(s));
-        ServerEntityEvents.ENTITY_LOAD.register((e, w) -> this.onGetPotentialSpawns(e, w));
+        ServerEntityEventsVereya.BEFORE_ENTITY_ADD.register((e, w) -> this.onGetPotentialSpawns(e, w));
     }
 
     /** Used to prevent spawning in our world.*/
-    public void onGetPotentialSpawns(Entity entity, ServerWorld world)
+    public ActionResult onGetPotentialSpawns(Entity entity, ServerWorld world)
     {
         // Decide whether or not to allow spawning.
         // We shouldn't allow spawning unless it has been specifically turned on - whether
@@ -114,24 +115,26 @@ public class ServerStateMachine extends StateMachine {
                     if (mob.value().toLowerCase().equals(mobName.toLowerCase())) { allowed = true; }
                 }
                 if (!allowed) {
-                    if (entity.isPlayer()) return;
-                    if (!entity.isLiving()) return;
+                    if (entity.isPlayer()) return ActionResult.PASS;
+                    if (!entity.isLiving()) return ActionResult.PASS;
                     LOGGER.trace("removing mob " + mobName + ": it's disabled");
                     entity.remove(Entity.RemovalReason.DISCARDED);
-                    return;
+                    return ActionResult.FAIL;
                 }
             }
         }
         // Cancel spawn event:
         if (!allowSpawning) {
-            if (!entity.isLiving()) return;
+            if (!entity.isLiving()) return ActionResult.PASS;
             LOGGER.trace("removing mob "  + mobName + " : spawning is disabled");
             if (entity.isPlayer()) {
                 LOGGER.info("not removing player " + ((ServerPlayerEntity)entity).getName().getString());
-                return;
+                return ActionResult.PASS;
             }
             entity.remove(Entity.RemovalReason.DISCARDED);
+            return ActionResult.FAIL;
         }
+        return ActionResult.PASS;
     }
 
     private void onServerStopped(MinecraftServer s){

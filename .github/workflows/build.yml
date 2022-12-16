@@ -38,4 +38,4 @@ jobs:
           name: Artifacts
           path: build/libs/
       - name: start minecraft
-        run: ./launch1.19.sh
+        run: ./launch.sh

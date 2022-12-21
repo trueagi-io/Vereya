@@ -283,6 +283,12 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
                 return new MissionEndedEpisode(this, MissionResult.MOD_HAS_NO_AGENT_AVAILABLE, true, true, false);
             case ERROR_CANNOT_CREATE_WORLD:
                 return new MissionEndedEpisode(this, MissionResult.MOD_FAILED_TO_CREATE_WORLD, true, true, true);
+            case ERROR_TIMED_OUT_WAITING_FOR_EPISODE_START: // run-ons deliberate
+            case ERROR_TIMED_OUT_WAITING_FOR_EPISODE_PAUSE:
+            case ERROR_TIMED_OUT_WAITING_FOR_EPISODE_CLOSE:
+            case ERROR_TIMED_OUT_WAITING_FOR_MISSION_END:
+            case ERROR_TIMED_OUT_WAITING_FOR_WORLD_CREATE:
+                return new MissionEndedEpisode(this, MissionResult.MOD_HAS_NO_AGENT_AVAILABLE, true, true, false);
             default:
                 break;
         }

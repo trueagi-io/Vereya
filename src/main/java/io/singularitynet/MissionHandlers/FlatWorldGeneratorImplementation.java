@@ -56,7 +56,7 @@ public class FlatWorldGeneratorImplementation extends HandlerBase implements IWo
             props.setProperty("level-type", "flat");
             props.setProperty("level-seed", String.valueOf(seed));
             props.setProperty("generator-settings", this.fwparams.getGeneratorString());
-            WorldUtil.createLevelFlat(false, Difficulty.NORMAL, props);
+            //WorldUtil.createLevelFlat(false, Difficulty.NORMAL, props);
             return true;
         } catch (RuntimeException e) {
             LogManager.getLogger().error(e);

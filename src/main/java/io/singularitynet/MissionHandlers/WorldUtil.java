@@ -25,16 +25,16 @@ public class WorldUtil {
         levelInfo = new LevelInfo(levelName.trim(), GameMode.DEFAULT,
                 hardcore, difficulty,
                 true, gameRules, DataPackSettings.SAFE_MODE);
-        DynamicRegistryManager.Impl impl = DynamicRegistryManager.create();
-        MinecraftClient.getInstance().createWorld(worldName, levelInfo, impl, generatorOptions);
+        DynamicRegistryManager.Immutable immutable = DynamicRegistryManager.BUILTIN.get();
+        MinecraftClient.getInstance().createWorld(worldName, levelInfo, immutable, generatorOptions);
     }
 
     static GeneratorOptions getGeneratorOptionsDefault(boolean hardcore, OptionalLong seed){
-        DynamicRegistryManager.Impl impl = DynamicRegistryManager.create();
-        GeneratorOptions generatorOptions = GeneratorOptions.getDefaultOptions(impl);
+        DynamicRegistryManager.Immutable immutable = DynamicRegistryManager.BUILTIN.get();
+        GeneratorOptions generatorOptions = GeneratorOptions.getDefaultOptions(immutable);
         return generatorOptions.withHardcore(hardcore, seed);
     }
-
+/*
     public static void createLevelFlat(boolean hardcore,
                                    Difficulty difficulty, Properties properties) {
         UUID uuid = UUID.randomUUID();
@@ -44,15 +44,15 @@ public class WorldUtil {
         LevelInfo levelInfo = new LevelInfo(levelName.trim(), GameMode.DEFAULT,
                 hardcore, difficulty,
                 true, gameRules, DataPackSettings.SAFE_MODE);
-        DynamicRegistryManager.Impl impl = DynamicRegistryManager.create();
+        DynamicRegistryManager impl = DynamicRegistryManager.createAndLoad();
 
         GeneratorOptions generatorOptions = getGeneratorOptions(properties);
         MinecraftClient.getInstance().createWorld(worldName, levelInfo, impl, generatorOptions);
     }
     static GeneratorOptions getGeneratorOptions(Properties properties) {
-        DynamicRegistryManager.Impl impl = DynamicRegistryManager.create();
+        DynamicRegistryManager impl = DynamicRegistryManager.createAndLoad();
         GeneratorOptions generatorOptions =  GeneratorOptions.fromProperties(impl, properties);
         return generatorOptions;
     }
-
+*/
 }

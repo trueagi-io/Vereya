@@ -760,8 +760,9 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
                 // MalmoEnvServer has no server to client ping.
                 return true;
             }
-
-            boolean sentOkay = ClientStateMachine.this.getMissionControlSocket().sendTCPString("<?xml version=\"1.0\" encoding=\"UTF-8\"?><ping/>", 1);
+            String message = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><ping minecraft-version=\"" +
+                    MinecraftClient.getInstance().getGameVersion() + "\" />";
+            boolean sentOkay = ClientStateMachine.this.getMissionControlSocket().sendTCPString(message, 1);
             if (!sentOkay)
             {
                 // It's not available - bail.

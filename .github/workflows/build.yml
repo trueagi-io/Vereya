@@ -37,27 +37,28 @@ jobs:
         with:
           name: Artifacts
           path: build/libs/
-      - name: install fabric
-        run: cp $GITHUB_WORKSPACE/fabric/* /home/tester/.minecraft/mods/
-      - name: install mod
+      - name: install vereya
         run: rm /home/tester/.minecraft/mods/* && cp $GITHUB_WORKSPACE/build/libs/* /home/tester/.minecraft/mods/
+      - name: install fabric
+        run: rsync -v $GITHUB_WORKSPACE/fabric/* /home/tester/.minecraft/mods/
   test:
     needs: build
     runs-on: self-hosted
     steps:
-      - name: xvfb
-        run: /usr/bin/Xvfb :99 -ac -screen 0 1024x768x24 &
       - name: start minecraft
         run: ./launch.sh &
         env:
           DISPLAY: :99
+          GITHUB_WORKSPACE: $GITHUB_WORKSPACE
       - name: checkout tagilmo
         uses: actions/checkout@v3
         with:
-          repository: trueagi-io/minecraft-demo
+          repository: noskill/minecraft-demo
+          path: minecraft-demo
       - name: install tagilmo
         run: conda activate py31 && cd $GITHUB_WORKSPACE/minecraft-demo && pip install .
       - name: run test
         run: |
+          ps a|grep [j]ava &&
           conda activate py31 && cd $GITHUB_WORKSPACE/minecraft-demo/experiments/vereya &&
           python test_craft.py

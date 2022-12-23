@@ -5,6 +5,9 @@
 
 name: build
 on: [pull_request, push]
+defaults:
+    run:
+        shell: bash -l {0}
 
 jobs:
   build:
@@ -37,5 +40,27 @@ jobs:
         with:
           name: Artifacts
           path: build/libs/
+  test:
+    needs: build
+    runs-on: self-hosted 
+    steps:
+      - name: xvfb
+        run: /usr/bin/Xvfb :99 -ac -screen 0 1024x768x24 &
       - name: start minecraft
-        run: ./launch.sh
+        run: ./launch.sh &
+        env: 
+            DISPLAY: :99
+
+      - name: checkout tagilmo
+        uses: actions/checkout@v3
+        repository: trueagi-io/minecraft-demo 
+      - name: install tagilmo
+        run: conda activate py31 && cd $GITHUB_WORKSPACE/minecraft-demo && pip install .
+
+      - name: run test
+        run: |
+            conda activate py31 && cd $GITHUB_WORKSPACE/minecraft-demo/experiments/vereya &&
+            python test_craft.py
+
+
+

@@ -61,4 +61,4 @@ jobs:
         run: |
           ps a|grep [j]ava &&
           conda activate py31 && cd $GITHUB_WORKSPACE/minecraft-demo/experiments/vereya &&
-          python test_craft.py
+          python run_tests.py

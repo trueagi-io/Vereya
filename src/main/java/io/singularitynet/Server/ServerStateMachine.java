@@ -632,6 +632,7 @@ public class ServerStateMachine extends StateMachine {
             super.onMessage(messageType, data, player);
             if (messageType == MalmoMessageType.CLIENT_AGENTREADY)
             {
+                LOGGER.debug("SERVER: got AGENTREADY message");
                 // A client has joined and is waiting for us to tell us it can proceed.
                 // Initialise the player, and store a record mapping from the username to the agentname.
                 String username = data.get("username");
@@ -657,6 +658,7 @@ public class ServerStateMachine extends StateMachine {
             }
             else if (messageType == MalmoMessageType.CLIENT_AGENTRUNNING)
             {
+                LOGGER.debug("SERVER: got AGENTRUNNING message");
                 // A client has entered the running state (only happens once all CLIENT_AGENTREADY messages have arrived).
                 String username = data.get("username");
                 String agentname = this.usernameToAgentnameMap.get(username);

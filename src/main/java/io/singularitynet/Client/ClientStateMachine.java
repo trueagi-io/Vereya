@@ -1397,6 +1397,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
                 if (AddressHelper.getMissionControlPort() == 0) {
                     sentOkay = true;
                 } else {
+                    LOGGER.info("CLIENT: sending mission init back to agent");
                     sentOkay = ClientStateMachine.this.getMissionControlSocket().sendTCPString(xml, 1);
                 }
             }

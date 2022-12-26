@@ -435,6 +435,7 @@ public class ServerStateMachine extends StateMachine {
                 // has passed the mission across, then hit an error case and aborted. In such cases this mission is now stale, and should be abandoned.
                 // To guard against errors of this sort, simply clear the mission now:
                 LOGGER.warn("POSSIBLY STALE MISSIONINIT");
+                machine.queuedMissionInit = null;
             }
         }
 
@@ -525,31 +526,6 @@ public class ServerStateMachine extends StateMachine {
         protected void execute()
         {
             boolean builtOkay = true;
-            /*
-            MinecraftServer server = FMLCommonHandler.instance().getMinecraftServerInstance();
-            World world = server.getEntityWorld();
-            MissionBehaviour handlers = this.ssmachine.getHandlers();
-            // Assume the world has been created correctly - now do the necessary building.
-            if (handlers != null && handlers.worldDecorator != null)
-            {
-                try
-                {
-                    handlers.worldDecorator.buildOnWorld(this.ssmachine.currentMissionInit(), world);
-                }
-                catch (DecoratorException e)
-                {
-                    // Error attempting to decorate the world - abandon the mission.
-                    builtOkay = false;
-                    if (e.getMessage() != null)
-                        saveErrorDetails(e.getMessage());
-                    // Tell all the clients to abort:
-                    Map<String, String>data = new HashMap<String, String>();
-                    data.put("message", getErrorDetails());
-                    MalmoMod.safeSendToAll(MalmoMessageType.SERVER_ABORT, data);
-                    // And abort ourselves:
-                    episodeHasCompleted(ServerState.ERROR);
-                }
-            }*/
             if (builtOkay)
             {
                 // Now set up other attributes of the environment (eg weather)

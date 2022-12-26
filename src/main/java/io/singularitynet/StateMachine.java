@@ -115,7 +115,7 @@ abstract public class StateMachine
         }
     }
 
-    protected synchronized void stop() {
+    public synchronized void stop() {
         _setState(null);
         this.stateQueue.clear();
     }

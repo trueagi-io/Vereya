@@ -61,4 +61,11 @@ public class VereyaModServer implements ModInitializer {
             this.stateMachine.queueStateChange(ServerState.WAITING_FOR_MOD_READY);
         }
     }
+
+    public void reset(){
+        if (this.stateMachine != null){
+            this.stateMachine.stop();
+            this.stateMachine.queueStateChange(ServerState.WAITING_FOR_MOD_READY);
+        }
+    }
 }

@@ -677,6 +677,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
         {
             super(machine);
             this.csMachine = machine;
+            VereyaModServer.getInstance().reset();
         }
 
         @Override

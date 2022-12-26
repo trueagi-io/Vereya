@@ -458,6 +458,8 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
                     }
                     else
                     {
+                        if (currentState instanceof ClientState)
+                            LOGGER.info("we are in state " + ((ClientState)currentState).name());
                         // We're busy - we can't be reserved.
                         reply("MALMOBUSY", dos);
                     }

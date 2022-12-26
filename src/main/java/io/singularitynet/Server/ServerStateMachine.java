@@ -1151,6 +1151,12 @@ public class ServerStateMachine extends StateMachine {
         }
     }
 
+    @Override
+    public synchronized void stop() {
+        this.currentMissionInit = null;
+        super.stop();
+    }
+
     //---------------------------------------------------------------------------------------------------------
     /** Wait for all agents to stop running and get themselves into a ready state.*/
     public class WaitingForAgentsToQuitEpisode extends ErrorAwareEpisode implements IMalmoMessageListener

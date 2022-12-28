@@ -677,7 +677,6 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
         {
             super(machine);
             this.csMachine = machine;
-            VereyaModServer.getInstance().reset();
         }
 
         @Override
@@ -760,12 +759,14 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
         protected boolean pingAgent(boolean abortIfFailed)
         {
             if (AddressHelper.getMissionControlPort() == 0) {
+                LOGGER.trace("not pinging");
                 // MalmoEnvServer has no server to client ping.
                 return true;
             }
             String message = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><ping minecraft-version=\"" +
                     MinecraftClient.getInstance().getGameVersion() + "\" />";
             boolean sentOkay = ClientStateMachine.this.getMissionControlSocket().sendTCPString(message, 1);
+            LOGGER.trace("pinging " + String.valueOf(ClientStateMachine.this.getMissionControlSocket().getPort()) + " " + sentOkay);
             if (!sentOkay)
             {
                 // It's not available - bail.
@@ -1385,6 +1386,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
 
         private void proceed()
         {
+            LOGGER.trace("proceed");
             // The server is ready, so send our MissionInit back to the agent and go!
             // We launch the agent by sending it the MissionInit message we were sent
             // (but with the Launcher's IP address included)
@@ -1395,10 +1397,10 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
             {
                 xml = SchemaHelper.serialiseObject(currentMissionInit(), MissionInit.class);
                 if (AddressHelper.getMissionControlPort() == 0) {
-                    LOGGER.info("CLIENT: not sending mission init back to agent");
+                    LOGGER.debug("CLIENT: not sending mission init back to agent");
                     sentOkay = true;
                 } else {
-                    LOGGER.info("CLIENT: sending mission init back to agent");
+                    LOGGER.debug("CLIENT: port " + String.valueOf(ClientStateMachine.this.getMissionControlSocket().getPort()) + " sending mission init back to agent : " + xml.length());
                     sentOkay = ClientStateMachine.this.getMissionControlSocket().sendTCPString(xml, 1);
                 }
             }
@@ -1600,7 +1602,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
                         onMissionEnded(ClientState.ERROR_LOST_AGENT, "Lost contact with the agent");
                     else
                     {
-                        System.out.println("Error - agent is not responding to pings.");
+                        LOGGER.info("Error - agent is not responding to pings.");
                         this.wantsToQuit = true;
                         this.quitCode = VereyaModClient.AGENT_UNRESPONSIVE_CODE;
                     }

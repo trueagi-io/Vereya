@@ -1152,8 +1152,9 @@ public class ServerStateMachine extends StateMachine {
     }
 
     @Override
-    public synchronized void stop() {
+    protected synchronized void stop() {
         this.currentMissionInit = null;
+        this.queuedMissionInit = null;
         super.stop();
     }
 
@@ -1251,7 +1252,8 @@ public class ServerStateMachine extends StateMachine {
         protected void execute()
         {
             // Put in all cleanup code here.
-            // ServerStateMachine.this.currentMissionInit = null;
+            ServerStateMachine.this.currentMissionInit = null;
+            ServerStateMachine.this.queuedMissionInit = null;
             episodeHasCompleted(ServerState.DORMANT);
         }
     }

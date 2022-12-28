@@ -8,21 +8,21 @@ import org.spongepowered.asm.mixin.gen.Accessor;
 
 @Mixin(GameOptions.class)
 public interface GameOptionsMixin {
-    @Accessor("keyAttack") @Mutable
+    @Accessor("attackKey") @Mutable
     public void setKeyAttack(KeyBinding key);
 
-    @Accessor("keyAttack")
+    @Accessor("attackKey")
     public KeyBinding getKeyAttack();
 
-    @Accessor("keyUse") @Mutable
+    @Accessor("useKey") @Mutable
     public void setKeyUse(KeyBinding key);
 
-    @Accessor("keyUse")
+    @Accessor("useKey")
     public KeyBinding getKeyUse();
 
-    @Accessor("keysHotbar") @Mutable
+    @Accessor("hotbarKeys") @Mutable
     public void setKeysHotbar(KeyBinding[] keys);
 
-    @Accessor("keysHotbar")
+    @Accessor("hotbarKeys")
     public KeyBinding[] getKeysHotbar();
 }

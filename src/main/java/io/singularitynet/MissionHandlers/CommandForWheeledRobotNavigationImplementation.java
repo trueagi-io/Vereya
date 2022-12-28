@@ -70,7 +70,7 @@ public class CommandForWheeledRobotNavigationImplementation extends CommandBase
         }
 
         @Override
-        public void tick(boolean slowDown) {
+        public void tick(boolean slowDown, float f) {
             if (CommandForWheeledRobotNavigationImplementation.this.updateState()) {
                 this.jumping = CommandForWheeledRobotNavigationImplementation.this.jumping;
                 this.sneaking = CommandForWheeledRobotNavigationImplementation.this.sneaking;
@@ -81,7 +81,7 @@ public class CommandForWheeledRobotNavigationImplementation extends CommandBase
                     this.movementForward = (float) ((double) this.movementForward * 0.3);
                 }
             } else {
-                super.tick(slowDown);
+                super.tick(slowDown, f);
             }
         }
     }

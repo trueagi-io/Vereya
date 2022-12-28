@@ -49,7 +49,7 @@ public class MissionQuitCommandsImplementation  extends CommandBase implements I
             return false;
         }
 
-        player.sendChatMessage( "Quitting mission" );
+        player.sendChatMessage( "Quitting mission", null);
         this.iWantToQuit = true;
         return true;
     }

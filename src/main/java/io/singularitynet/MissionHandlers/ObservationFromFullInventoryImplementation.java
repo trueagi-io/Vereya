@@ -115,7 +115,7 @@ public class ObservationFromFullInventoryImplementation extends HandlerBase impl
             if (is != null)
             {
                 json.add(prefix + i + "_size", new JsonPrimitive(is.getCount()));
-                json.add("type", new JsonPrimitive(is.getItem().getName().asString()));
+                json.add("type", new JsonPrimitive(is.getItem().getName().getString()));
                 json.add("index", new JsonPrimitive(i));
                 json.add("quantity", new JsonPrimitive(is.getCount()));
                 json.add("inventory",  new JsonPrimitive("inventory"));

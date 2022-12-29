@@ -1039,6 +1039,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
                     LOGGER.error("error setting player name, player is null");
                 }
             }
+            LOGGER.debug("needsNewWorld: " + needsNewWorld);
             if (needsNewWorld) {
                 ((SessionMixin)MinecraftClient.getInstance().getSession()).setName(agentName);
             }

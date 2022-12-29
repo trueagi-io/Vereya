@@ -435,7 +435,6 @@ public class ServerStateMachine extends StateMachine {
                 // has passed the mission across, then hit an error case and aborted. In such cases this mission is now stale, and should be abandoned.
                 // To guard against errors of this sort, simply clear the mission now:
                 LOGGER.warn("POSSIBLY STALE MISSIONINIT");
-                machine.queuedMissionInit = null;
             }
         }
 

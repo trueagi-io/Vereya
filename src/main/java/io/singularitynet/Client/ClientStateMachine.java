@@ -34,7 +34,6 @@ import jakarta.xml.bind.JAXBException;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
-import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.entity.player.PlayerEntity;
@@ -51,10 +50,7 @@ import org.xml.sax.SAXException;
 import javax.xml.stream.XMLStreamException;
 import java.io.DataOutputStream;
 import java.io.IOException;
-import java.lang.reflect.Field;
-import java.math.BigDecimal;
 import java.net.UnknownHostException;
-import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.logging.Level;
@@ -85,6 +81,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
     private MissionDiagnostics missionEndedData = new MissionDiagnostics();
     private IScreenHelper screenHelper = new ScreenHelper();
     protected IMalmoModClient inputController;
+    private static String mod_version_xml = "0.1.0";
     private static String mod_version = "- 21";
     static {
     	Properties properties = new Properties();
@@ -444,7 +441,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
                 // 5: MissionInit
 
                 String reservePrefixGeneral = "MALMO_REQUEST_CLIENT:";
-                String reservePrefix = reservePrefixGeneral + mod_version + ":";
+                String reservePrefix = reservePrefixGeneral + mod_version_xml + ":";
                 String findServerPrefix = "MALMO_FIND_SERVER";
                 String cancelRequestCommand = "MALMO_CANCEL_REQUEST";
                 String killClientCommand = "MALMO_KILL_CLIENT";
@@ -461,6 +458,8 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
                     }
                     else
                     {
+                        if (currentState instanceof ClientState)
+                            LOGGER.info("we are in state " + ((ClientState)currentState).name());
                         // We're busy - we can't be reserved.
                         reply("MALMOBUSY", dos);
                     }
@@ -556,7 +555,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
                         // We've been sent a MissionInit message.
                         // First, check the version number:
                         String platformVersion = missionInit.getPlatformVersion();
-                        String ourVersion = mod_version;
+                        String ourVersion = mod_version_xml;
                         if (platformVersion == null || !platformVersion.equals(ourVersion))
                         {
                             reply("MALMOERRORVERSIONMISMATCH (Got " + platformVersion + ", expected " + ourVersion + " - check your path for old versions of MalmoPython/MalmoJava/Malmo.lib etc)", dos);
@@ -760,11 +759,14 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
         protected boolean pingAgent(boolean abortIfFailed)
         {
             if (AddressHelper.getMissionControlPort() == 0) {
+                LOGGER.trace("not pinging");
                 // MalmoEnvServer has no server to client ping.
                 return true;
             }
-
-            boolean sentOkay = ClientStateMachine.this.getMissionControlSocket().sendTCPString("<?xml version=\"1.0\" encoding=\"UTF-8\"?><ping/>", 1);
+            String message = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><ping minecraft-version=\"" +
+                    MinecraftClient.getInstance().getGameVersion() + "\" />";
+            boolean sentOkay = ClientStateMachine.this.getMissionControlSocket().sendTCPString(message, 1);
+            LOGGER.trace("pinging " + String.valueOf(ClientStateMachine.this.getMissionControlSocket().getPort()) + " " + sentOkay);
             if (!sentOkay)
             {
                 // It's not available - bail.
@@ -1037,6 +1039,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
                     LOGGER.error("error setting player name, player is null");
                 }
             }
+            LOGGER.debug("needsNewWorld: " + needsNewWorld);
             if (needsNewWorld) {
                 ((SessionMixin)MinecraftClient.getInstance().getSession()).setName(agentName);
             }
@@ -1384,6 +1387,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
 
         private void proceed()
         {
+            LOGGER.trace("proceed");
             // The server is ready, so send our MissionInit back to the agent and go!
             // We launch the agent by sending it the MissionInit message we were sent
             // (but with the Launcher's IP address included)
@@ -1394,8 +1398,10 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
             {
                 xml = SchemaHelper.serialiseObject(currentMissionInit(), MissionInit.class);
                 if (AddressHelper.getMissionControlPort() == 0) {
+                    LOGGER.debug("CLIENT: not sending mission init back to agent");
                     sentOkay = true;
                 } else {
+                    LOGGER.debug("CLIENT: port " + String.valueOf(ClientStateMachine.this.getMissionControlSocket().getPort()) + " sending mission init back to agent : " + xml.length());
                     sentOkay = ClientStateMachine.this.getMissionControlSocket().sendTCPString(xml, 1);
                 }
             }
@@ -1597,7 +1603,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
                         onMissionEnded(ClientState.ERROR_LOST_AGENT, "Lost contact with the agent");
                     else
                     {
-                        System.out.println("Error - agent is not responding to pings.");
+                        LOGGER.info("Error - agent is not responding to pings.");
                         this.wantsToQuit = true;
                         this.quitCode = VereyaModClient.AGENT_UNRESPONSIVE_CODE;
                     }

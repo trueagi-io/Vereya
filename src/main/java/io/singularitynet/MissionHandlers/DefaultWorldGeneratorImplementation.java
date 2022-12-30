@@ -111,6 +111,7 @@ public class DefaultWorldGeneratorImplementation extends HandlerBase implements 
 
         // world exists and forceReuse is set
         if (this.dwparams != null && this.dwparams.isForceReuse() ) {
+            LogManager.getLogger().debug("forceReuse existing world");
             return false;
         }
 
@@ -120,7 +121,11 @@ public class DefaultWorldGeneratorImplementation extends HandlerBase implements 
         if (genOptions != null && DefaultWorldGenerator.class.isInstance(genOptions) ) {
             DefaultWorldGenerator oldParams = (DefaultWorldGenerator)genOptions;
             // seed is all we have
-            boolean result = (oldParams.getSeed() == dwparams.getSeed());
+            boolean result = (oldParams.getSeed() != dwparams.getSeed());
+            if (result)
+                LogManager.getLogger().debug("should create new world: different seed ");
+            else
+                LogManager.getLogger().debug("reusing existing world: same seed ");
             return result;
         }
         LogManager.getLogger().warn("Can't compare worlds yet");

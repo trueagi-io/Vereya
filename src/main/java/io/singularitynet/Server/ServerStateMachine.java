@@ -525,31 +525,6 @@ public class ServerStateMachine extends StateMachine {
         protected void execute()
         {
             boolean builtOkay = true;
-            /*
-            MinecraftServer server = FMLCommonHandler.instance().getMinecraftServerInstance();
-            World world = server.getEntityWorld();
-            MissionBehaviour handlers = this.ssmachine.getHandlers();
-            // Assume the world has been created correctly - now do the necessary building.
-            if (handlers != null && handlers.worldDecorator != null)
-            {
-                try
-                {
-                    handlers.worldDecorator.buildOnWorld(this.ssmachine.currentMissionInit(), world);
-                }
-                catch (DecoratorException e)
-                {
-                    // Error attempting to decorate the world - abandon the mission.
-                    builtOkay = false;
-                    if (e.getMessage() != null)
-                        saveErrorDetails(e.getMessage());
-                    // Tell all the clients to abort:
-                    Map<String, String>data = new HashMap<String, String>();
-                    data.put("message", getErrorDetails());
-                    MalmoMod.safeSendToAll(MalmoMessageType.SERVER_ABORT, data);
-                    // And abort ourselves:
-                    episodeHasCompleted(ServerState.ERROR);
-                }
-            }*/
             if (builtOkay)
             {
                 // Now set up other attributes of the environment (eg weather)
@@ -656,6 +631,7 @@ public class ServerStateMachine extends StateMachine {
             super.onMessage(messageType, data, player);
             if (messageType == MalmoMessageType.CLIENT_AGENTREADY)
             {
+                LOGGER.debug("SERVER: got AGENTREADY message");
                 // A client has joined and is waiting for us to tell us it can proceed.
                 // Initialise the player, and store a record mapping from the username to the agentname.
                 String username = data.get("username");
@@ -681,6 +657,7 @@ public class ServerStateMachine extends StateMachine {
             }
             else if (messageType == MalmoMessageType.CLIENT_AGENTRUNNING)
             {
+                LOGGER.debug("SERVER: got AGENTRUNNING message");
                 // A client has entered the running state (only happens once all CLIENT_AGENTREADY messages have arrived).
                 String username = data.get("username");
                 String agentname = this.usernameToAgentnameMap.get(username);
@@ -1173,6 +1150,13 @@ public class ServerStateMachine extends StateMachine {
         }
     }
 
+    @Override
+    protected synchronized void stop() {
+        this.currentMissionInit = null;
+        this.queuedMissionInit = null;
+        super.stop();
+    }
+
     //---------------------------------------------------------------------------------------------------------
     /** Wait for all agents to stop running and get themselves into a ready state.*/
     public class WaitingForAgentsToQuitEpisode extends ErrorAwareEpisode implements IMalmoMessageListener
@@ -1267,7 +1251,8 @@ public class ServerStateMachine extends StateMachine {
         protected void execute()
         {
             // Put in all cleanup code here.
-            // ServerStateMachine.this.currentMissionInit = null;
+            ServerStateMachine.this.currentMissionInit = null;
+            ServerStateMachine.this.queuedMissionInit = null;
             episodeHasCompleted(ServerState.DORMANT);
         }
     }

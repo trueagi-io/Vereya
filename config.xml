@@ -4,7 +4,7 @@
     <Console name="Console" target="SYSTEM_OUT">
       <PatternLayout pattern="%d{HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n"/>
     </Console>
-    <File name="file" fileName="/home/leron/projects/eclipse-workspace/Vereya-fabric/logs/app.log" >
+    <File name="file" fileName="logs/app.log" >
         <PatternLayout>
             <Pattern>"%d{HH:mm:ss.SSS} %-5p %m%n"</Pattern>
         </PatternLayout>

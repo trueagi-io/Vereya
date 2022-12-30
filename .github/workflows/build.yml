@@ -1,0 +1,64 @@
+# Automatically build the project and run any configured tests for every push
+# and submitted pull request. This can help catch issues that only occur on
+# certain platforms or Java versions, and provides a first line of defence
+# against bad commits.
+
+name: build and test
+on: [pull_request, push]
+defaults:
+  run:
+    shell: bash -l {0}
+
+jobs:
+  build:
+    name: build
+    runs-on: self-hosted
+    strategy:
+      matrix:
+        # Use these Java versions
+        java: [ 17, ]  # Current Java LTS & minimum supported by Minecraft
+    steps:
+      - name: checkout repository
+        uses: actions/checkout@v2
+      - name: validate gradle wrapper
+        uses: gradle/wrapper-validation-action@v1
+      - name: setup jdk ${{ matrix.java }}
+        uses: actions/setup-java@v1
+        with:
+          java-version: ${{ matrix.java }}
+      - name: make gradle wrapper executable
+        if: ${{ runner.os != 'Windows' }}
+        run: chmod +x ./gradlew
+      - name: build
+        run: ./gradlew build
+      - name: capture build artifacts
+        if: ${{ runner.os == 'Linux' && matrix.java == '17' }} # Only upload artifacts built from latest java on one OS
+        uses: actions/upload-artifact@v2
+        with:
+          name: Artifacts
+          path: build/libs/
+      - name: install vereya
+        run: rm /home/tester/.minecraft/mods/* && cp $GITHUB_WORKSPACE/build/libs/* /home/tester/.minecraft/mods/
+      - name: install fabric
+        run: rsync -v $GITHUB_WORKSPACE/fabric/* /home/tester/.minecraft/mods/
+  test:
+    needs: build
+    runs-on: self-hosted
+    steps:
+      - name: start minecraft
+        run: ./launch.sh &
+        env:
+          DISPLAY: :99
+          GITHUB_WORKSPACE: $GITHUB_WORKSPACE
+      - name: checkout tagilmo
+        uses: actions/checkout@v3
+        with:
+          repository: noskill/minecraft-demo
+          path: minecraft-demo
+      - name: install tagilmo
+        run: conda activate py31 && cd $GITHUB_WORKSPACE/minecraft-demo && pip install .
+      - name: run test
+        run: |
+          ps a|grep [j]ava &&
+          conda activate py31 && cd $GITHUB_WORKSPACE/minecraft-demo/experiments/vereya &&
+          python run_tests.py

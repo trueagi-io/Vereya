@@ -20,6 +20,7 @@
 package io.singularitynet.Client;
 
 import com.google.gson.JsonObject;
+import com.google.gson.JsonPrimitive;
 import io.singularitynet.*;
 import io.singularitynet.MissionHandlerInterfaces.IVideoProducer;
 import io.singularitynet.MissionHandlerInterfaces.IWantToQuit;
@@ -1717,6 +1718,9 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
             {
                 JsonObject json = new JsonObject();
                 currentMissionBehaviour().observationProducer.writeObservationsToJSON(json, currentMissionInit());
+                VereyaModClient.InputType inptype = ClientStateMachine.this.inputController.getInputType();
+                json.add("input_type", new JsonPrimitive(inptype.name()));
+                json.add("isPaused", new JsonPrimitive(MinecraftClient.getInstance().isPaused()));
                 data = json.toString();
             }
             // Minecraft.getMinecraft().mcProfiler.endStartSection("malmoSendTCPObservations");

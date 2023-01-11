@@ -102,10 +102,13 @@ public class DefaultWorldGeneratorImplementation extends HandlerBase implements 
     public boolean shouldCreateWorld(MissionInit missionInit, Object genOptions)
     {
 
-        if (this.dwparams != null && this.dwparams.isForceReset())
+        if (this.dwparams != null && this.dwparams.isForceReset()) {
+            LogManager.getLogger().debug("force reset: return true");
             return true;
+        }
 
     	if (MinecraftClient.getInstance().world == null ) {
+            LogManager.getLogger().debug("world is null: return true");
             return true;    // Definitely need to create a world if there isn't one in existence!
         }
 
@@ -116,6 +119,7 @@ public class DefaultWorldGeneratorImplementation extends HandlerBase implements 
         }
 
         if (genOptions == null) {
+            LogManager.getLogger().debug("genOptions is null: return true");
             return true;
         }
         if (genOptions != null && DefaultWorldGenerator.class.isInstance(genOptions) ) {

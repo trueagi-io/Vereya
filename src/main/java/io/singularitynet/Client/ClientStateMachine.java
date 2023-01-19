@@ -1410,8 +1410,10 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
             {
                 errorReport = e.getMessage();
             }
-            if (sentOkay)
+            if (sentOkay) {
+                Window.centerOnScreen(MinecraftClient.getInstance().getWindow().getHandle());
                 episodeHasCompleted(ClientState.RUNNING);
+            }
             else
             {
                 ClientStateMachine.this.getScreenHelper().addFragment("ERROR: Could not contact agent to start mission - mission will abort.",

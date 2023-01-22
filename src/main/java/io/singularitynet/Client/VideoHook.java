@@ -17,6 +17,8 @@ import net.minecraft.client.util.Window;
 import net.minecraft.util.math.Matrix4f;
 import net.minecraft.util.math.Vec3d;
 import org.lwjgl.BufferUtils;
+import org.lwjgl.glfw.GLFW;
+
 import static org.lwjgl.opengl.GL11.*;
 
 import java.math.BigDecimal;
@@ -159,7 +161,13 @@ public class VideoHook {
         if( this.renderWidth == oldRenderWidth && this.renderHeight == oldRenderHeight )
             return;
 
+        // store window position
+        int[] xpos = new int[1];
+        int[] ypos = new int[1];
+        GLFW.glfwGetWindowPos(window.getHandle(), xpos, ypos);
         window.setWindowedSize(this.renderWidth, this.renderHeight);
+        // restore: there is issue on mac with window going outside of screen
+        GLFW.glfwSetWindowPos(window.getHandle(), xpos[0], ypos[0]);
         // these will cause a number of visual artefacts
 //        window.setFramebufferHeight(this.renderHeight);
 //        window.setFramebufferWidth(this.renderWidth);

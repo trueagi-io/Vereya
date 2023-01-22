@@ -1411,7 +1411,6 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
                 errorReport = e.getMessage();
             }
             if (sentOkay) {
-                Window.centerOnScreen(MinecraftClient.getInstance().getWindow().getHandle());
                 episodeHasCompleted(ClientState.RUNNING);
             }
             else

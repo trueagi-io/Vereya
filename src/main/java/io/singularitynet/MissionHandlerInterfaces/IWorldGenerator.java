@@ -20,12 +20,6 @@
 package io.singularitynet.MissionHandlerInterfaces;
 
 import io.singularitynet.projectmalmo.MissionInit;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.registry.RegistryKey;
-import net.minecraft.world.World;
-
-import java.util.Map;
-import java.util.Properties;
 
 /** Interface for objects which can determine the world structure for the Minecraft mission.
  */

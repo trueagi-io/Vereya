@@ -23,19 +23,11 @@ import io.singularitynet.MissionHandlerInterfaces.IWorldGenerator;
 import io.singularitynet.projectmalmo.DefaultWorldGenerator;
 import io.singularitynet.projectmalmo.MissionInit;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.registry.RegistryKey;
 import net.minecraft.world.Difficulty;
-import net.minecraft.world.World;
-import net.minecraft.world.gen.GeneratorOptions;
 import org.apache.logging.log4j.LogManager;
-
 import java.io.IOException;
-import java.util.HashSet;
-import java.util.Map;
 import java.util.Random;
-import java.util.Set;
+
 
 public class DefaultWorldGeneratorImplementation extends HandlerBase implements IWorldGenerator
 {

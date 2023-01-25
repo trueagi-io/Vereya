@@ -27,7 +27,6 @@ import io.singularitynet.projectmalmo.ChatCommands;
 import io.singularitynet.projectmalmo.MissionInit;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.text.Text;
 
 /** Chat commands allow the players to broadcast text messages. */
 public class ChatCommandsImplementation extends CommandBase implements ICommandHandler
@@ -48,9 +47,9 @@ public class ChatCommandsImplementation extends CommandBase implements ICommandH
             return false;
         }
         if (parameter.startsWith("/")) {
-            player.sendCommand(parameter.substring(1), Text.of(parameter));
+            player.networkHandler.sendCommand(parameter.substring(1) + " " + parameter);
         } else {
-            player.sendChatMessage(parameter, Text.of(parameter));
+            player.networkHandler.sendCommand(parameter + " " + parameter);
         }
         return true;
     }

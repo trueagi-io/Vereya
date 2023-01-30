@@ -27,11 +27,14 @@ import io.singularitynet.projectmalmo.ChatCommands;
 import io.singularitynet.projectmalmo.MissionInit;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 /** Chat commands allow the players to broadcast text messages. */
 public class ChatCommandsImplementation extends CommandBase implements ICommandHandler
 {
     private boolean isOverriding;
+    private static final Logger LOGGER = LogManager.getLogger();
 
     @Override
     protected boolean onExecute(String verb, String parameter, MissionInit missionInit)
@@ -46,11 +49,14 @@ public class ChatCommandsImplementation extends CommandBase implements ICommandH
         {
             return false;
         }
+        String command = null;
         if (parameter.startsWith("/")) {
-            player.networkHandler.sendCommand(parameter.substring(1) + " " + parameter);
+            command = parameter.substring(1);
         } else {
-            player.networkHandler.sendCommand(parameter + " " + parameter);
+            command = parameter;
         }
+        LOGGER.debug("sending command: " + command);
+        player.networkHandler.sendCommand(command);
         return true;
     }
 

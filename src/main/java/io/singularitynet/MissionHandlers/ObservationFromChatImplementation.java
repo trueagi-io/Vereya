@@ -83,6 +83,7 @@ public class ObservationFromChatImplementation extends HandlerBase implements IO
                 for (String message : lists.get(key))
                 {
                     jarr.add(new JsonPrimitive(message));
+                    LOGGER.debug("sending CHAT observation " + key + ":" + message);
                 }
                 json.add(key, jarr);
             }

@@ -15,6 +15,7 @@ import net.minecraft.client.util.Window;
 import net.minecraft.util.math.Vec3d;
 import org.joml.Matrix4f;
 import org.lwjgl.BufferUtils;
+
 import static org.lwjgl.opengl.GL11.*;
 
 import java.math.BigDecimal;
@@ -78,8 +79,9 @@ public class VideoHook {
     private TCPSocketChannel connection = null;
 
     private int renderWidth;
-
     private int renderHeight;
+    private int renderedWidth = 0;
+    private int renderedHeight = 0;
 
     ByteBuffer buffer = null;
     ByteBuffer headerbuffer = null;
@@ -152,12 +154,19 @@ public class VideoHook {
             return;
         }
         // resize the window if we need to
+        if( this.renderedWidth == 0 ) {
+            this.renderedWidth = this.renderWidth;
+            this.renderedHeight = this.renderHeight;
+        }
         int oldRenderWidth = window.getFramebufferWidth();
         int oldRenderHeight = window.getFramebufferHeight();
-        if( this.renderWidth == oldRenderWidth && this.renderHeight == oldRenderHeight )
+        if( this.renderedWidth == oldRenderWidth && this.renderedHeight == oldRenderHeight )
             return;
 
         window.setWindowedSize(this.renderWidth, this.renderHeight);
+        // Store width and height obtrained in the same way as to be compared to
+        this.renderedWidth = window.getFramebufferWidth();
+        this.renderedHeight = window.getFramebufferHeight();
         // these will cause a number of visual artefacts
 //        window.setFramebufferHeight(this.renderHeight);
 //        window.setFramebufferWidth(this.renderWidth);

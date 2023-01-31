@@ -55,12 +55,12 @@ jobs:
       - name: checkout tagilmo
         uses: actions/checkout@v3
         with:
-          repository: noskill/minecraft-demo
+          repository: trueagi-io/minecraft-demo
           path: minecraft-demo
       - name: install tagilmo
         run: conda activate py31 && cd $GITHUB_WORKSPACE/minecraft-demo && pip install .
       - name: run test
         run: |
           ps a|grep [j]ava &&
-          conda activate py31 && cd $GITHUB_WORKSPACE/minecraft-demo/experiments/vereya &&
+          conda activate py31 && cd $GITHUB_WORKSPACE/minecraft-demo/tests/vereya &&
           python run_tests.py

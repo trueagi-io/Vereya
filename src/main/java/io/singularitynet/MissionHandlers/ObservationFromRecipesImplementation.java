@@ -58,6 +58,8 @@ class ObservationFromRecipesImplementation extends HandlerBase implements IObser
                 ingArray.add(ingStacks);
             }
             rec.add("ingredients", ingArray);
+            rec.add("recipe_type", new JsonPrimitive(r.getType().toString()));
+            rec.add("group", new JsonPrimitive(r.getGroup()));
             recipes.add(rec);
         }
         json.add("recipes", recipes);

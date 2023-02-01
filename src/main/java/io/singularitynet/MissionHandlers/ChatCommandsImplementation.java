@@ -52,11 +52,12 @@ public class ChatCommandsImplementation extends CommandBase implements ICommandH
         String command = null;
         if (parameter.startsWith("/")) {
             command = parameter.substring(1);
+            LOGGER.debug("sending command: " + command);
+            player.networkHandler.sendCommand(command);
         } else {
             command = parameter;
+            player.networkHandler.sendChatMessage(command);
         }
-        LOGGER.debug("sending command: " + command);
-        player.networkHandler.sendCommand(command);
         return true;
     }
 

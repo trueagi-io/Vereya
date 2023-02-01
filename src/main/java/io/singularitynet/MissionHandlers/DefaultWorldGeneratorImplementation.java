@@ -93,7 +93,7 @@ public class DefaultWorldGeneratorImplementation extends HandlerBase implements 
     @Override
     public boolean shouldCreateWorld(MissionInit missionInit, Object genOptions)
     {
-
+        LogManager.getLogger().debug("shouldCreateWorld");
         if (this.dwparams != null && this.dwparams.isForceReset()) {
             LogManager.getLogger().debug("force reset: return true");
             return true;
@@ -117,9 +117,9 @@ public class DefaultWorldGeneratorImplementation extends HandlerBase implements 
         if (genOptions != null && DefaultWorldGenerator.class.isInstance(genOptions) ) {
             DefaultWorldGenerator oldParams = (DefaultWorldGenerator)genOptions;
             // seed is all we have
-            boolean result = (oldParams.getSeed() != dwparams.getSeed());
+            boolean result = !(oldParams.getSeed().equals(dwparams.getSeed()));
             if (result)
-                LogManager.getLogger().debug("should create new world: different seed ");
+                LogManager.getLogger().debug("should create new world: different seed " + oldParams.getSeed() + " " + dwparams.getSeed());
             else
                 LogManager.getLogger().debug("reusing existing world: same seed ");
             return result;

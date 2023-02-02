@@ -50,8 +50,6 @@ jobs:
         env:
           DISPLAY: :99
           GITHUB_WORKSPACE: $GITHUB_WORKSPACE
-          ACCESST: ${{ vars.ACCESST }}
-          CLIENTID: ${{ vars.CLIENTID }}
       - name: checkout tagilmo
         uses: actions/checkout@v3
         with:

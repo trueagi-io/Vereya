@@ -20,6 +20,7 @@
 package io.singularitynet.Client;
 
 import com.google.gson.JsonObject;
+import com.google.gson.JsonPrimitive;
 import io.singularitynet.*;
 import io.singularitynet.MissionHandlerInterfaces.IVideoProducer;
 import io.singularitynet.MissionHandlerInterfaces.IWantToQuit;
@@ -34,7 +35,6 @@ import jakarta.xml.bind.JAXBException;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
-import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.entity.player.PlayerEntity;
@@ -51,10 +51,7 @@ import org.xml.sax.SAXException;
 import javax.xml.stream.XMLStreamException;
 import java.io.DataOutputStream;
 import java.io.IOException;
-import java.lang.reflect.Field;
-import java.math.BigDecimal;
 import java.net.UnknownHostException;
-import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.logging.Level;
@@ -85,6 +82,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
     private MissionDiagnostics missionEndedData = new MissionDiagnostics();
     private IScreenHelper screenHelper = new ScreenHelper();
     protected IMalmoModClient inputController;
+    private static String mod_version_xml = "0.1.0";
     private static String mod_version = "- 21";
     static {
     	Properties properties = new Properties();
@@ -283,6 +281,12 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
                 return new MissionEndedEpisode(this, MissionResult.MOD_HAS_NO_AGENT_AVAILABLE, true, true, false);
             case ERROR_CANNOT_CREATE_WORLD:
                 return new MissionEndedEpisode(this, MissionResult.MOD_FAILED_TO_CREATE_WORLD, true, true, true);
+            case ERROR_TIMED_OUT_WAITING_FOR_EPISODE_START: // run-ons deliberate
+            case ERROR_TIMED_OUT_WAITING_FOR_EPISODE_PAUSE:
+            case ERROR_TIMED_OUT_WAITING_FOR_EPISODE_CLOSE:
+            case ERROR_TIMED_OUT_WAITING_FOR_MISSION_END:
+            case ERROR_TIMED_OUT_WAITING_FOR_WORLD_CREATE:
+                return new MissionEndedEpisode(this, MissionResult.MOD_HAS_NO_AGENT_AVAILABLE, true, true, false);
             default:
                 break;
         }
@@ -438,7 +442,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
                 // 5: MissionInit
 
                 String reservePrefixGeneral = "MALMO_REQUEST_CLIENT:";
-                String reservePrefix = reservePrefixGeneral + mod_version + ":";
+                String reservePrefix = reservePrefixGeneral + mod_version_xml + ":";
                 String findServerPrefix = "MALMO_FIND_SERVER";
                 String cancelRequestCommand = "MALMO_CANCEL_REQUEST";
                 String killClientCommand = "MALMO_KILL_CLIENT";
@@ -455,6 +459,8 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
                     }
                     else
                     {
+                        if (currentState instanceof ClientState)
+                            LOGGER.info("we are in state " + ((ClientState)currentState).name());
                         // We're busy - we can't be reserved.
                         reply("MALMOBUSY", dos);
                     }
@@ -550,7 +556,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
                         // We've been sent a MissionInit message.
                         // First, check the version number:
                         String platformVersion = missionInit.getPlatformVersion();
-                        String ourVersion = mod_version;
+                        String ourVersion = mod_version_xml;
                         if (platformVersion == null || !platformVersion.equals(ourVersion))
                         {
                             reply("MALMOERRORVERSIONMISMATCH (Got " + platformVersion + ", expected " + ourVersion + " - check your path for old versions of MalmoPython/MalmoJava/Malmo.lib etc)", dos);
@@ -754,11 +760,14 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
         protected boolean pingAgent(boolean abortIfFailed)
         {
             if (AddressHelper.getMissionControlPort() == 0) {
+                LOGGER.trace("not pinging");
                 // MalmoEnvServer has no server to client ping.
                 return true;
             }
-
-            boolean sentOkay = ClientStateMachine.this.getMissionControlSocket().sendTCPString("<?xml version=\"1.0\" encoding=\"UTF-8\"?><ping/>", 1);
+            String message = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><ping minecraft-version=\"" +
+                    MinecraftClient.getInstance().getGameVersion() + "\" />";
+            boolean sentOkay = ClientStateMachine.this.getMissionControlSocket().sendTCPString(message, 1);
+            LOGGER.trace("pinging " + String.valueOf(ClientStateMachine.this.getMissionControlSocket().getPort()) + " " + sentOkay);
             if (!sentOkay)
             {
                 // It's not available - bail.
@@ -1024,11 +1033,14 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
                 // Get our name from the Mission:
                 PlayerEntity player = MinecraftClient.getInstance().player;
                 if (player != null) {
-                    String playerName = player.getName().asString();
+                    String playerName = player.getName().getString();
                     if (!playerName.equals(agentName))
-                        ((SessionMixin)MinecraftClient.getInstance().getSession()).setName(agentName);
+                        ((SessionMixin) MinecraftClient.getInstance().getSession()).setName(agentName);
+                } else {
+                    LOGGER.error("error setting player name, player is null");
                 }
             }
+            LOGGER.debug("needsNewWorld: " + needsNewWorld);
             if (needsNewWorld) {
                 ((SessionMixin)MinecraftClient.getInstance().getSession()).setName(agentName);
             }
@@ -1184,7 +1196,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
                 {
                     HashMap<String, String> map = new HashMap<String, String>();
                     map.put("agentname", agentName);
-                    map.put("username", client.player.getName().asString());
+                    map.put("username", client.player.getName().getString());
                     currentMissionBehaviour().appendExtraServerInformation(map);
                     LOGGER.info("***Telling server we are ready - " + agentName);
                     ClientPlayNetworking.send(NetworkConstants.CLIENT2SERVER,
@@ -1269,6 +1281,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
                     // Minecraft.getMinecraft().loadWorld((WorldClient)null);
                 }
                 this.waitingForPlayer = false;
+                LOGGER.info("player exists and names match");
             }
         }
 
@@ -1375,6 +1388,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
 
         private void proceed()
         {
+            LOGGER.trace("proceed");
             // The server is ready, so send our MissionInit back to the agent and go!
             // We launch the agent by sending it the MissionInit message we were sent
             // (but with the Launcher's IP address included)
@@ -1385,8 +1399,10 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
             {
                 xml = SchemaHelper.serialiseObject(currentMissionInit(), MissionInit.class);
                 if (AddressHelper.getMissionControlPort() == 0) {
+                    LOGGER.debug("CLIENT: not sending mission init back to agent");
                     sentOkay = true;
                 } else {
+                    LOGGER.debug("CLIENT: port " + String.valueOf(ClientStateMachine.this.getMissionControlSocket().getPort()) + " sending mission init back to agent : " + xml.length());
                     sentOkay = ClientStateMachine.this.getMissionControlSocket().sendTCPString(xml, 1);
                 }
             }
@@ -1475,7 +1491,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
 
             // Tell the server we have started:
             HashMap<String, String> map = new HashMap<String, String>();
-            map.put("username", MinecraftClient.getInstance().player.getName().asString());
+            map.put("username", MinecraftClient.getInstance().player.getName().getString());
             MalmoMessage msg = new MalmoMessage(MalmoMessageType.CLIENT_AGENTRUNNING, 0, map);
             ClientPlayNetworking.send(NetworkConstants.CLIENT2SERVER,  msg.toBytes());
 
@@ -1588,7 +1604,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
                         onMissionEnded(ClientState.ERROR_LOST_AGENT, "Lost contact with the agent");
                     else
                     {
-                        System.out.println("Error - agent is not responding to pings.");
+                        LOGGER.info("Error - agent is not responding to pings.");
                         this.wantsToQuit = true;
                         this.quitCode = VereyaModClient.AGENT_UNRESPONSIVE_CODE;
                     }
@@ -1661,7 +1677,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
                 String agentName = agents.get(currentMissionInit().getClientRole()).getName();
                 HashMap<String, String> map = new HashMap<String, String>();
                 map.put("agentname", agentName);
-                map.put("username", MinecraftClient.getInstance().player.getName().asString());
+                map.put("username", MinecraftClient.getInstance().player.getName().getString());
                 map.put("quitcode", this.quitCode);
                 LOGGER.info("informing server that player has quited");
                 ClientPlayNetworking.send(NetworkConstants.CLIENT2SERVER, (new MalmoMessage(MalmoMessageType.CLIENT_AGENTFINISHEDMISSION, 0, map)).toBytes());
@@ -1702,6 +1718,9 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
             {
                 JsonObject json = new JsonObject();
                 currentMissionBehaviour().observationProducer.writeObservationsToJSON(json, currentMissionInit());
+                VereyaModClient.InputType inptype = ClientStateMachine.this.inputController.getInputType();
+                json.add("input_type", new JsonPrimitive(inptype.name()));
+                json.add("isPaused", new JsonPrimitive(MinecraftClient.getInstance().isPaused()));
                 data = json.toString();
             }
             // Minecraft.getMinecraft().mcProfiler.endStartSection("malmoSendTCPObservations");
@@ -2006,7 +2025,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
                 HashMap<String, String> map = new HashMap<String, String>();
                 PlayerEntity player = MinecraftClient.getInstance().player;
                 if (player != null) // Might not be a player yet.
-                    map.put("username", player.getName().asString());
+                    map.put("username", player.getName().getString());
                 map.put("error", ClientStateMachine.this.getErrorDetails());
                 PacketByteBuf buf = new MalmoMessage(MalmoMessageType.CLIENT_BAILED, 0, map).toBytes();
                 LOGGER.debug("informing server of a failure with: " + map.toString());

@@ -24,5 +24,6 @@ public enum MalmoMessageType
     CLIENT_SHARE_REWARD,        // Client has received a reward and needs to share it with other agents
     CLIENT_TURN_TAKEN,          // Client is telling the server turn scheduler that they have just taken their turn
     CLIENT_SOMEOTHERMESSAGE,
-    CLIENT_CRAFT // Client telling the server what to craft
+    CLIENT_CRAFT, // Client telling the server what to craft
+    CLIENT_INVENTORY_CHANGE, // Client tells server to modify inventory
 }

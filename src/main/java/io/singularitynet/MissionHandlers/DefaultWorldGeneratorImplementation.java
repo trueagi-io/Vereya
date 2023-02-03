@@ -31,6 +31,7 @@ import net.minecraft.world.World;
 import net.minecraft.world.gen.GeneratorOptions;
 import org.apache.logging.log4j.LogManager;
 
+import java.io.IOException;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Random;
@@ -86,7 +87,11 @@ public class DefaultWorldGeneratorImplementation extends HandlerBase implements 
             LogManager.getLogger().info("Creating default world");
             WorldUtil.createLevel(false, seed, Difficulty.NORMAL);
             return true;
-        } catch (RuntimeException e) {
+        } catch (RuntimeException | IOException e) {
+            LogManager.getLogger().error("Failed to create world");
+            LogManager.getLogger().error(e);
+            return false;
+        } catch (Exception e) {
             LogManager.getLogger().error("Failed to create world");
             LogManager.getLogger().error(e);
             return false;
@@ -97,25 +102,34 @@ public class DefaultWorldGeneratorImplementation extends HandlerBase implements 
     public boolean shouldCreateWorld(MissionInit missionInit, Object genOptions)
     {
 
-        if (this.dwparams != null && this.dwparams.isForceReset())
+        if (this.dwparams != null && this.dwparams.isForceReset()) {
+            LogManager.getLogger().debug("force reset: return true");
             return true;
+        }
 
     	if (MinecraftClient.getInstance().world == null ) {
+            LogManager.getLogger().debug("world is null: return true");
             return true;    // Definitely need to create a world if there isn't one in existence!
         }
 
         // world exists and forceReuse is set
         if (this.dwparams != null && this.dwparams.isForceReuse() ) {
+            LogManager.getLogger().debug("forceReuse existing world");
             return false;
         }
 
         if (genOptions == null) {
+            LogManager.getLogger().debug("genOptions is null: return true");
             return true;
         }
         if (genOptions != null && DefaultWorldGenerator.class.isInstance(genOptions) ) {
             DefaultWorldGenerator oldParams = (DefaultWorldGenerator)genOptions;
             // seed is all we have
-            boolean result = (oldParams.getSeed() == dwparams.getSeed());
+            boolean result = (oldParams.getSeed() != dwparams.getSeed());
+            if (result)
+                LogManager.getLogger().debug("should create new world: different seed ");
+            else
+                LogManager.getLogger().debug("reusing existing world: same seed ");
             return result;
         }
         LogManager.getLogger().warn("Can't compare worlds yet");

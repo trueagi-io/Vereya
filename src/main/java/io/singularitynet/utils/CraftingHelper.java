@@ -40,6 +40,7 @@ import net.minecraft.util.Identifier;
 import net.minecraft.util.collection.DefaultedList;
 import net.minecraft.util.registry.Registry;
 import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
@@ -48,7 +49,8 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class CraftingHelper {
-
+    // Directly reference a log4j logger.
+    private static final Logger LOGGER = LogManager.getLogger();
     /**
      * Attempt to find all recipes that result in an item of the requested output.
      *
@@ -91,6 +93,10 @@ public class CraftingHelper {
             return false;
 
         Map<Integer, Integer> inventory = countInInventory(player.getInventory(), recipe);
+        LOGGER.debug("contains:");
+        for (Map.Entry<Integer, Integer> elem: inventory.entrySet()) {
+            LOGGER.debug(Item.byRawId(elem.getKey()).getTranslationKey() + ":" + elem.getValue());
+        }
         Map<Integer, Integer> requiredCount = getIngredientCount1(inventory, recipe);
 
         if (requiredCount != null) {
@@ -101,6 +107,8 @@ public class CraftingHelper {
             ItemStack resultForInventory = recipe.getOutput().copy();
             player.getInventory().offerOrDrop(resultForInventory);
             return true;
+        } else {
+            LOGGER.debug("count is wrong");
         }
         return false;
     }
@@ -139,7 +147,16 @@ public class CraftingHelper {
     }
 
     private static Result findRecipe(ItemStack[][] ingredient_stacks, Map<Integer, Integer> inventory, int col){
+
+        if (col == ingredient_stacks.length) {
+            Result res  = new Result();
+            res.ok = true;
+            return res;
+        }
         ItemStack[] stacks = ingredient_stacks[col];
+        if (stacks.length == 0) {
+            return findRecipe(ingredient_stacks, inventory, col + 1);
+        }
         // any stack from matching stacks suffices
         int row = 0;
         for (ItemStack stack : stacks) {
@@ -158,10 +175,9 @@ public class CraftingHelper {
                     int new_count = map1.getOrDefault(itemid, 0) - stack.getCount();
                     map1.put(itemid, new_count);
                     Result recursive = findRecipe(ingredient_stacks, map1, col + 1);
-                    if (recursive.ok) {
-                        result.steps.addAll(recursive.steps);
-                        return result;
-                    }
+                    result.steps.addAll(recursive.steps);
+                    result.ok = recursive.ok;
+                    return result;
                 }
             }
             row ++;

@@ -3,7 +3,6 @@ package io.singularitynet;
 import io.netty.buffer.ByteBufInputStream;
 import io.netty.buffer.ByteBufOutputStream;
 import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
-import net.minecraft.network.MessageType;
 import net.minecraft.network.PacketByteBuf;
 
 import java.io.IOException;

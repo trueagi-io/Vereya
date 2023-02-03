@@ -44,9 +44,7 @@ public class ObservationFromFullStatsImplementation  extends HandlerBase impleme
     @Override
     public void writeObservationsToJSON(JsonObject json, MissionInit missionInit)
     {
-
         PlayerEntity player = MinecraftClient.getInstance().player;
-        // JSONWorldDataHelper.buildAchievementStats(json, player);
         JSONWorldDataHelper.buildLifeStats(json, player);
         JSONWorldDataHelper.buildPositionStats(json, player);
         JSONWorldDataHelper.buildEnvironmentStats(json, player);

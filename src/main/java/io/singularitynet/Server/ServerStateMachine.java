@@ -20,13 +20,13 @@ package io.singularitynet.Server;
 
 import io.singularitynet.*;
 import io.singularitynet.MissionHandlers.MissionBehaviour;
+import io.singularitynet.events.ServerEntityEventsVereya;
 import io.singularitynet.projectmalmo.*;
 import io.singularitynet.utils.SchemaHelper;
 import io.singularitynet.utils.ScreenHelper;
 import jakarta.xml.bind.JAXBElement;
 import jakarta.xml.bind.JAXBException;
 
-import net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
@@ -40,6 +40,7 @@ import net.minecraft.nbt.NbtCompound;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
+import net.minecraft.util.ActionResult;
 import net.minecraft.world.GameMode;
 import net.minecraft.world.GameRules;
 import net.minecraft.world.World;
@@ -84,15 +85,17 @@ public class ServerStateMachine extends StateMachine {
         // Register ourself on the event busses, so we can harness the server tick:
         ServerTickEvents.END_SERVER_TICK.register(s -> this.onServerTick(s));
         ServerLifecycleEvents.SERVER_STOPPED.register(s -> this.onServerStopped(s));
-        ServerEntityEvents.ENTITY_LOAD.register((e, w) -> this.onGetPotentialSpawns(e, w));
+        ServerEntityEventsVereya.BEFORE_ENTITY_ADD.register((e, w) -> this.onGetPotentialSpawns(e, w));
     }
 
     /** Used to prevent spawning in our world.*/
-    public void onGetPotentialSpawns(Entity entity, ServerWorld world)
+    public ActionResult onGetPotentialSpawns(Entity entity, ServerWorld world)
     {
         // Decide whether or not to allow spawning.
         // We shouldn't allow spawning unless it has been specifically turned on - whether
         // a mission is running or not. (Otherwise spawning may happen in between missions.)
+        EntityType type = entity.getType();
+        String mobName = type.getUntranslatedName();
         boolean allowSpawning = false;
         if (currentMissionInit() != null && currentMissionInit().getMission() != null)
         {
@@ -106,36 +109,45 @@ public class ServerStateMachine extends StateMachine {
             {
                 // Spawning is allowed, but restricted to our list:
                 // Is this on our list?
-                EntityType type = entity.getType();
-                String mobName = type.getUntranslatedName();
                 boolean allowed = false;
                 for (EntityTypes mob : sic.getAllowedMobs())
                 {
                     if (mob.value().toLowerCase().equals(mobName.toLowerCase())) { allowed = true; }
                 }
                 if (!allowed) {
-                    if (entity.isPlayer()) return;
-                    if (!entity.isLiving()) return;
+                    if (entity.isPlayer()) return ActionResult.PASS;
+                    if (!entity.isLiving()) return ActionResult.PASS;
                     LOGGER.trace("removing mob " + mobName + ": it's disabled");
                     entity.remove(Entity.RemovalReason.DISCARDED);
+                    return ActionResult.FAIL;
                 }
             }
         }
         // Cancel spawn event:
         if (!allowSpawning) {
-            LOGGER.trace("removing mob: spawning is disabled");
+            if (!entity.isLiving()) return ActionResult.PASS;
+            LOGGER.trace("removing mob "  + mobName + " : spawning is disabled");
+            if (entity.isPlayer()) {
+                LOGGER.info("not removing player " + ((ServerPlayerEntity)entity).getName().getString());
+                return ActionResult.PASS;
+            }
             entity.remove(Entity.RemovalReason.DISCARDED);
+            return ActionResult.FAIL;
         }
+        return ActionResult.PASS;
     }
 
     private void onServerStopped(MinecraftServer s){
         this.stop();
         this.releaseQueuedMissionInit();
+        ServerStateMachine.this.currentMissionInit = null;
+        LOGGER.info("server stopped");
     }
 
     public void setMissionInit(MissionInit minit)
     {
         this.queuedMissionInit = minit;
+        LOGGER.info("set queuedMissionInit" + minit.toString());
     }
 
     protected void setUserTurnSchedule(ArrayList<String> schedule)
@@ -215,7 +227,10 @@ public class ServerStateMachine extends StateMachine {
     private void sendToAll(MalmoMessage msg){
         MinecraftServer server = MinecraftClient.getInstance().getServer();
         if (server == null){
-            LOGGER.error("server is null");
+            LOGGER.error("server is null, msg type " + msg.getMessageType().toString());
+            for (Map.Entry entry: msg.getData().entrySet()){
+                LOGGER.debug(entry.getKey().toString() + ": " + entry.getValue().toString());
+            }
             return;
         }
         for(ServerPlayerEntity player: server.getPlayerManager().getPlayerList()){
@@ -238,7 +253,11 @@ public class ServerStateMachine extends StateMachine {
 
     protected boolean checkWatchList()
     {
-        String[] connected_users = MinecraftClient.getInstance().getServer().getPlayerManager().getPlayerNames();
+        MinecraftServer server = MinecraftClient.getInstance().getServer();
+        if (server == null) {
+            return false;
+        }
+        String[] connected_users = server.getPlayerManager().getPlayerNames();
         // String[] connected_users = FMLCommonHandler.instance().getMinecraftServerInstance().getOnlinePlayerNames();
         if (connected_users.length < this.userConnectionWatchList.size())
             return false;
@@ -267,6 +286,7 @@ public class ServerStateMachine extends StateMachine {
             minit = this.queuedMissionInit;
             this.queuedMissionInit = null;
         }
+        LOGGER.debug("releasing queued mission init");
         return minit;
     }
 
@@ -414,9 +434,7 @@ public class ServerStateMachine extends StateMachine {
                 // If a mission is queued up now, as we enter the dormant state, that would indicate an error - we've seen this in cases where the client
                 // has passed the mission across, then hit an error case and aborted. In such cases this mission is now stale, and should be abandoned.
                 // To guard against errors of this sort, simply clear the mission now:
-                MissionInit staleMinit = machine.releaseQueuedMissionInit();
-                String summary = staleMinit.getMission().getAbout().getSummary();
-                System.out.println("SERVER DITCHING SUSPECTED STALE MISSIONINIT: " + summary);
+                LOGGER.warn("POSSIBLY STALE MISSIONINIT");
             }
         }
 
@@ -507,31 +525,6 @@ public class ServerStateMachine extends StateMachine {
         protected void execute()
         {
             boolean builtOkay = true;
-            /*
-            MinecraftServer server = FMLCommonHandler.instance().getMinecraftServerInstance();
-            World world = server.getEntityWorld();
-            MissionBehaviour handlers = this.ssmachine.getHandlers();
-            // Assume the world has been created correctly - now do the necessary building.
-            if (handlers != null && handlers.worldDecorator != null)
-            {
-                try
-                {
-                    handlers.worldDecorator.buildOnWorld(this.ssmachine.currentMissionInit(), world);
-                }
-                catch (DecoratorException e)
-                {
-                    // Error attempting to decorate the world - abandon the mission.
-                    builtOkay = false;
-                    if (e.getMessage() != null)
-                        saveErrorDetails(e.getMessage());
-                    // Tell all the clients to abort:
-                    Map<String, String>data = new HashMap<String, String>();
-                    data.put("message", getErrorDetails());
-                    MalmoMod.safeSendToAll(MalmoMessageType.SERVER_ABORT, data);
-                    // And abort ourselves:
-                    episodeHasCompleted(ServerState.ERROR);
-                }
-            }*/
             if (builtOkay)
             {
                 // Now set up other attributes of the environment (eg weather)
@@ -638,6 +631,7 @@ public class ServerStateMachine extends StateMachine {
             super.onMessage(messageType, data, player);
             if (messageType == MalmoMessageType.CLIENT_AGENTREADY)
             {
+                LOGGER.debug("SERVER: got AGENTREADY message");
                 // A client has joined and is waiting for us to tell us it can proceed.
                 // Initialise the player, and store a record mapping from the username to the agentname.
                 String username = data.get("username");
@@ -663,6 +657,7 @@ public class ServerStateMachine extends StateMachine {
             }
             else if (messageType == MalmoMessageType.CLIENT_AGENTRUNNING)
             {
+                LOGGER.debug("SERVER: got AGENTRUNNING message");
                 // A client has entered the running state (only happens once all CLIENT_AGENTREADY messages have arrived).
                 String username = data.get("username");
                 String agentname = this.usernameToAgentnameMap.get(username);
@@ -1155,6 +1150,13 @@ public class ServerStateMachine extends StateMachine {
         }
     }
 
+    @Override
+    protected synchronized void stop() {
+        this.currentMissionInit = null;
+        this.queuedMissionInit = null;
+        super.stop();
+    }
+
     //---------------------------------------------------------------------------------------------------------
     /** Wait for all agents to stop running and get themselves into a ready state.*/
     public class WaitingForAgentsToQuitEpisode extends ErrorAwareEpisode implements IMalmoMessageListener
@@ -1250,6 +1252,7 @@ public class ServerStateMachine extends StateMachine {
         {
             // Put in all cleanup code here.
             ServerStateMachine.this.currentMissionInit = null;
+            ServerStateMachine.this.queuedMissionInit = null;
             episodeHasCompleted(ServerState.DORMANT);
         }
     }

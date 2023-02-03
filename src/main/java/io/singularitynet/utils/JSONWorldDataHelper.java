@@ -27,6 +27,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
@@ -105,7 +106,7 @@ public class JSONWorldDataHelper {
         json.addProperty("XP", player.experienceLevel);
         json.addProperty("IsAlive", player.isAlive());
         json.addProperty("Air", player.getAir());
-        json.addProperty("Name", player.getName().asString());
+        json.addProperty("Name", player.getName().getString());
     }
 
     /** Builds the player position data to be used as observation signals by the listener.

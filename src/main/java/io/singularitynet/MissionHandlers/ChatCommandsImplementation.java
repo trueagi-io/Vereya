@@ -47,8 +47,11 @@ public class ChatCommandsImplementation extends CommandBase implements ICommandH
         {
             return false;
         }
-        player.sendChatMessage(parameter);
-        player.sendSystemMessage(Text.of(parameter), player.getUuid());
+        if (parameter.startsWith("/")) {
+            player.sendCommand(parameter.substring(1), Text.of(parameter));
+        } else {
+            player.sendChatMessage(parameter, Text.of(parameter));
+        }
         return true;
     }
 

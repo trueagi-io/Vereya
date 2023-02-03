@@ -71,6 +71,11 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient
         ((MinecraftClientMixin)MinecraftClient.getInstance()).setMouse(mouse);
     }
 
+    @Override
+    public InputType getInputType() {
+        return this.inputType;
+    }
+
     public interface MouseEventListener
     {
         public void onXYZChange(int deltaX, int deltaY, int deltaZ);

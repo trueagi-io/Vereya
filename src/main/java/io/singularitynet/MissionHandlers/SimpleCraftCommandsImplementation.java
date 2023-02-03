@@ -29,6 +29,8 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.recipe.Recipe;
 import net.minecraft.recipe.RecipeType;
 import net.minecraft.server.network.ServerPlayerEntity;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.util.List;
 import java.util.Map;
@@ -36,6 +38,8 @@ import java.util.Map;
 
 public class SimpleCraftCommandsImplementation extends CommandBase  implements IMalmoMessageListener {
     private boolean isOverriding;
+    // Directly reference a log4j logger.
+    private static final Logger LOGGER = LogManager.getLogger();
 
     public static class CraftMessage extends MalmoMessage
     {
@@ -56,6 +60,7 @@ public class SimpleCraftCommandsImplementation extends CommandBase  implements I
     {
         if (verb.equalsIgnoreCase(SimpleCraftCommand.CRAFT.value()))
         {
+            LOGGER.info("crafting message " + verb);
             ClientPlayNetworking.send(NetworkConstants.CLIENT2SERVER, (new CraftMessage(parameter).toBytes()));
             return true;
         }

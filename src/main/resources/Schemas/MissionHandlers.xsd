@@ -1494,6 +1494,20 @@
         </xs:restriction>
     </xs:simpleType>
 
+    <xs:simpleType name="ObservationFromItem">
+        <xs:annotation>
+            <xs:documentation>
+                A command to turn on item_list:
+                    item_list
+                turn off:
+                    item_list off
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="item_list" />
+        </xs:restriction>
+    </xs:simpleType>
+
     <xs:simpleType name="NearbyCraftCommand">
         <xs:annotation>
             <xs:documentation>
@@ -1607,8 +1621,9 @@
     </xs:simpleType>
 
     <xs:simpleType name="Command">
-        <xs:union memberTypes="ContinuousMovementCommand AbsoluteMovementCommand DiscreteMovementCommand InventoryCommand ChatCommand SimpleCraftCommand NearbyCraftCommand NearbySmeltCommand MissionQuitCommand HumanLevelCommand ObservationFromRecipe"/>
+        <xs:union memberTypes="ContinuousMovementCommand AbsoluteMovementCommand DiscreteMovementCommand InventoryCommand ChatCommand SimpleCraftCommand NearbyCraftCommand NearbySmeltCommand MissionQuitCommand HumanLevelCommand ObservationFromRecipe ObservationFromItem"/>
     </xs:simpleType>
+
 
     <xs:simpleType name="CommandList">
         <xs:list itemType="Command"/>
@@ -1783,6 +1798,30 @@
                             <xs:restriction base="CommandListModifier">
                                 <xs:choice maxOccurs="unbounded">
                                     <xs:element name="command" type="ObservationFromRecipe" minOccurs="0" maxOccurs="unbounded"/>
+                                </xs:choice>
+                            </xs:restriction>
+                        </xs:complexContent>
+                    </xs:complexType>
+                </xs:element>
+            </xs:all>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="ObservationFromItems">
+        <xs:annotation>
+            <xs:documentation>
+                When present, the Mod will accept 'item_list' and 'item_list off' commands
+                which will turn on and off sending of item_list with each observation
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:all>
+                <xs:element name="ModifierList" minOccurs="0" maxOccurs="1">
+                    <xs:complexType>
+                        <xs:complexContent>
+                            <xs:restriction base="CommandListModifier">
+                                <xs:choice maxOccurs="unbounded">
+                                    <xs:element name="command" type="ObservationFromItem" minOccurs="0" maxOccurs="unbounded"/>
                                 </xs:choice>
                             </xs:restriction>
                         </xs:complexContent>

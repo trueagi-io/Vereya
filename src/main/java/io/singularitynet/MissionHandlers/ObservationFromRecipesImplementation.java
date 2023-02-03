@@ -43,10 +43,8 @@ class ObservationFromRecipesImplementation extends HandlerBase implements IObser
             return;
         }
         List<Recipe<?>> result = MinecraftClient.getInstance().world.getRecipeManager().values().stream().toList();
-        Registry<Item> str_ent = MinecraftClient.getInstance().world.getRegistryManager().get(ITEM_KEY);
-        List<Item> list_ent = str_ent.stream().toList();
         JsonArray recipes = new JsonArray();
-        JsonArray items = new JsonArray();
+
         for (Recipe r: result) {
             JsonObject rec = new JsonObject(); // recipe
             ItemStack out = r.getOutput();
@@ -70,12 +68,8 @@ class ObservationFromRecipesImplementation extends HandlerBase implements IObser
             recipes.add(rec);
         }
         json.add("recipes", recipes);
-        for (Item ent: list_ent)
-        {
-            String item_name = ent.toString();
-            items.add(item_name);
-        }
-        json.add("item_list", items);
+
+
     }
 
     @Override

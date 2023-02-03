@@ -12,6 +12,7 @@ import net.minecraft.world.gen.GeneratorOptions;
 import net.minecraft.world.gen.WorldPresets;
 import net.minecraft.world.level.LevelInfo;
 import io.singularitynet.mixin.LevelStorageMixin;
+import org.apache.logging.log4j.LogManager;
 
 import java.nio.file.Path;
 import java.util.Properties;
@@ -31,6 +32,8 @@ public class WorldUtil {
         LevelStorageMixin levelStorageMixin = (LevelStorageMixin)client.getLevelStorage();
         levelStorageMixin.setBackupsDirectory(tmpdir);
         levelStorageMixin.setSavesDirectory(tmpdir);
+        
+        LogManager.getLogger().debug("save dir: " + client.getLevelStorage().getSavesDirectory());
 
         LevelInfo levelInfo = new LevelInfo(levelName.trim(),
                 GameMode.DEFAULT, hardcore, difficulty, true,

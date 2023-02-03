@@ -19,7 +19,6 @@ import org.lwjgl.system.CallbackI;
 
 import java.util.List;
 
-
 class ObservationFromRecipesImplementation extends HandlerBase implements IObservationProducer, ICommandHandler {
     private boolean sendRec;
     private int counter;

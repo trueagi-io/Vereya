@@ -4,7 +4,6 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.registry.DynamicRegistryManager;
 import net.minecraft.registry.RegistryKeys;
 import net.minecraft.resource.DataConfiguration;
-import net.minecraft.resource.DataPackSettings;
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.GameMode;
 import net.minecraft.world.GameRules;
@@ -12,6 +11,9 @@ import net.minecraft.world.dimension.DimensionOptionsRegistryHolder;
 import net.minecraft.world.gen.GeneratorOptions;
 import net.minecraft.world.gen.WorldPresets;
 import net.minecraft.world.level.LevelInfo;
+import io.singularitynet.mixin.LevelStorageMixin;
+
+import java.nio.file.Path;
 import java.util.Properties;
 import java.util.UUID;
 
@@ -24,11 +26,17 @@ public class WorldUtil {
         GameRules gameRules = new GameRules();
 
         MinecraftClient client = MinecraftClient.getInstance();
-        GeneratorOptions generatorOptions = new GeneratorOptions(seed, true, false);
+
+        Path tmpdir = Path.of(System.getProperty("java.io.tmpdir"));
+        LevelStorageMixin levelStorageMixin = (LevelStorageMixin)client.getLevelStorage();
+        levelStorageMixin.setBackupsDirectory(tmpdir);
+        levelStorageMixin.setSavesDirectory(tmpdir);
+
         LevelInfo levelInfo = new LevelInfo(levelName.trim(),
                 GameMode.DEFAULT, hardcore, difficulty, true,
                 gameRules,
                 DataConfiguration.SAFE_MODE);
+        GeneratorOptions generatorOptions = new GeneratorOptions(seed, true, false);
         client.createIntegratedServerLoader().createAndStart(levelName, levelInfo, generatorOptions, WorldUtil::getDefaultOverworldOptions);
     }
 

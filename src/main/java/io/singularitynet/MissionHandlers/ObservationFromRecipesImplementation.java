@@ -11,13 +11,17 @@ import io.singularitynet.projectmalmo.ObservationFromRecipe;
 import io.singularitynet.projectmalmo.ObservationFromRecipes;
 import io.singularitynet.projectmalmo.SimpleCraftCommand;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.recipe.Ingredient;
 import net.minecraft.recipe.Recipe;
 import net.minecraft.util.collection.DefaultedList;
+import net.minecraft.util.registry.Registry;
 import org.lwjgl.system.CallbackI;
 
 import java.util.List;
+
+import static net.minecraft.util.registry.Registry.ITEM_KEY;
 
 class ObservationFromRecipesImplementation extends HandlerBase implements IObservationProducer, ICommandHandler {
     private boolean sendRec;
@@ -39,7 +43,10 @@ class ObservationFromRecipesImplementation extends HandlerBase implements IObser
             return;
         }
         List<Recipe<?>> result = MinecraftClient.getInstance().world.getRecipeManager().values().stream().toList();
+        Registry<Item> str_ent = MinecraftClient.getInstance().world.getRegistryManager().get(ITEM_KEY);
+        List<Item> list_ent = str_ent.stream().toList();
         JsonArray recipes = new JsonArray();
+        JsonArray items = new JsonArray();
         for (Recipe r: result) {
             JsonObject rec = new JsonObject(); // recipe
             ItemStack out = r.getOutput();
@@ -63,6 +70,12 @@ class ObservationFromRecipesImplementation extends HandlerBase implements IObser
             recipes.add(rec);
         }
         json.add("recipes", recipes);
+        for (Item ent: list_ent)
+        {
+            String item_name = ent.toString();
+            items.add(item_name);
+        }
+        json.add("item_list", items);
     }
 
     @Override

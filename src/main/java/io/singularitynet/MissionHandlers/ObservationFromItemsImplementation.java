@@ -36,16 +36,13 @@ public class ObservationFromItemsImplementation extends HandlerBase implements I
     @Override
     public boolean execute(String command, MissionInit currentMissionInit) {
         String comm[] = command.split(" ", 2);
-        if (comm.length == 2 && comm[0].equalsIgnoreCase(ObservationFromItem.ITEM_LIST.value()) &&
-                !comm[1].equalsIgnoreCase("off")) {
-            this.sendRec = true;
-            return true;
-        }
-        if (comm.length == 2 && comm[0].equalsIgnoreCase(ObservationFromItem.ITEM_LIST.value()) &&
-                comm[1].equalsIgnoreCase("off")
-        ) {
-            this.sendRec = false;
-            return true;
+        if (comm.length == 2 && comm[0].equalsIgnoreCase(ObservationFromItem.ITEM_LIST.value())){
+          if (comm[1].equalsIgnoreCase("off")) {
+               this.sendRec = false;
+           } else {
+               this.sendRec = true;
+           }
+          return true;
         }
         return false;
     }

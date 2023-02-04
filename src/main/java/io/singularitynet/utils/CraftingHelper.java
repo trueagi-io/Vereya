@@ -20,33 +20,26 @@
 package io.singularitynet.utils;
 
 import com.google.gson.JsonSyntaxException;
-import net.minecraft.block.FurnaceBlock;
 import net.minecraft.block.entity.AbstractFurnaceBlockEntity;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.entity.player.PlayerInventory;
-import net.minecraft.entity.vehicle.FurnaceMinecartEntity;
 import net.minecraft.inventory.Inventories;
 import net.minecraft.inventory.Inventory;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
-import net.minecraft.nbt.NbtCompound;
 import net.minecraft.recipe.Ingredient;
 import net.minecraft.recipe.Recipe;
 import net.minecraft.recipe.RecipeType;
-import net.minecraft.screen.AbstractFurnaceScreenHandler;
+import net.minecraft.registry.Registries;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.collection.DefaultedList;
-import net.minecraft.util.registry.Registry;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 public class CraftingHelper {
     // Directly reference a log4j logger.
@@ -59,8 +52,7 @@ public class CraftingHelper {
      * @return a list of IRecipe objects that result in this item.
      */
     public static List<Recipe> getRecipesForRequestedOutput(String output, boolean variant) {
-
-        Item item = Registry.ITEM.getOrEmpty(new Identifier(output)).orElseThrow(() -> new RuntimeException("Unknown item '" + output + "'"));
+        Item item = Registries.ITEM.getOrEmpty(new Identifier(output)).orElseThrow(() -> new RuntimeException("Unknown item '" + output + "'"));
         if (item == Items.AIR) {
             throw new JsonSyntaxException("Invalid item: " + output);
         }
@@ -271,7 +263,7 @@ public class CraftingHelper {
             return false;
         }
 
-        Item fuel_item = Registry.ITEM.get(new Identifier(fuel_name));
+        Item fuel_item = Registries.ITEM.get(new Identifier(fuel_name));
         if(fuel_item == null){
             return false;
         }

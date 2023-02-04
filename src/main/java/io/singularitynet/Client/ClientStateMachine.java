@@ -39,9 +39,9 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.network.PacketByteBuf;
+import net.minecraft.registry.RegistryKey;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.util.registry.RegistryKey;
 import net.minecraft.world.World;
 import net.minecraft.world.level.storage.LevelStorage;
 import org.apache.logging.log4j.LogManager;
@@ -1042,58 +1042,65 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
             }
             LOGGER.debug("needsNewWorld: " + needsNewWorld);
             if (needsNewWorld) {
-                ((SessionMixin)MinecraftClient.getInstance().getSession()).setName(agentName);
-            }
-            if (needsNewWorld && worldCurrentlyExists) {
-                // We want a new world, and there is currently a world running,
-                // so we need to kill the current world.
-                episodeHasCompleted(ClientState.PAUSING_OLD_SERVER);
-            } else if (needsNewWorld && !worldCurrentlyExists) {
-                // We want a new world, and there is currently nothing running,
-                // so jump to world creation:
-                episodeHasCompleted(ClientState.CREATING_NEW_WORLD);
-            } else if (!needsNewWorld && worldCurrentlyExists) {
-                // do not reset agent pos
-                AgentSection as = agents.get(currentMissionInit().getClientRole());
-                as.getAgentStart().setPlacement(null);
-
-                ClientPlayerEntity player = MinecraftClient.getInstance().player;
-                if (player.isDead()) player.requestRespawn();
-
-                if(ClientStateMachine.this.serverHandlers == null){
-                    // We need to use the server's MissionHandlers here:
-                    try {
-                        ClientStateMachine.this.serverHandlers = MissionBehaviour.createServerHandlersFromMissionInit(currentMissionInit());
-                    } catch (Exception e) {
-                        LOGGER.error("Exception creating servserHandlers", e);
-                        episodeHasCompletedWithErrors(ClientState.ERROR_INTEGRATED_SERVER_UNREACHABLE,
-                                "Could not send create mission handlers");
-                        return;
-                    }
+                LOGGER.debug("need new world");
+                ((SessionMixin) MinecraftClient.getInstance().getSession()).setName(agentName);
+                if (worldCurrentlyExists) {
+                    // We want a new world, and there is currently a world running,
+                    // so we need to kill the current world.
+                    LOGGER.debug("needsNewWorld && worldCurrentlyExists");
+                    episodeHasCompleted(ClientState.PAUSING_OLD_SERVER);
+                } else {
+                    // We want a new world, and there is currently nothing running,
+                    // so jump to world creation:
+                    LOGGER.debug("needsNewWorld && not worldCurrentlyExists");
+                    episodeHasCompleted(ClientState.CREATING_NEW_WORLD);
                 }
-                // We don't want a new world, and we can use the current one -
-                // but we own the server, so we need to pass it the new mission init:
-                MinecraftClient.getInstance().getServer().execute(new Runnable() {
-                    @Override
-                    public void run() {
+            } else { // not needNewWorld
+                LOGGER.debug("not need new world");
+                if (worldCurrentlyExists) {   // not needNewWorld and world exists: ok
+                    LOGGER.debug("not need new world and world exists");
+                    // do not reset agent pos
+                    AgentSection as = agents.get(currentMissionInit().getClientRole());
+                    as.getAgentStart().setPlacement(null);
+
+                    ClientPlayerEntity player = MinecraftClient.getInstance().player;
+                    if (player.isDead()) player.requestRespawn();
+
+                    if (ClientStateMachine.this.serverHandlers == null) {
+                        // We need to use the server's MissionHandlers here:
                         try {
-                            // check that ServerStateMachine exists
-                            if(VereyaModServer.getInstance().hasServer()) {
-                                VereyaModServer.getInstance().sendMissionInitDirectToServer(currentMissionInit);
-                            } else {
-                                VereyaModServer.getInstance().initIntegratedServer(currentMissionInit(), MinecraftClient.getInstance().getServer()); // Needs to be done from the server thread.
-                            }
-                            //MalmoMod.instance.sendMissionInitDirectToServer(currentMissionInit);
+                            ClientStateMachine.this.serverHandlers = MissionBehaviour.createServerHandlersFromMissionInit(currentMissionInit());
                         } catch (Exception e) {
-                            episodeHasCompletedWithErrors(ClientState.ERROR_INTEGRATED_SERVER_UNREACHABLE, "Could not send MissionInit to our integrated server: " + e.getMessage());
+                            LOGGER.error("Exception creating servserHandlers", e);
+                            episodeHasCompletedWithErrors(ClientState.ERROR_INTEGRATED_SERVER_UNREACHABLE,
+                                    "Could not send create mission handlers");
+                            return;
                         }
                     }
-                });
-                // Skip all the map loading stuff and go straight to waiting for the server:
-                episodeHasCompleted(ClientState.WAITING_FOR_SERVER_READY);
-            } else if (!needsNewWorld && !worldCurrentlyExists) {
-                // Mission has requested no new world, but there is no current world to play in - this is an error:
-                episodeHasCompletedWithErrors(ClientState.ERROR_NO_WORLD, "We have no world to play in - check that your ServerHandlers section contains a world generator");
+                    // We don't want a new world, and we can use the current one -
+                    // but we own the server, so we need to pass it the new mission init:
+                    MinecraftClient.getInstance().getServer().execute(new Runnable() {
+                        @Override
+                        public void run() {
+                            try {
+                                // check that ServerStateMachine exists
+                                if (VereyaModServer.getInstance().hasServer()) {
+                                    VereyaModServer.getInstance().sendMissionInitDirectToServer(currentMissionInit);
+                                } else {
+                                    VereyaModServer.getInstance().initIntegratedServer(currentMissionInit(), MinecraftClient.getInstance().getServer()); // Needs to be done from the server thread.
+                                }
+                                //MalmoMod.instance.sendMissionInitDirectToServer(currentMissionInit);
+                            } catch (Exception e) {
+                                episodeHasCompletedWithErrors(ClientState.ERROR_INTEGRATED_SERVER_UNREACHABLE, "Could not send MissionInit to our integrated server: " + e.getMessage());
+                            }
+                        }
+                    });
+                    // Skip all the map loading stuff and go straight to waiting for the server:
+                    episodeHasCompleted(ClientState.WAITING_FOR_SERVER_READY);
+                } else { // not needNewWorld and no world: error
+                    // Mission has requested no new world, but there is no current world to play in - this is an error:
+                    episodeHasCompletedWithErrors(ClientState.ERROR_NO_WORLD, "We have no world to play in - check that your ServerHandlers section contains a world generator");
+                }
             }
         }
     }

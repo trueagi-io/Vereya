@@ -26,13 +26,11 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.client.MinecraftClient;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.registry.Registries;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.registry.Registry;
+
 
 /**
  * Helper class for building the "World data" to be passed from Minecraft back to the agent.<br>
@@ -157,7 +155,7 @@ public class JSONWorldDataHelper {
                         p = pos.add(x, y, z);
                     String name = "";
                     BlockState state = player.world.getBlockState(p);
-                    Identifier blockName = Registry.BLOCK.getId(state.getBlock());
+                    Identifier blockName = Registries.BLOCK.getId(state.getBlock());
                     name = blockName.getPath();
                     JsonElement element = new JsonPrimitive(name);
                     arr.add(element);

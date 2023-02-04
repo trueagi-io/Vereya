@@ -27,6 +27,7 @@ import io.singularitynet.projectmalmo.MissionQuitCommands;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.text.Text;
 
 /** Quit command allows for the agent to abort its mission at any time. */
 public class MissionQuitCommandsImplementation  extends CommandBase implements ICommandHandler
@@ -49,7 +50,7 @@ public class MissionQuitCommandsImplementation  extends CommandBase implements I
             return false;
         }
 
-        player.sendChatMessage( "Quitting mission", null);
+        player.sendMessage(Text.of("Quitting mission"));
         this.iWantToQuit = true;
         return true;
     }

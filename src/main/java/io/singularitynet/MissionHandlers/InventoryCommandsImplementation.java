@@ -229,7 +229,7 @@ public class InventoryCommandsImplementation extends CommandGroup implements IMa
         boolean dstCanStack = dstStack.isStackable() && dstStack.getCount() < dstStack.getMaxCount() &&
                 dstStack.getCount() < dstInv.getMaxCountPerStack();
         boolean subTypesMatch = true; //!dstStack.getHasSubtypes() || dstStack.getMetadata() == addStack.getMetadata();
-        boolean tagsMatch = ItemStack.areItemsEqualIgnoreDamage(dstStack, addStack);
+        boolean tagsMatch = ItemStack.areEqual(dstStack, addStack);
         if (itemsMatch && dstCanStack && subTypesMatch && tagsMatch)
         {
             // We can combine, so figure out how much we have room for:

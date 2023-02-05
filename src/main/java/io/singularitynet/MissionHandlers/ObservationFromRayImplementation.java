@@ -4,11 +4,13 @@ import com.google.gson.JsonObject;
 import io.singularitynet.MissionHandlerInterfaces.IObservationProducer;
 import io.singularitynet.projectmalmo.MissionInit;
 import io.singularitynet.projectmalmo.ObservationFromRay;
+import io.singularitynet.utils.Vec3f;
 import net.minecraft.block.*;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.option.SimpleOption;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.projectile.ProjectileUtil;
+import net.minecraft.registry.Registries;
 import net.minecraft.state.property.Property;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.hit.BlockHitResult;
@@ -17,12 +19,8 @@ import net.minecraft.util.hit.HitResult;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.math.Vec3f;
-import net.minecraft.util.registry.Registry;
 import net.minecraft.world.RaycastContext;
 import org.jetbrains.annotations.NotNull;
-
-import java.util.HashMap;
 import java.util.Map;
 
 public class ObservationFromRayImplementation extends HandlerBase implements IObservationProducer
@@ -63,7 +61,7 @@ public class ObservationFromRayImplementation extends HandlerBase implements IOb
         final Vec3f temp2 = new Vec3f(center);
         temp2.rotate(verticalRotationAxis.getDegreesQuaternion(verticalRotation));
         temp2.rotate(horizontalRotationAxis.getDegreesQuaternion(horizontalRotation));
-        return new Vec3d(temp2);
+        return new Vec3d(temp2.getX(), temp2.getY(), temp2.getZ());
     }
 
     private static HitResult raycastInDirection(MinecraftClient client, float tickDelta, Vec3d direction) {
@@ -171,7 +169,7 @@ public class ObservationFromRayImplementation extends HandlerBase implements IOb
                         Property<?> property = (Property<?>) entry.getKey();
                         jsonMop.addProperty(property.getName(), entry.getValue().toString());
                     }
-                    Identifier id = Registry.BLOCK.getId(blockState.getBlock());
+                    Identifier id = Registries.BLOCK.getId(blockState.getBlock());
                     jsonMop.addProperty("type", id.toString());
                 }
                 break;
@@ -232,9 +230,9 @@ public class ObservationFromRayImplementation extends HandlerBase implements IOb
                     Math.abs(Vec3f.POSITIVE_Y.getY() - backup.getY()) < eps &&
                     Math.abs(Vec3f.POSITIVE_Y.getZ() - backup.getZ()) < eps ){
                 // coincides
-                direction = new Vec3d(Vec3f.POSITIVE_Y);
+                direction = new Vec3d(Vec3f.POSITIVE_Y.getX(), Vec3f.POSITIVE_Y.getY(), Vec3f.POSITIVE_Y.getZ());
             } else {
-                direction = new Vec3d(Vec3f.NEGATIVE_Y);
+                direction = new Vec3d(Vec3f.POSITIVE_Y.getX(), Vec3f.POSITIVE_Y.getY(), Vec3f.POSITIVE_Y.getZ());
             }
         }
         return direction;

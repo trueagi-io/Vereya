@@ -1,7 +1,7 @@
 package io.singularitynet.Client;
 
 
-import com.mojang.blaze3d.platform.GlStateManager;
+
 import io.singularitynet.MissionHandlerInterfaces.IVideoProducer;
 import io.singularitynet.projectmalmo.ClientAgentConnection;
 import io.singularitynet.projectmalmo.MissionDiagnostics;
@@ -9,13 +9,11 @@ import io.singularitynet.projectmalmo.MissionInit;
 import io.singularitynet.utils.AddressHelper;
 import io.singularitynet.utils.TCPSocketChannel;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
-import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.util.Window;
-import net.minecraft.util.math.Matrix4f;
 import net.minecraft.util.math.Vec3d;
+import org.joml.Matrix4f;
 import org.lwjgl.BufferUtils;
 
 import static org.lwjgl.opengl.GL11.*;
@@ -229,10 +227,52 @@ public class VideoHook {
         resizeIfNeeded();
     }
 
+    private static int pack(int x, int y) {
+        return y * 4 + x;
+    }
+
+    public void writeRowMajor(FloatBuffer buf, Matrix4f mat) {
+        buf.put(pack(0, 0), mat.m00());
+        buf.put(pack(1, 0), mat.m01());
+        buf.put(pack(2, 0), mat.m02());
+        buf.put(pack(3, 0), mat.m03());
+        buf.put(pack(0, 1), mat.m10());
+        buf.put(pack(1, 1), mat.m11());
+        buf.put(pack(2, 1), mat.m12());
+        buf.put(pack(3, 1), mat.m13());
+        buf.put(pack(0, 2), mat.m20());
+        buf.put(pack(1, 2), mat.m21());
+        buf.put(pack(2, 2), mat.m22());
+        buf.put(pack(3, 2), mat.m23());
+        buf.put(pack(0, 3), mat.m30());
+        buf.put(pack(1, 3), mat.m31());
+        buf.put(pack(2, 3), mat.m32());
+        buf.put(pack(3, 3), mat.m33());
+    }
+
     protected void writeProjectionMatrix(ByteBuffer buffer, Matrix4f result){
         FloatBuffer buf = buffer.asFloatBuffer();
-        result.writeRowMajor(buf);
+        this.writeRowMajor(buf, result);
         buffer.position(buffer.position() + 16 * 4);
+    }
+
+    public void readColumnMajor(Matrix4f mat, FloatBuffer buf) {
+        mat.m00(buf.get(pack(0, 0)));
+        mat.m01(buf.get(pack(0, 1)));
+        mat.m02(buf.get(pack(0, 2)));
+        mat.m03(buf.get(pack(0, 3)));
+        mat.m10(buf.get(pack(1, 0)));
+        mat.m11(buf.get(pack(1, 1)));
+        mat.m12(buf.get(pack(1, 2)));
+        mat.m13(buf.get(pack(1, 3)));
+        mat.m20(buf.get(pack(2, 0)));
+        mat.m21(buf.get(pack(2, 1)));
+        mat.m22(buf.get(pack(2, 2)));
+        mat.m23(buf.get(pack(2, 3)));
+        mat.m30(buf.get(pack(3, 0)));
+        mat.m31(buf.get(pack(3, 1)));
+        mat.m32(buf.get(pack(3, 2)));
+        mat.m33(buf.get(pack(3, 3)));
     }
 
     /**
@@ -294,9 +334,9 @@ public class VideoHook {
                 glGetFloatv(GL_PROJECTION_MATRIX, projection);
                 glGetFloatv(GL_MODELVIEW_MATRIX, modelview);
                 Matrix4f projectionMatrix = new Matrix4f();
-                projectionMatrix.readColumnMajor(projection.asReadOnlyBuffer());
+                readColumnMajor(projectionMatrix, projection.asReadOnlyBuffer());
                 Matrix4f modelViewMatrix = new Matrix4f();
-                modelViewMatrix.readColumnMajor(modelview.asReadOnlyBuffer());
+                readColumnMajor(modelViewMatrix, modelview.asReadOnlyBuffer());
 
                 this.writeProjectionMatrix(this.headerbuffer, modelViewMatrix);
                 this.writeProjectionMatrix(this.headerbuffer, projectionMatrix);

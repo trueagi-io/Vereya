@@ -7,14 +7,14 @@ import io.singularitynet.MissionHandlerInterfaces.IObservationProducer;
 import io.singularitynet.projectmalmo.MissionInit;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.item.Item;
-import net.minecraft.util.registry.Registry;
+import net.minecraft.registry.Registry;
 
 import io.singularitynet.projectmalmo.ObservationFromItem;
 import io.singularitynet.projectmalmo.ObservationFromItems;
 
 import java.util.List;
 
-import static net.minecraft.util.registry.Registry.ITEM_KEY;
+import static net.minecraft.registry.Registries.ITEM;
 
 public class ObservationFromItemsImplementation extends HandlerBase implements IObservationProducer, ICommandHandler {
     private boolean sendRec;
@@ -58,7 +58,7 @@ public class ObservationFromItemsImplementation extends HandlerBase implements I
         if (!this.sendRec){
             return;
         }
-        Registry<Item> str_ent = MinecraftClient.getInstance().world.getRegistryManager().get(ITEM_KEY);
+        Registry<Item> str_ent =  MinecraftClient.getInstance().world.getRegistryManager().get(ITEM.getKey());
         List<Item> list_ent = str_ent.stream().toList();
         JsonArray items = new JsonArray();
         for (Item ent: list_ent)

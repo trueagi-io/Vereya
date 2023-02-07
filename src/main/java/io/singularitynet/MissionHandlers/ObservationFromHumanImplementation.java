@@ -1,17 +1,38 @@
-package com.microsoft.Malmo.MissionHandlers;
+// --------------------------------------------------------------------------------------------------
+//  Copyright (c) 2016 Microsoft Corporation
+//
+//  Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
+//  associated documentation files (the "Software"), to deal in the Software without restriction,
+//  including without limitation the rights to use, copy, modify, merge, publish, distribute,
+//  sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is
+//  furnished to do so, subject to the following conditions:
+//
+//  The above copyright notice and this permission notice shall be included in all copies or
+//  substantial portions of the Software.
+//
+//  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT
+//  NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+//  NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+//  DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+//  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+// --------------------------------------------------------------------------------------------------
+
+
+package io.singularitynet.MissionHandlers;
+
+
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+import io.singularitynet.Client.VereyaModClient;
+import io.singularitynet.MissionHandlerInterfaces.IObservationProducer;
+import io.singularitynet.projectmalmo.MissionInit;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Mouse;
+import org.apache.logging.log4j.LogManager;
 
 import java.util.ArrayList;
 import java.util.List;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.util.MouseHelper;
-
-import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
-import com.microsoft.Malmo.Client.MalmoModClient;
-import com.microsoft.Malmo.MissionHandlerInterfaces.IObservationProducer;
-import com.microsoft.Malmo.MissionHandlers.CommandForKey.KeyEventListener;
-import com.microsoft.Malmo.Schemas.MissionInit;
 
 public class ObservationFromHumanImplementation extends HandlerBase implements IObservationProducer
 {
@@ -22,22 +43,20 @@ public class ObservationFromHumanImplementation extends HandlerBase implements I
 
         ObservationEvent()
         {
-            this.timestamp = Minecraft.getMinecraft().world.getWorldTime();
+            this.timestamp = MinecraftClient.getInstance().world.getTime();
         }
     }
 
     private class MouseObservationEvent extends ObservationEvent
     {
-        private int deltaX;
-        private int deltaY;
-        private int deltaZ;
+        private double deltaX;
+        private double deltaY;
 
-        public MouseObservationEvent(int deltaX, int deltaY, int deltaZ)
+        public MouseObservationEvent(double deltaX, double deltaY)
         {
             super();
             this.deltaX = deltaX;
             this.deltaY = deltaY;
-            this.deltaZ = deltaZ;
         }
 
         @Override
@@ -48,7 +67,6 @@ public class ObservationFromHumanImplementation extends HandlerBase implements I
             jsonEvent.addProperty("type", "mouse");
             jsonEvent.addProperty("deltaX", this.deltaX);
             jsonEvent.addProperty("deltaY", this.deltaY);
-            jsonEvent.addProperty("deltaZ", this.deltaZ);
             return jsonEvent;
         }
     }
@@ -77,14 +95,14 @@ public class ObservationFromHumanImplementation extends HandlerBase implements I
         }
     }
 
-    private class MouseObserver implements MalmoModClient.MouseEventListener, KeyEventListener
+    private class InputObserver implements VereyaModClient.MouseEventListener, CommandForKey.KeyEventListener
     {
         @Override
-        public void onXYZChange(int deltaX, int deltaY, int deltaZ)
+        public void onXYChange(double deltaX, double deltaY)
         {
-            System.out.println("Mouse observed: " + deltaX + ", " + deltaY + ", " + deltaZ);
-            if (deltaX != 0 || deltaY != 0 || deltaZ != 0)
-                queueEvent(new MouseObservationEvent(deltaX, deltaY, deltaZ));
+            System.out.println("Mouse observed: " + deltaX + ", " + deltaY);
+            if (deltaX != 0 || deltaY != 0)
+                queueEvent(new MouseObservationEvent(deltaX, deltaY));
         }
 
         @Override
@@ -94,7 +112,7 @@ public class ObservationFromHumanImplementation extends HandlerBase implements I
         }
     }
 
-    MouseObserver observer = new MouseObserver();
+    InputObserver observer = new InputObserver();
     List<ObservationEvent> events = new ArrayList<ObservationEvent>();
     List<CommandForKey> keys = null;
 
@@ -125,14 +143,15 @@ public class ObservationFromHumanImplementation extends HandlerBase implements I
     @Override
     public void prepare(MissionInit missionInit)
     {
-        MouseHelper mhelp = Minecraft.getMinecraft().mouseHelper;
-        if (!(mhelp instanceof MalmoModClient.MouseHook))
+
+        Mouse mhelp = MinecraftClient.getInstance().mouse;
+        if (!(mhelp instanceof VereyaModClient.MyMouse))
         {
-            System.out.println("ERROR! MouseHook not installed - Malmo won't work correctly.");
+            LogManager.getLogger().error("ERROR! MouseHook not installed - Malmo won't work correctly.");
             return;
         }
-        ((MalmoModClient.MouseHook)mhelp).requestEvents(this.observer);
-        this.keys = HumanLevelCommandsImplementation.getKeyOverrides();
+        ((VereyaModClient.MyMouse)mhelp).setObserver(this.observer);
+        this.keys = this.getKeyOverrides();
         for (CommandForKey k : this.keys)
         {
             k.install(missionInit);
@@ -143,16 +162,39 @@ public class ObservationFromHumanImplementation extends HandlerBase implements I
     @Override
     public void cleanup()
     {
-        MouseHelper mhelp = Minecraft.getMinecraft().mouseHelper;
-        if (!(mhelp instanceof MalmoModClient.MouseHook))
-        {
-            System.out.println("ERROR! MouseHook not installed - Malmo won't work correctly.");
-            return;
-        }
-        ((MalmoModClient.MouseHook)mhelp).requestEvents(null);
         for (CommandForKey k : this.keys)
         {
             k.setKeyEventObserver(null);
         }
+        Mouse mhelp = MinecraftClient.getInstance().mouse;
+        if (!(mhelp instanceof VereyaModClient.MyMouse))
+        {
+            LogManager.getLogger().error("ERROR! MouseHook not installed - Malmo won't work correctly.");
+            return;
+        }
+        ((VereyaModClient.MyMouse)mhelp).setObserver(null);
+    }
+
+    static public List<CommandForKey> getKeyOverrides()
+    {
+        List<CommandForKey> keys = new ArrayList<CommandForKey>();
+        keys.add(new CommandForKey("key.forward"));
+        keys.add(new CommandForKey("key.left"));
+        keys.add(new CommandForKey("key.back"));
+        keys.add(new CommandForKey("key.right"));
+        keys.add(new CommandForKey("key.jump"));
+        keys.add(new CommandForKey("key.sneak"));
+        keys.add(new CommandForKey("key.sprint"));
+        keys.add(new CommandForKey("key.inventory"));
+        keys.add(new CommandForKey("key.swapHands"));
+        keys.add(new CommandForKey("key.drop"));
+        keys.add(new CommandForKey("key.use"));
+        keys.add(new CommandForKey("key.attack"));
+        keys.add(new CommandForKey("key.pickItem"));
+        for (int i = 1; i <= 9; i++)
+        {
+            keys.add(new CommandForKey("key.hotbar." + i));
+        }
+        return keys;
     }
 }

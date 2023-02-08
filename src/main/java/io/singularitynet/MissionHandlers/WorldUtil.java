@@ -25,16 +25,7 @@ public class WorldUtil {
         String worldName = uuid.toString().substring(0, 5);
         String levelName = "Vereya-test" + worldName;
         GameRules gameRules = new GameRules();
-
         MinecraftClient client = MinecraftClient.getInstance();
-
-        Path tmpdir = Path.of(System.getProperty("java.io.tmpdir"));
-        LevelStorageMixin levelStorageMixin = (LevelStorageMixin)client.getLevelStorage();
-        levelStorageMixin.setBackupsDirectory(tmpdir);
-        levelStorageMixin.setSavesDirectory(tmpdir);
-        
-        LogManager.getLogger().debug("save dir: " + client.getLevelStorage().getSavesDirectory());
-
         LevelInfo levelInfo = new LevelInfo(levelName.trim(),
                 GameMode.DEFAULT, hardcore, difficulty, true,
                 gameRules,

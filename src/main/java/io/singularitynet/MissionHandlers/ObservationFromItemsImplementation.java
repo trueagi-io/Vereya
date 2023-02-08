@@ -5,6 +5,7 @@ import com.google.gson.JsonObject;
 import io.singularitynet.MissionHandlerInterfaces.ICommandHandler;
 import io.singularitynet.MissionHandlerInterfaces.IObservationProducer;
 import io.singularitynet.projectmalmo.MissionInit;
+import net.minecraft.block.Block;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.item.Item;
 import net.minecraft.registry.Registry;
@@ -14,6 +15,7 @@ import io.singularitynet.projectmalmo.ObservationFromItems;
 
 import java.util.List;
 
+import static net.minecraft.registry.Registries.BLOCK;
 import static net.minecraft.registry.Registries.ITEM;
 
 public class ObservationFromItemsImplementation extends HandlerBase implements IObservationProducer, ICommandHandler {
@@ -59,6 +61,7 @@ public class ObservationFromItemsImplementation extends HandlerBase implements I
             return;
         }
         Registry<Item> str_ent =  MinecraftClient.getInstance().world.getRegistryManager().get(ITEM.getKey());
+        Registry<Block> block_ent =  MinecraftClient.getInstance().world.getRegistryManager().get(BLOCK.getKey());
         List<Item> list_ent = str_ent.stream().toList();
         JsonArray items = new JsonArray();
         for (Item ent: list_ent)

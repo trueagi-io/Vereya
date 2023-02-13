@@ -7,7 +7,7 @@
   "client": [
     "TitleScreenMixin", "SessionMixin", "MinecraftClientMixin", "GameOptionsMixin",
     "KeyBindingMixin", "MouseMixin", "MouseAccessorMixin", "InGameHudMixin", "ServerWorldEntityLoaderMixin",
-    "ServerEntityManagerMixin", "ServerWorldMixin"
+    "ServerEntityManagerMixin", "ServerWorldMixin", "LevelStorageMixin"
   ],
   "server": [],
   "injectors": {

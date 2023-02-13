@@ -84,6 +84,7 @@ public class ServerStateMachine extends StateMachine {
         this.server = server;
         // Register ourself on the event busses, so we can harness the server tick:
         ServerTickEvents.END_SERVER_TICK.register(s -> this.onServerTick(s));
+        ServerLifecycleEvents.SERVER_STOPPING.register(s -> this.onServerStopping(s));
         ServerLifecycleEvents.SERVER_STOPPED.register(s -> this.onServerStopped(s));
         ServerEntityEventsVereya.BEFORE_ENTITY_ADD.register((e, w) -> this.onGetPotentialSpawns(e, w));
     }
@@ -135,6 +136,11 @@ public class ServerStateMachine extends StateMachine {
             return ActionResult.FAIL;
         }
         return ActionResult.PASS;
+    }
+
+    private void onServerStopping(MinecraftServer s) {
+        LOGGER.info("informing client that we are stopping");
+        sendToAll(new MalmoMessage(MalmoMessageType.SERVER_STOPPED, 0, new HashMap<>()));
     }
 
     private void onServerStopped(MinecraftServer s){

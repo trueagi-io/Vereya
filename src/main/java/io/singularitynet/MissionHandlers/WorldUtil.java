@@ -11,6 +11,10 @@ import net.minecraft.world.dimension.DimensionOptionsRegistryHolder;
 import net.minecraft.world.gen.GeneratorOptions;
 import net.minecraft.world.gen.WorldPresets;
 import net.minecraft.world.level.LevelInfo;
+import io.singularitynet.mixin.LevelStorageMixin;
+import org.apache.logging.log4j.LogManager;
+
+import java.nio.file.Path;
 import java.util.Properties;
 import java.util.UUID;
 
@@ -21,13 +25,12 @@ public class WorldUtil {
         String worldName = uuid.toString().substring(0, 5);
         String levelName = "Vereya-test" + worldName;
         GameRules gameRules = new GameRules();
-
         MinecraftClient client = MinecraftClient.getInstance();
-        GeneratorOptions generatorOptions = new GeneratorOptions(seed, true, false);
         LevelInfo levelInfo = new LevelInfo(levelName.trim(),
                 GameMode.DEFAULT, hardcore, difficulty, true,
                 gameRules,
                 DataConfiguration.SAFE_MODE);
+        GeneratorOptions generatorOptions = new GeneratorOptions(seed, true, false);
         client.createIntegratedServerLoader().createAndStart(levelName, levelInfo, generatorOptions, WorldUtil::getDefaultOverworldOptions);
     }
 

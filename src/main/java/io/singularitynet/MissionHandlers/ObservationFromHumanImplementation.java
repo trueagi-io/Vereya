@@ -28,6 +28,7 @@ import io.singularitynet.MissionHandlerInterfaces.IObservationProducer;
 import io.singularitynet.projectmalmo.MissionInit;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.Mouse;
+import net.minecraft.world.World;
 import org.apache.logging.log4j.LogManager;
 
 import java.util.ArrayList;
@@ -41,9 +42,9 @@ public class ObservationFromHumanImplementation extends HandlerBase implements I
         public long timestamp = 0;
         public abstract JsonObject getJSON();
 
-        ObservationEvent()
+        ObservationEvent(long timestamp)
         {
-            this.timestamp = MinecraftClient.getInstance().world.getTime();
+            this.timestamp = timestamp;
         }
     }
 
@@ -52,9 +53,9 @@ public class ObservationFromHumanImplementation extends HandlerBase implements I
         private double deltaX;
         private double deltaY;
 
-        public MouseObservationEvent(double deltaX, double deltaY)
+        public MouseObservationEvent(double deltaX, double deltaY, long timestamp)
         {
-            super();
+            super(timestamp);
             this.deltaX = deltaX;
             this.deltaY = deltaY;
         }
@@ -76,9 +77,9 @@ public class ObservationFromHumanImplementation extends HandlerBase implements I
         private String commandString;
         private boolean pressed;
 
-        KeyObservationEvent(String commandString, boolean pressed)
+        KeyObservationEvent(String commandString, boolean pressed, long timestamp)
         {
-            super();
+            super(timestamp);
             this.commandString = commandString;
             this.pressed = pressed;
         }
@@ -100,15 +101,21 @@ public class ObservationFromHumanImplementation extends HandlerBase implements I
         @Override
         public void onXYChange(double deltaX, double deltaY)
         {
-            System.out.println("Mouse observed: " + deltaX + ", " + deltaY);
+            World world = MinecraftClient.getInstance().world;
+            if (world == null)
+                return;
             if (deltaX != 0 || deltaY != 0)
-                queueEvent(new MouseObservationEvent(deltaX, deltaY));
+                queueEvent(new MouseObservationEvent(deltaX, deltaY, world.getTime()));
         }
 
         @Override
         public void onKeyChange(String commandString, boolean pressed)
         {
-            queueEvent(new KeyObservationEvent(commandString, pressed));
+            World world = MinecraftClient.getInstance().world;
+            if (world == null)
+                return;
+            LogManager.getLogger().trace("Key observed: " + commandString + ", " + pressed);
+            queueEvent(new KeyObservationEvent(commandString, pressed, world.getTime()));
         }
     }
 
@@ -127,7 +134,7 @@ public class ObservationFromHumanImplementation extends HandlerBase implements I
                 for (ObservationEvent event : this.events)
                     jsonEvents.add(event.getJSON());
                 this.events.clear();
-                json.add("events", jsonEvents);
+                json.add("input_events", jsonEvents);
             }
         }
     }
@@ -178,6 +185,7 @@ public class ObservationFromHumanImplementation extends HandlerBase implements I
     static public List<CommandForKey> getKeyOverrides()
     {
         List<CommandForKey> keys = new ArrayList<CommandForKey>();
+        // CommandForKey is a wrapper around a KeyBinding, which is like singleton
         keys.add(new CommandForKey("key.forward"));
         keys.add(new CommandForKey("key.left"));
         keys.add(new CommandForKey("key.back"));
@@ -186,7 +194,7 @@ public class ObservationFromHumanImplementation extends HandlerBase implements I
         keys.add(new CommandForKey("key.sneak"));
         keys.add(new CommandForKey("key.sprint"));
         keys.add(new CommandForKey("key.inventory"));
-        keys.add(new CommandForKey("key.swapHands"));
+        keys.add(new CommandForKey("key.swapOffhand"));
         keys.add(new CommandForKey("key.drop"));
         keys.add(new CommandForKey("key.use"));
         keys.add(new CommandForKey("key.attack"));

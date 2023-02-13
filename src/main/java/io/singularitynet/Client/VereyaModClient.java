@@ -6,7 +6,6 @@ import net.fabricmc.api.ClientModInitializer;
 import net.minecraft.client.Keyboard;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.Mouse;
-import net.minecraft.client.util.InputUtil;
 import org.apache.logging.log4j.LogManager;
 import org.lwjgl.glfw.GLFW;
 
@@ -51,6 +50,9 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient
 
         @Override
         public void updateMouse() {
+            if(MinecraftClient.getInstance().player == null){
+                return;
+            }
             if (this.observer != null){
                 double dx = ((MouseAccessorMixin)this).getCursorDeltaX();
                 double dy = ((MouseAccessorMixin)this).getCursorDeltaY();

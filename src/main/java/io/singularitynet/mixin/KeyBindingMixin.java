@@ -23,7 +23,7 @@ public abstract class KeyBindingMixin {
 
     @Inject(at = @At("TAIL"), method = "<init>(Ljava/lang/String;Lnet/minecraft/client/util/InputUtil$Type;ILjava/lang/String;)V")
     private void init(String translationKey, InputUtil.Type type, int code, String category, CallbackInfo ci) {
-        LogManager.getLogger().debug(translationKey + this.hashCode() + " KeyConstructor: "  +
+        LogManager.getLogger().debug(translationKey + this.hashCode() + " KeyConstructor isInstance"  +
                 CommandForKey.KeyHook.class.isInstance(this) + " code: " + code);
         Map<InputUtil.Key, KeyBinding> bindingMap = KeyBindingMixin.getKeyToBindings();
         List<InputUtil.Key> keyList = new LinkedList<>();

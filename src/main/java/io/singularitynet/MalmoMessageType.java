@@ -9,6 +9,7 @@ public enum MalmoMessageType
     SERVER_MISSIONOVER,			// Server informing that all agents have stopped, and the mission is now over.
     SERVER_OBSERVATIONSREADY,
     SERVER_TEXT,
+    SERVER_STOPPED,
     SERVER_ABORT,
     SERVER_COLLECTITEM,
     SERVER_DISCARDITEM,

@@ -24,6 +24,7 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.option.GameOptions;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
+import org.apache.commons.logging.Log;
 import org.apache.logging.log4j.LogManager;
 import io.singularitynet.mixin.GameOptionsMixin;
 
@@ -149,6 +150,8 @@ public class CommandForKey extends CommandBase
         @Override
         public void setPressed(boolean pressed) {
             super.setPressed(pressed);
+            if (!this.isOverridingPresses && this.observer != null)
+                this.observer.onKeyChange(this.getCommandString(), pressed);
             LogManager.getLogger().trace(this.getTranslationKey() + this.hashCode() + " setPressed: " + pressed);
         }
 
@@ -234,6 +237,7 @@ public class CommandForKey extends CommandBase
      */
     private KeyHook create(KeyBinding key)
     {
+        LogManager.getLogger().debug("Creating KeyHook for " + key.getTranslationKey());
         if (key != null && key instanceof KeyHook)
         {
             return (KeyHook)key; // Don't create a KeyHook to replace this KeyBinding, since that has already been done at some point.
@@ -272,18 +276,22 @@ public class CommandForKey extends CommandBase
             this.keyHook.isDown = false;
             this.keyHook.justPressed = 0;
             this.keyHook.isOverridingPresses = b;
-            LogManager.getLogger().debug("set isOverriding for " + this.keyHook + " to " + b);
+            LogManager.getLogger().debug("set isOverriding for " + this.keyDescription + " " + this.keyHook + " to " + b);
         }
     }
 
     public void setKeyEventObserver(KeyEventListener observer)
     {
+        if (this.keyHook == null){
+            throw new IllegalStateException("setKeyEventObserver for " + this.keyDescription + " called before install");
+        }
         this.keyHook.setObserver(observer);
     }
 
     @Override
     public void install(MissionInit missionInit)
     {
+        LogManager.getLogger().debug("Installing CommandForKey for " + this.keyDescription);
         // Attempt to find the keybinding that matches the description we were given,
         // and replace it with our own KeyHook object:
         GameOptions settings = MinecraftClient.getInstance().options;
@@ -302,6 +310,7 @@ public class CommandForKey extends CommandBase
                 try
                 {
                     kb = (KeyBinding)(f.get(settings));
+                    LogManager.getLogger().debug("checking " + kb.getTranslationKey());
                     if (kb != null && kb.getTranslationKey().equals(this.keyDescription))
                     {
                         this.originalBinding = kb;
@@ -315,6 +324,8 @@ public class CommandForKey extends CommandBase
                         if (! keyString.startsWith("key.")) continue;
                         // generate minin method name
                         String base = keyString.split("\\.")[1];
+                        // handle swapOffhand, it's a special case
+                        if (base.equals("swapOffhand")) base = "swapHands";
                         base = base.substring(0, 1).toUpperCase(Locale.ROOT) + base.substring(1);
                         Class[] cArg = new Class[1];
                         cArg[0] = KeyBinding.class;
@@ -370,6 +381,11 @@ public class CommandForKey extends CommandBase
             }
         }
         KeyBinding attack = settings.attackKey;
+        if (createdHook) {
+            LogManager.getLogger().debug("KeyHook installed for " + this.keyDescription);
+        } else {
+            LogManager.getLogger().debug("KeyHook not installed for " + this.keyDescription);
+        }
         LogManager.getLogger().debug("attack overriden " + KeyHook.class.isInstance(attack) + attack.hashCode());
     }
 

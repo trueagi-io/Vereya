@@ -5,7 +5,8 @@ import net.fabricmc.api.ClientModInitializer;
 import net.minecraft.client.Keyboard;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.Mouse;
-import net.minecraft.client.util.InputUtil;
+import net.minecraft.client.gui.screen.ChatScreen;
+import net.minecraft.client.gui.screen.Screen;
 import org.apache.logging.log4j.LogManager;
 import org.lwjgl.glfw.GLFW;
 
@@ -49,8 +50,8 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient
 
         @Override
         public void onKey(long window, int key, int scancode, int action, int modifiers) {
-            super.onKey(window, key, scancode, action, modifiers);
             VereyaModClient.this.onKey(window, key, scancode, action, modifiers);
+            super.onKey(window, key, scancode, action, modifiers);
         }
     }
 
@@ -117,9 +118,17 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient
     }
 
     private void onKey(long window, int key, int scancode, int action, int modifiers) {
-        boolean change = false;
-        if (key == GLFW.GLFW_KEY_ENTER && action == GLFW.GLFW_RELEASE) change = true;
-        if (!change) return;
+        if (key != GLFW.GLFW_KEY_ENTER)
+            return;
+        if (action != GLFW.GLFW_PRESS) return;
+
+        Screen screen = MinecraftClient.getInstance().currentScreen;
+        if (screen != null) {
+            if (screen instanceof ChatScreen) {
+                // if chat is open, do nothing
+                return;
+            }
+        }
         if (inputType == InputType.AI) {
             setInputType(InputType.HUMAN);
         } else {

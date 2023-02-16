@@ -27,6 +27,7 @@ import io.singularitynet.MissionHandlerInterfaces.IWantToQuit;
 import io.singularitynet.MissionHandlers.MissionBehaviour;
 import io.singularitynet.MissionHandlers.MultidimensionalReward;
 import io.singularitynet.Server.VereyaModServer;
+import io.singularitynet.mixin.LevelStorageMixin;
 import io.singularitynet.mixin.SessionMixin;
 import io.singularitynet.projectmalmo.*;
 import io.singularitynet.utils.*;
@@ -96,13 +97,15 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
 		}
 
     }
-    
+
     // Env service:
     // protected MalmoEnvServer envServer;
 
     // Socket stuff:
     protected TCPInputPoller missionPoller;
     protected TCPInputPoller controlInputPoller;
+    protected Path defaultSavePath = null;
+    protected Path defaultBackupPath = null;
     protected int integratedServerPort;
     String reservationID = "";   // empty if we are not reserved, otherwise "RESERVED" + the experiment ID we are reserved for.
     long reservationExpirationTime = 0;
@@ -218,6 +221,13 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
         {
         	LOGGER.info("got server text message" + data.toString());
         }
+        if (messageType == MalmoMessageType.SERVER_STOPPED) {
+            this.onServerStopped();
+        }
+    }
+
+    public void onServerStopped(){
+        ClientStateMachine.this.restoreSaveDirs();
     }
 
     @Override
@@ -278,15 +288,14 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
                 return new MissionEndedEpisode(this, MissionResult.ENDED, false, false, true);
             case ERROR_LOST_AGENT:
             case ERROR_LOST_VIDEO:
-                return new MissionEndedEpisode(this, MissionResult.MOD_HAS_NO_AGENT_AVAILABLE, true, true, false);
-            case ERROR_CANNOT_CREATE_WORLD:
-                return new MissionEndedEpisode(this, MissionResult.MOD_FAILED_TO_CREATE_WORLD, true, true, true);
             case ERROR_TIMED_OUT_WAITING_FOR_EPISODE_START: // run-ons deliberate
             case ERROR_TIMED_OUT_WAITING_FOR_EPISODE_PAUSE:
             case ERROR_TIMED_OUT_WAITING_FOR_EPISODE_CLOSE:
             case ERROR_TIMED_OUT_WAITING_FOR_MISSION_END:
             case ERROR_TIMED_OUT_WAITING_FOR_WORLD_CREATE:
                 return new MissionEndedEpisode(this, MissionResult.MOD_HAS_NO_AGENT_AVAILABLE, true, true, false);
+            case ERROR_CANNOT_CREATE_WORLD:
+                return new MissionEndedEpisode(this, MissionResult.MOD_FAILED_TO_CREATE_WORLD, true, true, true);
             default:
                 break;
         }
@@ -683,8 +692,8 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
         @Override
         protected void execute()
         {
+            MinecraftClient client = MinecraftClient.getInstance();
             // TextureHelper.init();
-
             // Clear our current MissionInit state:
             csMachine.currentMissionInit = null;
             // Clear our current error state:
@@ -700,6 +709,10 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
         public void onClientTick(MinecraftClient ev) throws Exception
         {
             checkForMissionCommand();
+            // restore save and backup directory only if integrated server has stopped
+            if (ClientStateMachine.this.defaultSavePath != null && ClientStateMachine.this.defaultBackupPath != null && !MinecraftClient.getInstance().isIntegratedServerRunning()) {
+                restoreSaveDirs();
+            }
         }
 
         private void checkForMissionCommand() throws Exception
@@ -740,6 +753,18 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
                 throw new Exception("Failed to get valid MissionInit object from SchemaHelper.");
             }
         }
+    }
+
+    private void restoreSaveDirs() {
+        MinecraftClient client = MinecraftClient.getInstance();
+        LOGGER.info("restore saves directory " + ClientStateMachine.this.defaultSavePath);
+        LevelStorageMixin levelStorageMixin = (LevelStorageMixin) client.getLevelStorage();
+        if (ClientStateMachine.this.defaultSavePath != null)
+            levelStorageMixin.setSavesDirectory(ClientStateMachine.this.defaultSavePath);
+        if (ClientStateMachine.this.defaultBackupPath != null)
+            levelStorageMixin.setBackupsDirectory(ClientStateMachine.this.defaultBackupPath);
+        ClientStateMachine.this.defaultSavePath = null;
+        ClientStateMachine.this.defaultBackupPath = null;
     }
 
     // ---------------------------------------------------------------------------------------------------------
@@ -946,6 +971,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
                 ClientStateMachine.this.serverHandlers = MissionBehaviour.createServerHandlersFromMissionInit(currentMissionInit());
                 if (ClientStateMachine.this.serverHandlers != null && ClientStateMachine.this.serverHandlers.worldGenerator != null)
                 {
+                    updateSaveDirs();
                     if (ClientStateMachine.this.serverHandlers.worldGenerator.createWorld(currentMissionInit()))
                     {
                         ClientStateMachine.this.generatorProperties.clear();
@@ -966,6 +992,18 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
                 LOGGER.error("world creation failed:", e);
                 episodeHasCompletedWithErrors(ClientState.ERROR_CANNOT_CREATE_WORLD, "Server world-creation handler failed to create a world: " + e.getMessage());
             }
+        }
+
+        private void updateSaveDirs() {
+            MinecraftClient client = MinecraftClient.getInstance();
+            ClientStateMachine.this.defaultBackupPath = client.getLevelStorage().getBackupsDirectory();
+            ClientStateMachine.this.defaultSavePath = client.getLevelStorage().getSavesDirectory();
+
+            Path tmpdir = Path.of(System.getProperty("java.io.tmpdir"));
+            LevelStorageMixin levelStorageMixin = (LevelStorageMixin)client.getLevelStorage();
+            levelStorageMixin.setBackupsDirectory(tmpdir);
+            levelStorageMixin.setSavesDirectory(tmpdir);
+            LogManager.getLogger().debug("save dir: " + client.getLevelStorage().getSavesDirectory());
         }
 
         @Override

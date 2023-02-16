@@ -1,6 +1,7 @@
 package io.singularitynet.Client;
 
 import io.singularitynet.mixin.MinecraftClientMixin;
+import io.singularitynet.mixin.MouseAccessorMixin;
 import net.fabricmc.api.ClientModInitializer;
 import net.minecraft.client.Keyboard;
 import net.minecraft.client.MinecraftClient;
@@ -16,7 +17,14 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient
     public static final String AGENT_UNRESPONSIVE_CODE = "MALMO_AGENT_NOT_RESPONDING";
     public static final String VIDEO_UNRESPONSIVE_CODE = "MALMO_VIDEO_NOT_RESPONDING";
 
+    public interface MouseEventListener
+    {
+        public void onXYChange(double deltaX, double deltaY);
+    }
+
     public class MyMouse extends Mouse {
+
+        private MouseEventListener observer;
 
         public MyMouse(MinecraftClient client) {
             super(client);
@@ -40,6 +48,23 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient
 
         public boolean shouldUpdate(){
             return VereyaModClient.this.inputType == InputType.HUMAN;
+        }
+
+        @Override
+        public void updateMouse() {
+            if(MinecraftClient.getInstance().player == null){
+                return;
+            }
+            if (this.observer != null){
+                double dx = ((MouseAccessorMixin)this).getCursorDeltaX();
+                double dy = ((MouseAccessorMixin)this).getCursorDeltaY();
+                this.observer.onXYChange(dx, dy);
+            }
+            super.updateMouse();
+        }
+
+        public void setObserver(MouseEventListener obj){
+            this.observer = obj;
         }
     }
 
@@ -75,11 +100,6 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient
     @Override
     public InputType getInputType() {
         return this.inputType;
-    }
-
-    public interface MouseEventListener
-    {
-        public void onXYZChange(int deltaX, int deltaY, int deltaZ);
     }
 
     // Control overriding:

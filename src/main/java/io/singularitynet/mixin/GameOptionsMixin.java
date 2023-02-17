@@ -27,10 +27,10 @@ public interface GameOptionsMixin {
     public KeyBinding[] getKeysHotbar();
 
     @Accessor("swapHandsKey")
-    public void getSwapHandsKey(KeyBinding key);
+    public KeyBinding getKeySwapHands();
 
     @Accessor("swapHandsKey") @Mutable
-    public void setSwapHandsKey(KeyBinding key);
+    public void setKeySwapHands(KeyBinding key);
 
     // setters for movement commands
     @Accessor("forwardKey") @Mutable
@@ -70,6 +70,12 @@ public interface GameOptionsMixin {
     @Accessor("jumpKey")
     public KeyBinding getKeyJump();
 
+    @Accessor("sprintKey")
+    public KeyBinding getKeySprint();
+
+    @Accessor("sneakKey")
+    public KeyBinding getKeySneak();
+
     // getter and setter for inventory
     @Accessor("inventoryKey")
     public KeyBinding getKeyInventory();
@@ -83,4 +89,10 @@ public interface GameOptionsMixin {
 
     @Accessor("dropKey") @Mutable
     public void setKeyDrop(KeyBinding key);
+
+    @Accessor("pickItemKey") @Mutable
+    public void setKeyPickItem(KeyBinding key);
+
+    @Accessor("pickItemKey")
+    public KeyBinding getKeyPickItem();
 }

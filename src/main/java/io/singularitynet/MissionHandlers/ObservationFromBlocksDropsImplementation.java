@@ -6,7 +6,7 @@ import com.google.gson.JsonPrimitive;
 import io.singularitynet.MissionHandlerInterfaces.ICommandHandler;
 import io.singularitynet.MissionHandlerInterfaces.IObservationProducer;
 import io.singularitynet.projectmalmo.MissionInit;
-import io.singularitynet.projectmalmo.ObservationFromTriple;
+import io.singularitynet.projectmalmo.ObservationFromBlocksDrop;
 import net.minecraft.block.Block;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.item.Item;
@@ -19,7 +19,7 @@ import java.util.Objects;
 
 import static net.minecraft.registry.Registries.ITEM;
 
-public class ObservationFromTriplesImplementation extends HandlerBase implements IObservationProducer, ICommandHandler {
+public class ObservationFromBlocksDropsImplementation extends HandlerBase implements IObservationProducer, ICommandHandler {
     private boolean sendRec;
 
     @Override
@@ -45,7 +45,7 @@ public class ObservationFromTriplesImplementation extends HandlerBase implements
     @Override
     public boolean execute(String command, MissionInit currentMissionInit) {
         String comm[] = command.split(" ", 2);
-        if (comm.length == 2 && comm[0].equalsIgnoreCase(ObservationFromTriple.TRIPLES.value())){
+        if (comm.length == 2 && comm[0].equalsIgnoreCase(ObservationFromBlocksDrop.BLOCKDROPS.value())){
             if (comm[1].equalsIgnoreCase("off")) {
                 this.sendRec = false;
             } else {

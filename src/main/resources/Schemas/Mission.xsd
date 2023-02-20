@@ -341,7 +341,7 @@
             <xs:element ref="ObservationFromRay" minOccurs="0"/>
             <xs:element ref="ObservationFromRecipes" minOccurs="0"/>
             <xs:element ref="ObservationFromItems" minOccurs="0"/>
-            <xs:element ref="ObservationFromTriples" minOccurs="0"/>
+            <xs:element ref="ObservationFromBlocksDrops" minOccurs="0"/>
             <xs:element ref="ObservationFromTurnScheduler" minOccurs="0"/>
             <xs:element ref="ObservationFromHuman" minOccurs="0"/>
             <xs:element ref="ObservationFromSystem" minOccurs="0"/>

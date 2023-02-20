@@ -1494,6 +1494,20 @@
         </xs:restriction>
     </xs:simpleType>
 
+    <xs:simpleType name="ObservationFromTriple">
+        <xs:annotation>
+            <xs:documentation>
+                A command to turn on block, item, tool required triples:
+                    triples
+                turn off:
+                    triples off
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="triples" />
+        </xs:restriction>
+    </xs:simpleType>
+
     <xs:simpleType name="ObservationFromItem">
         <xs:annotation>
             <xs:documentation>
@@ -1621,7 +1635,7 @@
     </xs:simpleType>
 
     <xs:simpleType name="Command">
-        <xs:union memberTypes="ContinuousMovementCommand AbsoluteMovementCommand DiscreteMovementCommand InventoryCommand ChatCommand SimpleCraftCommand NearbyCraftCommand NearbySmeltCommand MissionQuitCommand HumanLevelCommand ObservationFromRecipe ObservationFromItem"/>
+        <xs:union memberTypes="ContinuousMovementCommand AbsoluteMovementCommand DiscreteMovementCommand InventoryCommand ChatCommand SimpleCraftCommand NearbyCraftCommand NearbySmeltCommand MissionQuitCommand HumanLevelCommand ObservationFromRecipe ObservationFromItem ObservationFromTriple"/>
     </xs:simpleType>
 
 
@@ -1798,6 +1812,30 @@
                             <xs:restriction base="CommandListModifier">
                                 <xs:choice maxOccurs="unbounded">
                                     <xs:element name="command" type="ObservationFromRecipe" minOccurs="0" maxOccurs="unbounded"/>
+                                </xs:choice>
+                            </xs:restriction>
+                        </xs:complexContent>
+                    </xs:complexType>
+                </xs:element>
+            </xs:all>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="ObservationFromTriples">
+        <xs:annotation>
+            <xs:documentation>
+                When present, the Mod will accept 'triples' and 'triples off' commands
+                which will turn on and off sending of block, item, tool required triples with each observation
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:all>
+                <xs:element name="ModifierList" minOccurs="0" maxOccurs="1">
+                    <xs:complexType>
+                        <xs:complexContent>
+                            <xs:restriction base="CommandListModifier">
+                                <xs:choice maxOccurs="unbounded">
+                                    <xs:element name="command" type="ObservationFromTriple" minOccurs="0" maxOccurs="unbounded"/>
                                 </xs:choice>
                             </xs:restriction>
                         </xs:complexContent>

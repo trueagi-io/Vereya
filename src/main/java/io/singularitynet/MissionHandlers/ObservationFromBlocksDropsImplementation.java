@@ -79,7 +79,6 @@ public class ObservationFromBlocksDropsImplementation extends HandlerBase implem
             Block en_block = entry.getKey();
             Item en_item = entry.getValue();
             String block_name = en_block.getLootTableId().toString();
-            System.out.print("trying to split block_name "+block_name+" using '/' \n");
             if (Objects.equals(block_name, "minecraft:empty")) {
                 continue;
             }
@@ -100,12 +99,10 @@ public class ObservationFromBlocksDropsImplementation extends HandlerBase implem
                     String tag_string = block_tag.id().toString();
                     if (tag_string.contains("mineable"))
                     {
-//                        System.out.print("trying to split tag "+tag_string+" using '/' \n");
                         tool_t = tag_string.split("/")[1];
                     }
                     else if (tag_string.contains("tool"))
                     {
-//                        System.out.print("trying to split tag "+tag_string+" using '_' \n");
                         tool_q = tag_string.split("_")[1];
                         wooden_required = false;
                     }

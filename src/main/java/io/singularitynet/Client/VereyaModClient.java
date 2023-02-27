@@ -10,6 +10,7 @@ import net.minecraft.client.Mouse;
 import net.minecraft.client.gui.screen.ChatScreen;
 import net.minecraft.client.gui.screen.GameMenuScreen;
 import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.gui.screen.TitleScreen;
 import org.apache.logging.log4j.LogManager;
 import org.jetbrains.annotations.Nullable;
 import org.lwjgl.glfw.GLFW;
@@ -26,22 +27,26 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
     }
 
     private InputType backupInputType = null;
+    private Screen currentScreen = null;
 
     @Override
     public void interact(MinecraftClient client, @Nullable Screen screen) {
+        if (this.currentScreen != null) return;  // avoid recursion
         LogManager.getLogger().debug("VereyaModClient: screen changed to " + screen);
         if (screen == null){
             if (this.backupInputType != null) {
                 LogManager.getLogger().info("VereyaModClient: restoring input type to " + this.backupInputType);
-                this.inputType = (this.backupInputType);
+                this.setInputType(this.backupInputType);
                 this.backupInputType = null;
             }
             return;
         }
-        if (screen instanceof GameMenuScreen){
+        if (!(screen instanceof ChatScreen)){
             LogManager.getLogger().info("VereyaModClient: switching to AI input");
             this.backupInputType = this.inputType;
-            this.inputType = (InputType.HUMAN);
+            this.currentScreen = screen;
+            this.setInputType(InputType.HUMAN);  // this calls setScreen(null)
+            this.currentScreen = null;
         }
     }
 

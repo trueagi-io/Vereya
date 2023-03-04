@@ -19,13 +19,8 @@
 
 package io.singularitynet;
 
-import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.fabricmc.fabric.api.networking.v1.PacketSender;
-import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ClientPlayNetworkHandler;
 import net.minecraft.network.PacketByteBuf;
 
 import java.util.*;
@@ -41,20 +36,10 @@ import org.jetbrains.annotations.Nullable;
 
 /** Handler for messages from the server to the clients. Register with this to receive specific messages.
  */
-public class SidesMessageHandler implements ModInitializer
+public class SidesMessageHandler
 {
     public static SidesMessageHandler server2client = new SidesMessageHandler();
     public static SidesMessageHandler client2server = new SidesMessageHandler();
-
-    @Override
-    public void onInitialize() {
-        // register the instance for messages from Server to the Client
-        ClientPlayNetworking.registerGlobalReceiver(NetworkConstants.SERVER2CLIENT,
-                (client, handler, buf, responseSender) -> { server2client.onMessage(client, buf) ; });
-
-        ServerPlayNetworking.registerGlobalReceiver(NetworkConstants.CLIENT2SERVER,
-                (server, player, handler, buf, responseSender) -> { client2server.onMessage(server, buf, player); });
-    }
 
     public interface IMessage {};
 

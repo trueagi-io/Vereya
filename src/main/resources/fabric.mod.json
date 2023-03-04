@@ -19,7 +19,7 @@
   "environment": "*",
   "entrypoints": {
     "client": [ "io.singularitynet.Client.VereyaModClient" ],
-    "main": [ "io.singularitynet.SidesMessageHandler",  "io.singularitynet.Server.VereyaModServer" ]
+    "main": [ "io.singularitynet.Server.VereyaModServer" ]
   },
   "mixins": [
     "vereya.mixins.json"

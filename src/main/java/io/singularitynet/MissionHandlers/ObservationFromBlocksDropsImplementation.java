@@ -13,7 +13,6 @@ import net.minecraft.block.Block;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.data.DataOutput;
 import net.minecraft.data.DataWriter;
-import net.minecraft.data.server.loottable.LootTableGenerator;
 import net.minecraft.data.server.loottable.LootTableProvider;
 import net.minecraft.data.server.loottable.VanillaLootTableProviders;
 import net.minecraft.item.Item;
@@ -30,7 +29,6 @@ import org.slf4j.Logger;
 
 import java.nio.file.Path;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
 import static net.minecraft.registry.Registries.ITEM;

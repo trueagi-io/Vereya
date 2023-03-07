@@ -10,10 +10,9 @@ import net.minecraft.item.Item;
 import net.minecraft.registry.Registry;
 
 import io.singularitynet.projectmalmo.ObservationFromItem;
-import io.singularitynet.projectmalmo.ObservationFromItems;
+
 
 import java.util.List;
-
 import static net.minecraft.registry.Registries.ITEM;
 
 public class ObservationFromItemsImplementation extends HandlerBase implements IObservationProducer, ICommandHandler {
@@ -67,5 +66,6 @@ public class ObservationFromItemsImplementation extends HandlerBase implements I
             items.add(item_name);
         }
         json.add("item_list", items);
+//
     }
 }

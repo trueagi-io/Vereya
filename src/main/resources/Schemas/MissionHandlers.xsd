@@ -1494,6 +1494,20 @@
         </xs:restriction>
     </xs:simpleType>
 
+    <xs:simpleType name="ObservationFromBlocksDrop">
+        <xs:annotation>
+            <xs:documentation>
+                A command to turn on block, item, tool required triples:
+                    blockdrops
+                turn off:
+                    blockdrops off
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="blockdrops" />
+        </xs:restriction>
+    </xs:simpleType>
+
     <xs:simpleType name="ObservationFromItem">
         <xs:annotation>
             <xs:documentation>
@@ -1574,6 +1588,21 @@
         </xs:restriction>
     </xs:simpleType>
 
+    <xs:simpleType name="BlockPlaceCommand">
+        <xs:annotation>
+            <xs:documentation>
+                A command for placing a block:
+
+                "placeBlock 1 2 3 minecraft:stone replace"
+
+                etc.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="placeBlock" />
+        </xs:restriction>
+    </xs:simpleType>
+
     <xs:simpleType name="MissionQuitCommand">
         <xs:annotation>
             <xs:documentation>
@@ -1621,7 +1650,7 @@
     </xs:simpleType>
 
     <xs:simpleType name="Command">
-        <xs:union memberTypes="ContinuousMovementCommand AbsoluteMovementCommand DiscreteMovementCommand InventoryCommand ChatCommand SimpleCraftCommand NearbyCraftCommand NearbySmeltCommand MissionQuitCommand HumanLevelCommand ObservationFromRecipe ObservationFromItem"/>
+        <xs:union memberTypes="ContinuousMovementCommand AbsoluteMovementCommand DiscreteMovementCommand InventoryCommand ChatCommand SimpleCraftCommand BlockPlaceCommand NearbyCraftCommand NearbySmeltCommand MissionQuitCommand HumanLevelCommand ObservationFromRecipe ObservationFromItem ObservationFromBlocksDrop"/>
     </xs:simpleType>
 
 
@@ -1783,6 +1812,29 @@
         </xs:complexType>
     </xs:element>
 
+    <xs:element name="BlockPlaceCommands">
+        <xs:annotation>
+            <xs:documentation>
+                When present, the Mod will accept simple commands that place blocks.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:all>
+                <xs:element name="ModifierList" minOccurs="0" maxOccurs="1">
+                    <xs:complexType>
+                        <xs:complexContent>
+                            <xs:restriction base="CommandListModifier">
+                                <xs:choice maxOccurs="unbounded">
+                                    <xs:element name="command" type="BlockPlaceCommand" minOccurs="0" maxOccurs="unbounded"/>
+                                </xs:choice>
+                            </xs:restriction>
+                        </xs:complexContent>
+                    </xs:complexType>
+                </xs:element>
+            </xs:all>
+        </xs:complexType>
+    </xs:element>
+
     <xs:element name="ObservationFromRecipes">
         <xs:annotation>
             <xs:documentation>
@@ -1798,6 +1850,30 @@
                             <xs:restriction base="CommandListModifier">
                                 <xs:choice maxOccurs="unbounded">
                                     <xs:element name="command" type="ObservationFromRecipe" minOccurs="0" maxOccurs="unbounded"/>
+                                </xs:choice>
+                            </xs:restriction>
+                        </xs:complexContent>
+                    </xs:complexType>
+                </xs:element>
+            </xs:all>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="ObservationFromBlocksDrops">
+        <xs:annotation>
+            <xs:documentation>
+                When present, the Mod will accept 'blockdrops' and 'blockdrops off' commands
+                which will turn on and off sending of block, item, tool required triples with each observation
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:all>
+                <xs:element name="ModifierList" minOccurs="0" maxOccurs="1">
+                    <xs:complexType>
+                        <xs:complexContent>
+                            <xs:restriction base="CommandListModifier">
+                                <xs:choice maxOccurs="unbounded">
+                                    <xs:element name="command" type="ObservationFromBlocksDrop" minOccurs="0" maxOccurs="unbounded"/>
                                 </xs:choice>
                             </xs:restriction>
                         </xs:complexContent>

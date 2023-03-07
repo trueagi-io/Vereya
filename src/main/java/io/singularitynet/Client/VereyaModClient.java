@@ -1,15 +1,21 @@
 package io.singularitynet.Client;
 
+import io.singularitynet.events.ScreenEvents;
 import io.singularitynet.mixin.MinecraftClientMixin;
 import io.singularitynet.mixin.MouseAccessorMixin;
 import net.fabricmc.api.ClientModInitializer;
 import net.minecraft.client.Keyboard;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.Mouse;
+import net.minecraft.client.gui.screen.ChatScreen;
+import net.minecraft.client.gui.screen.GameMenuScreen;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.gui.screen.TitleScreen;
 import org.apache.logging.log4j.LogManager;
+import org.jetbrains.annotations.Nullable;
 import org.lwjgl.glfw.GLFW;
 
-public class VereyaModClient implements ClientModInitializer, IMalmoModClient
+public class VereyaModClient implements ClientModInitializer, IMalmoModClient, ScreenEvents
 {
     public static final String AGENT_DEAD_QUIT_CODE = "MALMO_AGENT_DIED";
     public static final String AGENT_UNRESPONSIVE_CODE = "MALMO_AGENT_NOT_RESPONDING";
@@ -18,6 +24,30 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient
     public interface MouseEventListener
     {
         public void onXYChange(double deltaX, double deltaY);
+    }
+
+    private InputType backupInputType = null;
+    private Screen currentScreen = null;
+
+    @Override
+    public void interact(MinecraftClient client, @Nullable Screen screen) {
+        if (this.currentScreen != null) return;  // avoid recursion
+        LogManager.getLogger().debug("VereyaModClient: screen changed to " + screen);
+        if (screen == null){
+            if (this.backupInputType != null) {
+                LogManager.getLogger().info("VereyaModClient: restoring input type to " + this.backupInputType);
+                this.setInputType(this.backupInputType);
+                this.backupInputType = null;
+            }
+            return;
+        }
+        if (!(screen instanceof ChatScreen)){
+            LogManager.getLogger().info("VereyaModClient: switching to AI input");
+            this.backupInputType = this.inputType;
+            this.currentScreen = screen;
+            this.setInputType(InputType.HUMAN);  // this calls setScreen(null)
+            this.currentScreen = null;
+        }
     }
 
     public class MyMouse extends Mouse {
@@ -73,8 +103,8 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient
 
         @Override
         public void onKey(long window, int key, int scancode, int action, int modifiers) {
-            super.onKey(window, key, scancode, action, modifiers);
             VereyaModClient.this.onKey(window, key, scancode, action, modifiers);
+            super.onKey(window, key, scancode, action, modifiers);
         }
     }
 
@@ -84,6 +114,8 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient
         // MinecraftForge.EVENT_BUS.register(this);
         // TCPUtils.setLogging(TCPUtils.SeverityLevel.LOG_DETAILED);
         this.stateMachine = new ClientStateMachine(ClientState.WAITING_FOR_MOD_READY, (IMalmoModClient) this);
+        // subscribe to setScreen event
+        ScreenEvents.SET_SCREEN.register(this);
     }
 
     public void setup(){
@@ -125,20 +157,26 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient
         if (input == InputType.HUMAN)
         {
             MinecraftClient.getInstance().mouse.lockCursor();
-            // Minecraft.getMinecraft().mouseHelper.grabMouseCursor();
         }
         else {
             // Minecraft.getMinecraft().mouseHelper.ungrabMouseCursor();
             MinecraftClient.getInstance().mouse.unlockCursor();
         }
-        LogManager.getLogger().info("Mouse: " + input);
-        // this.stateMachine.getScreenHelper().addFragment("Mouse: " + input, ScreenHelper.TextCategory.TXT_INFO, INFO_MOUSE_CONTROL);
+        LogManager.getLogger().info("setting input type to: " + input);
     }
 
     private void onKey(long window, int key, int scancode, int action, int modifiers) {
-        boolean change = false;
-        if (key == GLFW.GLFW_KEY_ENTER && action == GLFW.GLFW_RELEASE) change = true;
-        if (!change) return;
+        if (key != GLFW.GLFW_KEY_ENTER)
+            return;
+        if (action != GLFW.GLFW_PRESS) return;
+
+        Screen screen = MinecraftClient.getInstance().currentScreen;
+        if (screen != null) {
+            if (screen instanceof ChatScreen) {
+                // if chat is open, do nothing
+                return;
+            }
+        }
         if (inputType == InputType.AI) {
             setInputType(InputType.HUMAN);
         } else {

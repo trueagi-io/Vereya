@@ -1588,6 +1588,21 @@
         </xs:restriction>
     </xs:simpleType>
 
+    <xs:simpleType name="BlockPlaceCommand">
+        <xs:annotation>
+            <xs:documentation>
+                A command for placing a block:
+
+                "placeBlock 1 2 3 minecraft:stone replace"
+
+                etc.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="placeBlock" />
+        </xs:restriction>
+    </xs:simpleType>
+
     <xs:simpleType name="MissionQuitCommand">
         <xs:annotation>
             <xs:documentation>
@@ -1635,7 +1650,7 @@
     </xs:simpleType>
 
     <xs:simpleType name="Command">
-        <xs:union memberTypes="ContinuousMovementCommand AbsoluteMovementCommand DiscreteMovementCommand InventoryCommand ChatCommand SimpleCraftCommand NearbyCraftCommand NearbySmeltCommand MissionQuitCommand HumanLevelCommand ObservationFromRecipe ObservationFromItem ObservationFromBlocksDrop"/>
+        <xs:union memberTypes="ContinuousMovementCommand AbsoluteMovementCommand DiscreteMovementCommand InventoryCommand ChatCommand SimpleCraftCommand BlockPlaceCommand NearbyCraftCommand NearbySmeltCommand MissionQuitCommand HumanLevelCommand ObservationFromRecipe ObservationFromItem ObservationFromBlocksDrop"/>
     </xs:simpleType>
 
 
@@ -1788,6 +1803,29 @@
                             <xs:restriction base="CommandListModifier">
                                 <xs:choice maxOccurs="unbounded">
                                     <xs:element name="command" type="SimpleCraftCommand" minOccurs="0" maxOccurs="unbounded"/>
+                                </xs:choice>
+                            </xs:restriction>
+                        </xs:complexContent>
+                    </xs:complexType>
+                </xs:element>
+            </xs:all>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="BlockPlaceCommands">
+        <xs:annotation>
+            <xs:documentation>
+                When present, the Mod will accept simple commands that place blocks.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:all>
+                <xs:element name="ModifierList" minOccurs="0" maxOccurs="1">
+                    <xs:complexType>
+                        <xs:complexContent>
+                            <xs:restriction base="CommandListModifier">
+                                <xs:choice maxOccurs="unbounded">
+                                    <xs:element name="command" type="BlockPlaceCommand" minOccurs="0" maxOccurs="unbounded"/>
                                 </xs:choice>
                             </xs:restriction>
                         </xs:complexContent>

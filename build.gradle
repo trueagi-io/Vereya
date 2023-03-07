@@ -7,7 +7,7 @@ plugins {
 sourceCompatibility = JavaVersion.VERSION_17
 targetCompatibility = JavaVersion.VERSION_17
 
-version = "0.1.0"
+version = "0.1.1"
 archivesBaseName = project.archives_base_name + '-fabric_' + project.fabric_version
 group = project.maven_group
 

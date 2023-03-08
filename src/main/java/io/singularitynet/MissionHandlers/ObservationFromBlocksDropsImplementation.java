@@ -268,7 +268,7 @@ public class ObservationFromBlocksDropsImplementation extends HandlerBase implem
         if (!this.sendRec){
             return;
         }
-        Path pth = Path.of("/tmp/");
+        Path pth = Path.of(System.getProperty("java.io.tmpdir"));
         DataOutput doutput = new DataOutput(pth);
         DataWriter writer = DataWriter.UNCACHED;
         LootTableProvider provider = VanillaLootTableProviders.createVanillaProvider(doutput);

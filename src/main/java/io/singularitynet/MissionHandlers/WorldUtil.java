@@ -30,6 +30,7 @@ public class WorldUtil {
                 GameMode.DEFAULT, hardcore, difficulty, true,
                 gameRules,
                 DataConfiguration.SAFE_MODE);
+        LogManager.getLogger().debug("creating world with seed " + seed);
         GeneratorOptions generatorOptions = new GeneratorOptions(seed, true, false);
         client.createIntegratedServerLoader().createAndStart(levelName, levelInfo, generatorOptions, WorldUtil::getDefaultOverworldOptions);
     }

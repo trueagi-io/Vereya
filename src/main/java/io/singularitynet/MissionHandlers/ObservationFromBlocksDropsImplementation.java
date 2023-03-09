@@ -239,7 +239,6 @@ public class ObservationFromBlocksDropsImplementation extends HandlerBase implem
                 if (!identifier.toString().contains("block"))
                     continue;
                 String block_name = identifier.toString().replace("minecraft:blocks/", "");
-                System.out.print(block_name + "\n");
                 LootTable loottable = entry.getValue();
                 JsonElement jel = LootManager.toJson(loottable);
                 List<String> parsed_one_table = this.parseOneTable(jel, block_name);

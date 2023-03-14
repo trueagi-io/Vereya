@@ -232,7 +232,7 @@ public class ObservationFromRayImplementation extends HandlerBase implements IOb
                 // coincides
                 direction = new Vec3d(Vec3f.POSITIVE_Y.getX(), Vec3f.POSITIVE_Y.getY(), Vec3f.POSITIVE_Y.getZ());
             } else {
-                direction = new Vec3d(Vec3f.POSITIVE_Y.getX(), Vec3f.POSITIVE_Y.getY(), Vec3f.POSITIVE_Y.getZ());
+                direction = new Vec3d(Vec3f.POSITIVE_Y.getX(), Vec3f.NEGATIVE_Y.getY(), Vec3f.POSITIVE_Y.getZ());
             }
         }
         return direction;

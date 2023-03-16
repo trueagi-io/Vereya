@@ -92,6 +92,8 @@ public class ServerStateMachine extends StateMachine implements IMalmoMessageLis
         // Create an EventWrapper to handle the forwarding of events to the mission episodes.
         this.eventWrapper = new EpisodeEventWrapper();
         this.currentMissionInit = minit;
+        LOGGER.debug("ServerStateMachine: Initialising with state " + initialState);
+        LOGGER.debug("ServerStateMachine: " + this + " server " + server);
         this.server = new WeakReference(server);
         // Register ourself on the event busses, so we can harness the server tick:
         ServerTickEvents.END_SERVER_TICK.register(s -> this.onServerTick(s));
@@ -273,12 +275,15 @@ public class ServerStateMachine extends StateMachine implements IMalmoMessageLis
     {
         MinecraftServer server = this.server.get();
         if (server == null) {
+            LOGGER.error("checkWatchList: server is null");
             return false;
         }
         String[] connected_users = server.getPlayerManager().getPlayerNames();
         // String[] connected_users = FMLCommonHandler.instance().getMinecraftServerInstance().getOnlinePlayerNames();
-        if (connected_users.length < this.userConnectionWatchList.size())
+        if (connected_users.length < this.userConnectionWatchList.size()) {
+            LOGGER.debug("checkWatchList: not enough users connected");
             return false;
+        }
 
         // More detailed check (since there may be non-mission-required connections - eg a human spectator).
         for (String username : this.userConnectionWatchList)
@@ -289,8 +294,10 @@ public class ServerStateMachine extends StateMachine implements IMalmoMessageLis
                 if (connected_users[i].equals(username))
                     bFound = true;
             }
-            if (!bFound)
+            if (!bFound) {
+                LOGGER.warn("checkWatchList: user " + username + " is not connected");
                 return false;
+            }
         }
         return true;
     }
@@ -399,14 +406,15 @@ public class ServerStateMachine extends StateMachine implements IMalmoMessageLis
         @Override
         public void onMessage(MalmoMessageType messageType, Map<String, String> data, ServerPlayerEntity player)
         {
-            LOGGER.info("Got message: " + messageType.name());
-            LOGGER.info(data.toString());
+            LOGGER.debug("Got message: " + messageType.name());
+            LOGGER.debug(data.toString());
             if (messageType == CLIENT_BAILED)
             {
                 synchronized(this.errorFlag)
                 {
                     this.errorFlag = true;
                     this.errorData = data;
+                    LOGGER.warn("Client bailed: " + data);
                     onError(data);
                 }
             }
@@ -504,7 +512,7 @@ public class ServerStateMachine extends StateMachine implements IMalmoMessageLis
             // Check whether a mission request has come in "directly":
             if (ssmachine.hasQueuedMissionInit())
             {
-                System.out.println("INCOMING MISSION: Received MissionInit directly through queue.");
+                LOGGER.info("INCOMING MISSION: Received MissionInit directly through queue.");
                 onReceiveMissionInit(ssmachine.releaseQueuedMissionInit());
             }
         }
@@ -626,6 +634,7 @@ public class ServerStateMachine extends StateMachine implements IMalmoMessageLis
 
             ServerStateMachine.this.clearUserConnectionWatchList(); // We will build this up as agents join us.
             ServerStateMachine.this.clearUserTurnSchedule();        // We will build this up too, if needed.
+            assert ServerStateMachine.this.server.get() != null;
         }
 
         @Override
@@ -900,6 +909,7 @@ public class ServerStateMachine extends StateMachine implements IMalmoMessageLis
         @Override
         protected void onError(Map<String, String> errorData)
         {
+            LOGGER.debug("WaitingForAgentsEpisode: onError sending SERVER_ABORT.");
             // Something has gone wrong - one of the clients has been forced to bail.
             // Do some tidying:
             resetPlayerGameTypes();
@@ -912,8 +922,10 @@ public class ServerStateMachine extends StateMachine implements IMalmoMessageLis
         @Override
         protected void onServerTick(MinecraftServer ev)
         {
-            if (!ServerStateMachine.this.checkWatchList())
+            if (!ServerStateMachine.this.checkWatchList()) {
+                LOGGER.warn("WaitingForAgentsEpisode: Watch list check failed, perhaps lost connection to client?");
                 onError(null);  // We've lost a connection - abort the mission.
+            }
         }
 /*
         private ItemStack itemStackFromInventoryObject(InventoryObjectType obj)
@@ -1059,7 +1071,7 @@ public class ServerStateMachine extends StateMachine implements IMalmoMessageLis
                             // Couldn't reach the client whose turn it is, and doesn't seem to be a decorator's turn - abort!
                             String error = "ERROR IN TURN SCHEDULER - could not find client for user " + nextAgentName;
                             saveErrorDetails(error);
-                            System.out.println(error);
+                            LOGGER.error(error);
                             ServerStateMachine.this.sendToAll(new MalmoMessage(MalmoMessageType.SERVER_ABORT,
                                     0, null));
                             episodeHasCompleted(ServerState.ERROR);
@@ -1125,8 +1137,10 @@ public class ServerStateMachine extends StateMachine implements IMalmoMessageLis
             if (this.missionHasEnded)
                 return;    // In case we get in here after deciding the mission is over.
 
-            if (!ServerStateMachine.this.checkWatchList())
-                onError(null);  // We've lost a connection - abort the mission.
+            if (!ServerStateMachine.this.checkWatchList()) {
+                LOGGER.warn("RunningEpisode.onServerTickStart Lost connection to client(s)");
+                this.onError(null);  // We've lost a connection - abort the mission.
+            }
 
 
             // Measure our performance - especially useful if we've been overclocked.
@@ -1146,8 +1160,10 @@ public class ServerStateMachine extends StateMachine implements IMalmoMessageLis
 
         @Override
         protected void onServerTick(MinecraftServer ev) {
-            if (!ServerStateMachine.this.checkWatchList())
+            if (!ServerStateMachine.this.checkWatchList()) {
+                LOGGER.warn("RunningEpisode.onServerTick Lost connection to client(s) - aborting mission.");
                 onError(null);  // We've lost a connection - abort the mission.
+            }
 
             if (getHandlers() != null && getHandlers().worldDecorator != null)
             {
@@ -1285,6 +1301,7 @@ public class ServerStateMachine extends StateMachine implements IMalmoMessageLis
                 // Need to respond to this, otherwise we'll sit here forever waiting for a client that no longer exists
                 // to tell us it's finished its mission.
                 ServerStateMachine.this.sendToAll(new MalmoMessage(MalmoMessageType.SERVER_ABORT, 0, null));
+                LOGGER.warn("WaitingForAgentsToQuitEpisode.onServerTick Lost connection to client(s) - aborting mission.");
                 episodeHasCompleted(ServerState.ERROR);
             }
         }

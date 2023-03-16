@@ -94,6 +94,7 @@ public class ServerStateMachine extends StateMachine implements IMalmoMessageLis
         this.currentMissionInit = minit;
         LOGGER.debug("ServerStateMachine: Initialising with state " + initialState);
         LOGGER.debug("ServerStateMachine: " + this + " server " + server);
+
         this.server = new WeakReference(server);
         // Register ourself on the event busses, so we can harness the server tick:
         ServerTickEvents.END_SERVER_TICK.register(s -> this.onServerTick(s));

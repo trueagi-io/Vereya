@@ -27,10 +27,15 @@ import io.singularitynet.utils.ScreenHelper;
 import jakarta.xml.bind.JAXBElement;
 import jakarta.xml.bind.JAXBException;
 
+import net.fabricmc.api.EnvType;
+import net.fabricmc.api.Environment;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientChunkEvents;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
-import net.minecraft.client.MinecraftClient;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.player.PlayerEntity;
@@ -46,8 +51,12 @@ import net.minecraft.world.GameRules;
 import net.minecraft.world.World;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.core.jmx.Server;
+import org.xml.sax.SAXException;
 
 
+import javax.xml.stream.XMLStreamException;
+import java.lang.ref.WeakReference;
 import java.util.*;
 
 import static io.singularitynet.MalmoMessageType.CLIENT_BAILED;
@@ -59,12 +68,12 @@ import static io.singularitynet.MalmoMessageType.CLIENT_BAILED;
  * subclasses to react to certain state changes.<br>
  * The ProjectMalmo mod app class inherits from this and uses these hooks to run missions.
  */
-public class ServerStateMachine extends StateMachine {
+public class ServerStateMachine extends StateMachine implements IMalmoMessageListener {
     private MissionInit currentMissionInit = null;   	// The MissionInit object for the mission currently being loaded/run.
     private MissionInit queuedMissionInit = null;		// The MissionInit requested from elsewhere - dormant episode will check for its presence.
     private MissionBehaviour missionHandlers = null;	// The Mission handlers for the mission currently being loaded/run.
     protected String quitCode = "";						// Code detailing the reason for quitting this mission.
-    private MinecraftServer server;
+    private WeakReference<MinecraftServer> server;
     private static final Logger LOGGER = LogManager.getLogger();
 
     // agentConnectionWatchList is used to keep track of the clients in a multi-agent mission. If, at any point, a username appears in
@@ -80,8 +89,10 @@ public class ServerStateMachine extends StateMachine {
     public ServerStateMachine(ServerState initialState, MissionInit minit, MinecraftServer server)
     {
         super(initialState);
+        // Create an EventWrapper to handle the forwarding of events to the mission episodes.
+        this.eventWrapper = new EpisodeEventWrapper();
         this.currentMissionInit = minit;
-        this.server = server;
+        this.server = new WeakReference(server);
         // Register ourself on the event busses, so we can harness the server tick:
         ServerTickEvents.END_SERVER_TICK.register(s -> this.onServerTick(s));
         ServerLifecycleEvents.SERVER_STOPPING.register(s -> this.onServerStopping(s));
@@ -217,6 +228,7 @@ public class ServerStateMachine extends StateMachine {
 
     protected void initialiseHandlers(MissionInit init) throws Exception
     {
+        LOGGER.info("initialising handlers on Server");
         this.missionHandlers = MissionBehaviour.createServerHandlersFromMissionInit(init);
     }
 
@@ -231,7 +243,7 @@ public class ServerStateMachine extends StateMachine {
     }
 
     private void sendToAll(MalmoMessage msg){
-        MinecraftServer server = MinecraftClient.getInstance().getServer();
+        MinecraftServer server = this.server.get();
         if (server == null){
             LOGGER.error("server is null, msg type " + msg.getMessageType().toString());
             for (Map.Entry entry: msg.getData().entrySet()){
@@ -259,7 +271,7 @@ public class ServerStateMachine extends StateMachine {
 
     protected boolean checkWatchList()
     {
-        MinecraftServer server = MinecraftClient.getInstance().getServer();
+        MinecraftServer server = this.server.get();
         if (server == null) {
             return false;
         }
@@ -333,6 +345,16 @@ public class ServerStateMachine extends StateMachine {
                 break;
         }
         return null;
+    }
+
+    @Override
+    public void onMessage(MalmoMessageType messageType, Map<String, String> data) {
+         throw new RuntimeException("ServerStateMachine.onMessage() should never be called on server!");
+    }
+
+    @Override
+    public void onMessage(MalmoMessageType messageType, Map<String, String> data, ServerPlayerEntity player) {
+
     }
 
     /** Initial episode - perform client setup */
@@ -432,6 +454,7 @@ public class ServerStateMachine extends StateMachine {
         {
             super(machine);
             this.ssmachine = machine;
+            SidesMessageHandler.client2server.registerForMessage(this, MalmoMessageType.CLIENT_MISSION_INIT);
             if (machine.hasQueuedMissionInit())
             {
                 // This is highly suspicious - the queued mission init is a mechanism whereby the client state machine can pass its mission init
@@ -513,6 +536,31 @@ public class ServerStateMachine extends StateMachine {
             LOGGER.info("setting mission init, allowed mobs:\n" + allowed_mobs);
             episodeHasCompleted(ServerState.BUILDING_WORLD);
         }
+
+
+        @Override
+        public void onMessage(MalmoMessageType messageType, Map<String, String> data, ServerPlayerEntity player) {
+            LOGGER.debug("ServerStateMachine.onMessage() received message of type " + messageType.toString() + " from " + player.getName().getString());
+            if (messageType == MalmoMessageType.CLIENT_MISSION_INIT) {
+                // deserialize the mission init
+                try {
+                    MissionInit init = (MissionInit) SchemaHelper.deserialiseObject(data.get("MissionInit"), MissionInit.class);
+                    this.onReceiveMissionInit(init);
+                } catch (JAXBException e) {
+                    LOGGER.error("Error deserialising MissionInit", e);
+                } catch (SAXException e) {
+                    LOGGER.error("Error deserialising MissionInit", e);
+                } catch (XMLStreamException e) {
+                    LOGGER.error("Error deserialising MissionInit", e);
+                }
+            }
+        }
+
+        @Override
+        public void cleanup()
+        {
+            SidesMessageHandler.client2server.deregisterForMessage(this, MalmoMessageType.CLIENT_MISSION_INIT);
+        }
     }
 
     //---------------------------------------------------------------------------------------------------------
@@ -536,7 +584,7 @@ public class ServerStateMachine extends StateMachine {
                 // Now set up other attributes of the environment (eg weather)
                 int worldCount = 0;
                 ServerWorld world = null;
-                for (ServerWorld w:  MinecraftClient.getInstance().getServer().getWorlds()) {
+                for (ServerWorld w:  ServerStateMachine.this.server.get().getWorlds()) {
                     worldCount ++;
                     world = w;
                 }
@@ -645,6 +693,7 @@ public class ServerStateMachine extends StateMachine {
                 if (username != null && agentname != null && this.pendingReadyAgents.contains(agentname))
                 {
                     initialisePlayer(username, agentname);
+                    LOGGER.debug("removing " + agentname + " from pendingReadyAgents");
                     this.pendingReadyAgents.remove(agentname);
                     this.usernameToAgentnameMap.put(username, agentname);
                     this.pendingRunningAgents.add(username);
@@ -657,6 +706,7 @@ public class ServerStateMachine extends StateMachine {
                         addUsernameToTurnSchedule(username, pos);
                     }
                     // If all clients have now joined, we can tell them to go ahead.
+                    LOGGER.debug("pendingReadyAgents now contains " + this.pendingReadyAgents.size() + " entries.");
                     if (this.pendingReadyAgents.isEmpty())
                         onCastAssembled();
                 }
@@ -717,7 +767,7 @@ public class ServerStateMachine extends StateMachine {
         private ServerPlayerEntity getPlayerFromUsername(String username)
         {
             // username, not account name
-            return MinecraftClient.getInstance().getServer().getPlayerManager().getPlayer(username);
+            return ServerStateMachine.this.server.get().getPlayerManager().getPlayer(username);
         }
 
         private void initialisePlayer(String username, String agentname)
@@ -777,10 +827,10 @@ public class ServerStateMachine extends StateMachine {
             List<AgentSection> agents = currentMissionInit().getMission().getAgentSection();
             if (agents != null && agents.size() > 0)
             {
-                System.out.println("Experiment requires: ");
+                LOGGER.debug("Experiment requires: ");
                 for (AgentSection as : agents)
                 {
-                    System.out.println(">>>> " + as.getName());
+                    LOGGER.debug("pendingReadyAgents >>>> " + as.getName());
                     pendingReadyAgents.add(as.getName());
                 }
             }
@@ -805,6 +855,7 @@ public class ServerStateMachine extends StateMachine {
 
         private void onCastAssembled()
         {
+            LOGGER.debug("Cast assembled, starting mission.");
             // Build up any extra mission handlers required:
             MissionBehaviour handlers = getHandlers();
             List<Object> extraHandlers = new ArrayList<Object>();
@@ -842,6 +893,7 @@ public class ServerStateMachine extends StateMachine {
             saveTurnSchedule();
 
             // And tell them all they can proceed:
+            LOGGER.debug("Sending SERVER_ALLPLAYERSJOINED to all clients.");
             sendToAll(new MalmoMessage(MalmoMessageType.SERVER_ALLPLAYERSJOINED, 0, data));
         }
 
@@ -1026,7 +1078,7 @@ public class ServerStateMachine extends StateMachine {
             if (sic != null && sic.getTime() != null)
             {
                 boolean allowTimeToPass = (sic.getTime().isAllowPassageOfTime() != Boolean.FALSE);  // Defaults to true if unspecified.
-                MinecraftServer server = MinecraftClient.getInstance().getServer();
+                MinecraftServer server = ServerStateMachine.this.server.get();
                 for (ServerWorld world: server.getWorlds())
                 {
                     world.getGameRules().get(GameRules.DO_DAYLIGHT_CYCLE).set(allowTimeToPass ? true : false, null);
@@ -1051,7 +1103,7 @@ public class ServerStateMachine extends StateMachine {
             if (!ServerStateMachine.this.userTurnSchedule.isEmpty())
             {
                 String agentName = ServerStateMachine.this.userTurnSchedule.get(0);
-                ServerPlayerEntity player = MinecraftClient.getInstance().getServer().getPlayerManager().getPlayer(agentName);
+                ServerPlayerEntity player = ServerStateMachine.this.server.get().getPlayerManager().getPlayer(agentName);
                 if (player != null)
                 {
                     ServerPlayNetworking.send(player, NetworkConstants.SERVER2CLIENT,
@@ -1063,6 +1115,9 @@ public class ServerStateMachine extends StateMachine {
                     getHandlers().worldDecorator.targetedUpdate(agentName);
                 }
             }
+
+            getHandlers().commandHandler.install(currentMissionInit());
+            getHandlers().commandHandler.setOverriding(true);
         }
 
         @Override
@@ -1096,7 +1151,7 @@ public class ServerStateMachine extends StateMachine {
 
             if (getHandlers() != null && getHandlers().worldDecorator != null)
             {
-                for(World world: server.getWorlds()) {
+                for(World world: server.get().getWorlds()) {
                     getHandlers().worldDecorator.update(world);
                 }
             }
@@ -1116,7 +1171,7 @@ public class ServerStateMachine extends StateMachine {
             // We set the weather just after building the world, but it's not a permanent setting,
             // and apparently there is a known bug in Minecraft that means the weather sometimes changes early.
             // To get around this, we reset it periodically.
-            if (server.getTicks() % 500 == 0)
+            if (server.get().getTicks() % 500 == 0)
             {
                 for(ServerWorld world: ev.getWorlds()) {
                     setMissionWeather(currentMissionInit(), world);
@@ -1133,6 +1188,9 @@ public class ServerStateMachine extends StateMachine {
 
             if (getHandlers().worldDecorator != null)
                 getHandlers().worldDecorator.cleanup();
+
+            getHandlers().commandHandler.setOverriding(false);
+            getHandlers().commandHandler.deinstall(currentMissionInit());
 
             TimeHelper.serverTickLength = 50;   // Return tick length to 50ms default.
 

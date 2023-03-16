@@ -23,7 +23,10 @@ package io.singularitynet.Server;
 import io.singularitynet.NetworkConstants;
 import io.singularitynet.SidesMessageHandler;
 import io.singularitynet.projectmalmo.MissionInit;
+import net.fabricmc.api.EnvType;
+import net.fabricmc.api.Environment;
 import net.fabricmc.api.ModInitializer;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.server.MinecraftServer;
 import org.apache.logging.log4j.LogManager;
@@ -47,18 +50,25 @@ public class VereyaModServer implements ModInitializer {
         // register the instance for messages from Client to the Server
         ServerPlayNetworking.registerGlobalReceiver(NetworkConstants.CLIENT2SERVER,
                 (server, player, handler, buf, responseSender) -> { SidesMessageHandler.client2server.onMessage(server, buf, player); });
-
+        ServerLifecycleEvents.SERVER_STARTED.register((MinecraftServer server) -> {
+            Logger LOGGER = LogManager.getLogger();
+            LOGGER.info("Server started");
+            if (stateMachine == null ) {
+                this.stateMachine = new ServerStateMachine(ServerState.WAITING_FOR_MOD_READY, null, server);
+            } else {
+                this.stateMachine.queueStateChange(ServerState.WAITING_FOR_MOD_READY);
+            }
+        });
     }
 
     public void sendMissionInitDirectToServer(MissionInit minit) throws Exception
     {
         if (this.stateMachine == null)
             throw new Exception("Trying to send a mission request directly when no server has been created!");
-
         this.stateMachine.setMissionInit(minit);
     }
 
-    public void initIntegratedServer(MissionInit init, MinecraftServer server){
+    public void initServerStateMachine(MissionInit init, MinecraftServer server){
         Logger LOGGER = LogManager.getLogger();
         LOGGER.info("Server initialized");
         if (stateMachine == null ) {

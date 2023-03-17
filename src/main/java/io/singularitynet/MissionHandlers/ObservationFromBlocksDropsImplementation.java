@@ -111,6 +111,8 @@ public class ObservationFromBlocksDropsImplementation extends HandlerBase implem
         if (!pools.toString().contains("children")) // one item from block
         {
             String item_name = ((JsonObject) one_entry).get("name").toString().replaceAll("minecraft:|\"", "");
+            if (block_name.contains("infested"))
+                item_name = "";
             addEntitiesToList(result, item_name, "");
             return result;
         }

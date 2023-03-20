@@ -111,6 +111,11 @@ public class ObservationFromBlocksDropsImplementation extends HandlerBase implem
         if (!pools.toString().contains("children")) // one item from block
         {
             String item_name = ((JsonObject) one_entry).get("name").toString().replaceAll("minecraft:|\"", "");
+            //TODO: this is currently done since actually infested blocks spawn silverfish attacking player, but game
+            // says some infested_cobblestone drops stone and doesn't need any tool to mine stone from it, which leads
+            // to situation when agent tries to find infested_cobblestone to farm stone which is wrong behavior.
+            if (block_name.contains("infested"))
+                item_name = "";
             addEntitiesToList(result, item_name, "");
             return result;
         }
@@ -288,7 +293,6 @@ public class ObservationFromBlocksDropsImplementation extends HandlerBase implem
             if (Objects.equals(block_name, "minecraft:empty")) {
                 continue;
             }
-
             boolean is_tool_required = en_block.getDefaultState().isToolRequired();
             String tool_name = "";
             if (is_tool_required)

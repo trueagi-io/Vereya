@@ -111,10 +111,9 @@ public class ObservationFromBlocksDropsImplementation extends HandlerBase implem
         if (!pools.toString().contains("children")) // one item from block
         {
             String item_name = ((JsonObject) one_entry).get("name").toString().replaceAll("minecraft:|\"", "");
-            //TODO: this is currently done since actually infested blocks drops some fish attacking player, but game
-            // says some infested_cobblestone drops stone and doesnt need any tools to mine stone from it, which leads
+            //TODO: this is currently done since actually infested blocks spawn silverfish attacking player, but game
+            // says some infested_cobblestone drops stone and doesn't need any tool to mine stone from it, which leads
             // to situation when agent tries to find infested_cobblestone to farm stone which is wrong behavior.
-            // Though that is not the best solution.
             if (block_name.contains("infested"))
                 item_name = "";
             addEntitiesToList(result, item_name, "");

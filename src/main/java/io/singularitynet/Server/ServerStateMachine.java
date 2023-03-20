@@ -99,6 +99,7 @@ public class ServerStateMachine extends StateMachine implements IMalmoMessageLis
         ServerTickEvents.END_SERVER_TICK.register(s -> this.onServerTick(s));
         ServerLifecycleEvents.SERVER_STOPPING.register(s -> this.onServerStopping(s));
         ServerLifecycleEvents.SERVER_STOPPED.register(s -> this.onServerStopped(s));
+        ServerLifecycleEvents.SERVER_STARTED.register(s -> this.onServerStarted(s));
         ServerEntityEventsVereya.BEFORE_ENTITY_ADD.register((e, w) -> this.onGetPotentialSpawns(e, w));
     }
 
@@ -161,6 +162,11 @@ public class ServerStateMachine extends StateMachine implements IMalmoMessageLis
         this.releaseQueuedMissionInit();
         ServerStateMachine.this.currentMissionInit = null;
         LOGGER.info("server stopped");
+    }
+
+    private void onServerStarted(MinecraftServer s){
+        LOGGER.info("Server started: " + s);
+        this.server = new WeakReference(s);
     }
 
     public void setMissionInit(MissionInit minit)
@@ -581,6 +587,7 @@ public class ServerStateMachine extends StateMachine implements IMalmoMessageLis
         {
             super(machine);
             this.ssmachine = machine;
+            assert ssmachine.server.get() != null;
         }
 
         @Override

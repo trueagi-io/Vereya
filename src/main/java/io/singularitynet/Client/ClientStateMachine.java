@@ -24,6 +24,7 @@ import com.google.gson.JsonPrimitive;
 import io.singularitynet.*;
 import io.singularitynet.MissionHandlerInterfaces.IVideoProducer;
 import io.singularitynet.MissionHandlerInterfaces.IWantToQuit;
+import io.singularitynet.MissionHandlerInterfaces.IWorldGenerator;
 import io.singularitynet.MissionHandlers.MissionBehaviour;
 import io.singularitynet.MissionHandlers.MultidimensionalReward;
 import io.singularitynet.Server.VereyaModServer;
@@ -33,9 +34,14 @@ import io.singularitynet.projectmalmo.*;
 import io.singularitynet.utils.*;
 import io.singularitynet.utils.TCPInputPoller.CommandAndIPAddress;
 import jakarta.xml.bind.JAXBException;
+import net.fabricmc.api.EnvType;
+import net.fabricmc.api.Environment;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientChunkEvents;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.entity.player.PlayerEntity;
@@ -65,6 +71,8 @@ import java.util.logging.Level;
  * allow subclasses to react to certain state changes.<br>
  * The ProjectMalmo mod app class inherits from this and uses these hooks to run missions.
  */
+
+@Environment(EnvType.CLIENT)
 public class ClientStateMachine extends StateMachine implements IMalmoMessageListener
 {
     private static final int WAIT_MAX_TICKS = 3000; // Over 3 minute and a half in client ticks.
@@ -185,14 +193,20 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
         ls.close();
     }
 
+
+    public void setupClientCallbacks(){
+       }
+
     public ClientStateMachine(ClientState initialState, IMalmoModClient malmoModClient)
     {
         super(initialState);
+        this.eventWrapper = new EpisodeEventWrapperClient();
         this.inputController = malmoModClient;
 
         // Register ourself on the event busses, so we can harness the client tick:
         ClientTickEvents.END_CLIENT_TICK.register(client -> this.onClientTick(client));
         SidesMessageHandler.server2client.registerForMessage(this, MalmoMessageType.SERVER_TEXT);
+        setupClientCallbacks();
     }
 
     @Override
@@ -739,11 +753,8 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
             if (missionInit != null)
             {
                 missionInit.getClientAgentConnection().setAgentIPAddress(comip.ipAddress);
-                System.out.println("Mission received: " + missionInit.getMission().getAbout().getSummary());
+                LOGGER.info("Mission received: " + missionInit.getMission().getAbout().getSummary());
                 csMachine.currentMissionInit = missionInit;
-
-               // ScoreHelper.logMissionInit(missionInit);
-
                 ClientStateMachine.this.createMissionControlSocket();
                 // Move on to next state:
                 episodeHasCompleted(ClientState.CREATING_HANDLERS);
@@ -1014,7 +1025,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
                 // The server has started ticking - we can set up its state machine,
                 // and move on to the next state in our own machine.
                 this.serverStarted = true;
-                VereyaModServer.getInstance().initIntegratedServer(currentMissionInit(), server); // Needs to be done from the server thread.
+                VereyaModServer.getInstance().initServerStateMachine(currentMissionInit(), server); // Needs to be done from the server thread.
                 episodeHasCompleted(ClientState.WAITING_FOR_SERVER_READY);
             }
         }
@@ -1049,19 +1060,22 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
             // We are responsible for creating the server, if required.
             // This means we need access to the server's MissionHandlers:
             MissionBehaviour serverHandlers = null;
+            IWorldGenerator worldGenerator = null;
             try {
-                serverHandlers = MissionBehaviour.createServerHandlersFromMissionInit(currentMissionInit());
+                // serverHandlers = MissionBehaviour.createServerHandlersFromMissionInit(currentMissionInit());
+                worldGenerator = MissionBehaviour.createWorldGenerator(currentMissionInit());
             } catch (Exception e) {
                 episodeHasCompletedWithErrors(ClientState.ERROR_DUFF_HANDLERS, "Could not create server mission handlers: " + e.getMessage());
+                return;
             }
-
 
             World world = MinecraftClient.getInstance().world;
             Object genOptions = null;
             if (world != null) {
                 genOptions = generatorProperties.get(world.getRegistryKey());
             }
-            boolean needsNewWorld = serverHandlers != null && serverHandlers.worldGenerator != null && serverHandlers.worldGenerator.shouldCreateWorld(currentMissionInit(), genOptions);
+
+            boolean needsNewWorld = worldGenerator != null && worldGenerator.shouldCreateWorld(currentMissionInit(), genOptions);
             boolean worldCurrentlyExists = world != null;
             List<AgentSection> agents = currentMissionInit().getMission().getAgentSection();
             String agentName = agents.get(currentMissionInit().getClientRole()).getName();
@@ -1103,7 +1117,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
 
                     ClientPlayerEntity player = MinecraftClient.getInstance().player;
                     if (player.isDead()) player.requestRespawn();
-
+/*
                     if (ClientStateMachine.this.serverHandlers == null) {
                         // We need to use the server's MissionHandlers here:
                         try {
@@ -1115,30 +1129,54 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
                             return;
                         }
                     }
-                    // We don't want a new world, and we can use the current one -
-                    // but we own the server, so we need to pass it the new mission init:
-                    MinecraftClient.getInstance().getServer().execute(new Runnable() {
-                        @Override
-                        public void run() {
-                            try {
-                                // check that ServerStateMachine exists
-                                if (VereyaModServer.getInstance().hasServer()) {
-                                    VereyaModServer.getInstance().sendMissionInitDirectToServer(currentMissionInit);
-                                } else {
-                                    VereyaModServer.getInstance().initIntegratedServer(currentMissionInit(), MinecraftClient.getInstance().getServer()); // Needs to be done from the server thread.
+ */
+                    boolean isConnectedToRealm = MinecraftClient.getInstance().isConnectedToRealms();
+                    boolean isConnectedToLocal = MinecraftClient.getInstance().isConnectedToLocalServer();
+                    boolean isIntegratedServerRunning = MinecraftClient.getInstance().isIntegratedServerRunning();
+                    LOGGER.debug("isConnectedToRealm: " + isConnectedToRealm);
+                    LOGGER.debug("isConnectedToLocal: " + isConnectedToLocal);
+                    LOGGER.debug("isIntegratedServerRunning: " + isIntegratedServerRunning);
+                    if (isIntegratedServerRunning) {
+                        // We don't want a new world, and we can use the current one -
+                        // but we own the server, so we need to pass it the new mission init:
+                        MinecraftClient.getInstance().getServer().execute(new Runnable() {
+                            @Override
+                            public void run() {
+                                try {
+                                    // check that ServerStateMachine exists
+                                    if (VereyaModServer.getInstance().hasServer()) {
+                                        VereyaModServer.getInstance().sendMissionInitDirectToServer(currentMissionInit);
+                                    } else {
+                                        VereyaModServer.getInstance().initServerStateMachine(currentMissionInit(), MinecraftClient.getInstance().getServer()); // Needs to be done from the server thread.
+                                    }
+                                    //MalmoMod.instance.sendMissionInitDirectToServer(currentMissionInit);
+                                } catch (Exception e) {
+                                    episodeHasCompletedWithErrors(ClientState.ERROR_INTEGRATED_SERVER_UNREACHABLE, "Could not send MissionInit to our integrated server: " + e.getMessage());
                                 }
-                                //MalmoMod.instance.sendMissionInitDirectToServer(currentMissionInit);
-                            } catch (Exception e) {
-                                episodeHasCompletedWithErrors(ClientState.ERROR_INTEGRATED_SERVER_UNREACHABLE, "Could not send MissionInit to our integrated server: " + e.getMessage());
                             }
+                        });
+                        // Skip all the map loading stuff and go straight to waiting for the server:
+                        episodeHasCompleted(ClientState.WAITING_FOR_SERVER_READY);
+                    } else {
+                        LOGGER.debug("sending mission to remote Server");
+                        HashMap<String, String> map = new HashMap<String, String>();
+                        // convert mission init with jaxb serializer
+                        try {
+                            String xmlData = SchemaHelper.serialiseObject(currentMissionInit(), MissionInit.class);
+                            map.put("MissionInit", xmlData);
+                        } catch (JAXBException e) {
+                            episodeHasCompletedWithErrors(ClientState.ERROR_NO_WORLD, "exception while converting mission init to xml" + e.getMessage());
                         }
-                    });
-                    // Skip all the map loading stuff and go straight to waiting for the server:
-                    episodeHasCompleted(ClientState.WAITING_FOR_SERVER_READY);
+                        // send mission init to server
+                        ClientPlayNetworking.send(NetworkConstants.CLIENT2SERVER,
+                                (new MalmoMessage(MalmoMessageType.CLIENT_MISSION_INIT, 0, map)).toBytes());
+                        episodeHasCompleted(ClientState.WAITING_FOR_SERVER_READY);
+                    }
                 } else { // not needNewWorld and no world: error
-                    // Mission has requested no new world, but there is no current world to play in - this is an error:
-                    episodeHasCompletedWithErrors(ClientState.ERROR_NO_WORLD, "We have no world to play in - check that your ServerHandlers section contains a world generator");
+                        // Mission has requested no new world, but there is no current world to play in - this is an error:
+                        episodeHasCompletedWithErrors(ClientState.ERROR_NO_WORLD, "We have no world to play in - check that your ServerHandlers section contains a world generator");
                 }
+
             }
         }
     }
@@ -1213,7 +1251,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
         }
 
         @Override
-        protected void onClientTick(MinecraftClient client)
+        public void onClientTick(MinecraftClient client)
         {
             // Check to see whether anything has caused us to abort - if so, go to the abort state.
             if (inAbortState())
@@ -1358,12 +1396,14 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
         @Override
         public void onMessage(MalmoMessageType messageType, Map<String, String> data)
         {
+            LOGGER.debug("ClientStateMachine:onMessage: " + messageType);
             super.onMessage(messageType, data);
 
             if (messageType != MalmoMessageType.SERVER_ALLPLAYERSJOINED)
                 return;
             MinecraftClient client = MinecraftClient.getInstance();
-            ClientStateMachine.this.generatorProperties.put(client.world.getRegistryKey(),
+            if (ClientStateMachine.this.serverHandlers != null)
+                ClientStateMachine.this.generatorProperties.put(client.world.getRegistryKey(),
                     ClientStateMachine.this.serverHandlers.worldGenerator.getOptions());
             List<Object> handlers = new ArrayList<Object>();
             for (Map.Entry<String, String> entry : data.entrySet())
@@ -1433,7 +1473,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
 
         private void proceed()
         {
-            LOGGER.trace("proceed");
+            LOGGER.debug("proceed");
             // The server is ready, so send our MissionInit back to the agent and go!
             // We launch the agent by sending it the MissionInit message we were sent
             // (but with the Launcher's IP address included)

@@ -24,7 +24,10 @@ import io.singularitynet.MissionHandlerInterfaces.*;
 import io.singularitynet.projectmalmo.AgentHandlers;
 import io.singularitynet.projectmalmo.MissionInit;
 import io.singularitynet.projectmalmo.ServerHandlers;
+import org.apache.logging.log4j.LogManager;
 
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -70,10 +73,15 @@ public class MissionBehaviour implements IMissionBehaviour {
 
     private void createAndAddHandler(Object xmlObj)
     {
+        createAndAddHandler(xmlObj, false);
+    }
+
+    private void createAndAddHandler(Object xmlObj, boolean isServer)
+    {
         if (xmlObj == null)
             return;
 
-        Object handler = createHandlerFromParams(xmlObj);
+        Object handler = createHandlerFromParams(xmlObj, isServer);
         if (handler != null)
         {
             if (handler instanceof HandlerBase)
@@ -84,9 +92,10 @@ public class MissionBehaviour implements IMissionBehaviour {
 
     /** Attempt to create an instance of the specified handler class, using reflection.
      * @param xmlHandler the object which specifies both the name and the parameters of the requested handler.
+     * @param isServer true if this is a server-side handler, false if it's an agent-side handler.
      * @return an instance of the requested class, if possible, or null if the class wasn't found.
      */
-    private Object createHandlerFromParams(Object xmlHandler)
+    private Object createHandlerFromParams(Object xmlHandler, boolean isServer)
     {
         if (xmlHandler == null)
             return null;
@@ -101,27 +110,35 @@ public class MissionBehaviour implements IMissionBehaviour {
         {
             // To avoid name collisions, the java class will have the suffix "Implementation".
             String classname = "io.singularitynet.MissionHandlers." + handlerClass + "Implementation";
+            if (isServer)
+                classname += "Server";
             Class<?> c = Class.forName(classname);
-            handler = c.newInstance();
+            handler = c.getDeclaredConstructor().newInstance();
             if (!((HandlerBase)handler).parseParameters(xmlHandler))
                 this.failedHandlers += handlerClass + " failed to parse parameters.\n";
             else
-                System.out.println("created handler " + classname);
+                LogManager.getLogger().info("created handler " + classname);
         }
         catch (ClassNotFoundException e)
         {
-            System.out.println("Duff MissionHandler requested: "+handlerClass);
+            LogManager.getLogger().debug("Duff MissionHandler requested: " + handlerClass);
             this.failedHandlers += "Failed to find " + handlerClass + "\n";
         }
         catch (InstantiationException e)
         {
-            System.out.println("Could not instantiate specified MissionHandler.");
+            LogManager.getLogger().error("Could not instantiate specified MissionHandler.", e);
             this.failedHandlers += "Failed to create " + handlerClass + "\n";
         }
         catch (IllegalAccessException e)
         {
-            System.out.println("Could not instantiate specified MissionHandler.");
+            LogManager.getLogger().error("Could not instantiate specified MissionHandler.", e);
             this.failedHandlers += "Failed to access " + handlerClass + "\n";
+        } catch (InvocationTargetException e) {
+            LogManager.getLogger().error("Could not instantiate specified MissionHandler.", e);
+            this.failedHandlers += "Failed to access " + handlerClass + "\n";
+        } catch (NoSuchMethodException e) {
+            LogManager.getLogger().error("Could not instantiate specified MissionHandler.", e);
+            this.failedHandlers += "Failed to access constructor in " + handlerClass + "\n";
         }
         return handler;
     }
@@ -274,6 +291,14 @@ public class MissionBehaviour implements IMissionBehaviour {
         this.quitProducer = null;
     }
 
+    public static IWorldGenerator createWorldGenerator(MissionInit missionInit)
+    {
+        ServerHandlers handlerset = missionInit.getMission().getServerSection().getServerHandlers();
+        MissionBehaviour behaviour = new MissionBehaviour();
+        Object handler = behaviour.createHandlerFromParams(handlerset.getWorldGenerator(), false);
+        return IWorldGenerator.class.cast(handler);
+    }
+
     public static MissionBehaviour createServerHandlersFromMissionInit(MissionInit missionInit) throws Exception
     {
         MissionBehaviour behaviour = new MissionBehaviour();
@@ -296,6 +321,11 @@ public class MissionBehaviour implements IMissionBehaviour {
             createAndAddHandler(handler);
         for (Object handler : handlerset.getServerQuitProducers())
             createAndAddHandler(handler);
+
+        AgentHandlers agenthandlerset = missionInit.getMission().getAgentSection().get(missionInit.getClientRole()).getAgentHandlers();
+        // Instantiate the various handlers:
+        for (Object handler : agenthandlerset.getAgentMissionHandlers())
+            createAndAddHandler(handler, true);
     }
 
     /** This method gives our handlers a chance to add any information to the ping message

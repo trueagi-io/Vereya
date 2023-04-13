@@ -27,4 +27,5 @@ public enum MalmoMessageType
     CLIENT_SOMEOTHERMESSAGE,
     CLIENT_CRAFT, // Client telling the server what to craft
     CLIENT_INVENTORY_CHANGE, // Client tells server to modify inventory
+    CLIENT_MISSION_INIT // Client tells server to start a new mission
 }

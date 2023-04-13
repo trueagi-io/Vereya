@@ -4,15 +4,13 @@ import com.mojang.blaze3d.platform.GlStateManager;
 import io.singularitynet.MissionHandlerInterfaces.IVideoProducer;
 import io.singularitynet.projectmalmo.MissionInit;
 import io.singularitynet.projectmalmo.VideoProducer;
-import net.minecraft.client.gl.Framebuffer;
-import net.minecraft.client.gl.SimpleFramebuffer;
+import net.minecraft.client.MinecraftClient;
 import org.lwjgl.BufferUtils;
 
 import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
 
 import static org.lwjgl.opengl.GL11.*;
-
 
 public class VideoProducerImplementation extends HandlerBase implements IVideoProducer
 {
@@ -60,14 +58,19 @@ public class VideoProducerImplementation extends HandlerBase implements IVideoPr
 
     public int getRequiredBufferSize()
     {
-        return this.videoParams.getWidth() * this.videoParams.getHeight() * (this.videoParams.isWantDepth() ? 4 : 3);
+//        return this.videoParams.getWidth() * this.videoParams.getHeight() * (this.videoParams.isWantDepth() ? 4 : 3);
+        return MinecraftClient.getInstance().getWindow().getWidth() *
+                MinecraftClient.getInstance().getWindow().getHeight() *
+                (this.videoParams.isWantDepth() ? 4 : 3);
     }
 
     private void getRGBFrame(ByteBuffer buffer)
     {
         final int format = GL_RGB;
-        final int width = this.videoParams.getWidth();
-        final int height = this.videoParams.getHeight();
+//        final int width = this.videoParams.getWidth();
+//        final int height = this.videoParams.getHeight();
+        final int width = MinecraftClient.getInstance().getWindow().getWidth();
+        final int height = MinecraftClient.getInstance().getWindow().getHeight();
 
         // Now read the pixels out from that:
         // glReadPixels appears to be faster than doing:

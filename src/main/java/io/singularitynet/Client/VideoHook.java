@@ -167,6 +167,7 @@ public class VideoHook {
         // Store width and height obtrained in the same way as to be compared to
         this.renderedWidth = window.getFramebufferWidth();
         this.renderedHeight = window.getFramebufferHeight();
+        this.buffer = BufferUtils.createByteBuffer(this.videoProducer.getRequiredBufferSize());
         // these will cause a number of visual artefacts
 //        window.setFramebufferHeight(this.renderHeight);
 //        window.setFramebufferWidth(this.renderWidth);

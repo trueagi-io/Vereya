@@ -10,6 +10,10 @@ import org.lwjgl.BufferUtils;
 import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
 
+
+import java.awt.image.BufferedImage;
+import java.awt.image.DataBufferByte;
+
 import static org.lwjgl.opengl.GL11.*;
 
 public class VideoProducerImplementation extends HandlerBase implements IVideoProducer
@@ -58,19 +62,35 @@ public class VideoProducerImplementation extends HandlerBase implements IVideoPr
 
     public int getRequiredBufferSize()
     {
-//        return this.videoParams.getWidth() * this.videoParams.getHeight() * (this.videoParams.isWantDepth() ? 4 : 3);
-        return MinecraftClient.getInstance().getWindow().getWidth() *
-                MinecraftClient.getInstance().getWindow().getHeight() *
-                (this.videoParams.isWantDepth() ? 4 : 3);
+        return this.videoParams.getWidth() * this.videoParams.getHeight() * (this.videoParams.isWantDepth() ? 4 : 3);
+//        return MinecraftClient.getInstance().getWindow().getFramebufferWidth() *
+//                MinecraftClient.getInstance().getWindow().getFramebufferHeight() *
+//                (this.videoParams.isWantDepth() ? 4 : 3);
+    }
+
+    private static void byteBuffer2BufferedImage(ByteBuffer bb,
+                                                BufferedImage bi) {
+        final int bytesPerPixel = 3;
+        byte[] imageArray = ((DataBufferByte) bi.getRaster()
+                .getDataBuffer()).getData();
+        bb.rewind();
+        bb.get(imageArray);
+        int numPixels = bb.capacity() / bytesPerPixel;
+        for (int i = 0; i < numPixels; i++) {
+            byte tmp = imageArray[i * bytesPerPixel];
+            imageArray[i * bytesPerPixel] = imageArray[i * bytesPerPixel
+                    + 2];
+            imageArray[i * bytesPerPixel + 2] = tmp;
+        }
     }
 
     private void getRGBFrame(ByteBuffer buffer)
     {
         final int format = GL_RGB;
-//        final int width = this.videoParams.getWidth();
-//        final int height = this.videoParams.getHeight();
-        final int width = MinecraftClient.getInstance().getWindow().getWidth();
-        final int height = MinecraftClient.getInstance().getWindow().getHeight();
+        final int width = this.videoParams.getWidth();
+        final int height = this.videoParams.getHeight();
+//        final int width = MinecraftClient.getInstance().getWindow().getFramebufferWidth();
+//        final int height = MinecraftClient.getInstance().getWindow().getFramebufferHeight();
 
         // Now read the pixels out from that:
         // glReadPixels appears to be faster than doing:
@@ -78,6 +98,9 @@ public class VideoProducerImplementation extends HandlerBase implements IVideoPr
         // GL11.glGetTexImage(GL11.GL_TEXTURE_2D, 0, format, GL_UNSIGNED_BYTE,
         // buffer);
         GlStateManager._readPixels(0, 0, width, height, format, GL_UNSIGNED_BYTE, buffer);
+//        BufferedImage bi = new BufferedImage(width, height, BufferedImage.TYPE_3BYTE_BGR);
+//        byteBuffer2BufferedImage(buffer, bi);
+//        int stub = 0;
         // Minecraft.getMinecraft().getFramebuffer().bindFramebuffer(true);
     }
 

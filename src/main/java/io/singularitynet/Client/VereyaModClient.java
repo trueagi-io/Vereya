@@ -204,10 +204,10 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
         }
         if (inputType == InputType.AI) {
             setInputType(InputType.HUMAN);
-            inputTypeAbs = InputType.HUMAN
+            inputTypeAbs = InputType.HUMAN;
         } else {
             setInputType(InputType.AI);
-            inputTypeAbs = InputType.AI
+            inputTypeAbs = InputType.AI;
         }
     }
 }

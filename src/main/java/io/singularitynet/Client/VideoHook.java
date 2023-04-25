@@ -88,7 +88,7 @@ public class VideoHook {
     private int renderedWidth = 0;
     private int renderedHeight = 0;
 
-    ByteBuffer buffer = null;
+    ByteBuffer buffer;
     // check also Malmo/src/TimestampedVideoFrame.h
 
     // For diagnostic purposes:
@@ -111,7 +111,7 @@ public class VideoHook {
         this.missionInit = missionInit;
         this.videoProducer = videoProducer;
         this.observer = observer;
-        this.buffer = BufferUtils.createByteBuffer(this.videoProducer.getRequiredBufferSize());
+        this.buffer = BufferUtils.createByteBuffer(0);
         this.renderWidth = videoProducer.getWidth();
         this.renderHeight = videoProducer.getHeight();
         resizeIfNeeded();
@@ -164,8 +164,8 @@ public class VideoHook {
         if( this.renderedWidth == oldRenderWidth && this.renderedHeight == oldRenderHeight )
             return;
 
-        window.setWindowedSize(this.renderWidth, this.renderHeight);
         // Store width and height obtrained in the same way as to be compared to
+        window.setWindowedSize(this.renderWidth, this.renderHeight);
         this.renderedWidth = window.getFramebufferWidth();
         this.renderedHeight = window.getFramebufferHeight();
 //        this.buffer = BufferUtils.createByteBuffer(this.videoProducer.getRequiredBufferSize());
@@ -301,7 +301,6 @@ public class VideoHook {
                 time_after_render_ns = System.nanoTime();
             } else {
                 // Get buffer ready for writing to:
-                this.buffer.clear();
                 // Write the pos data:
                 Map<String, Float> header_map = new HashMap<>();
                 header_map.put("x", x);
@@ -309,8 +308,10 @@ public class VideoHook {
                 header_map.put("z", z);
                 header_map.put("yaw", yaw);
                 header_map.put("pitch", pitch);
-                header_map.put("width", (float)MinecraftClient.getInstance().getWindow().getFramebufferWidth());
-                header_map.put("height", (float)MinecraftClient.getInstance().getWindow().getFramebufferHeight());
+                header_map.put("width", (float)MinecraftClient.getInstance().getFramebuffer().textureWidth);
+                header_map.put("height", (float)MinecraftClient.getInstance().getFramebuffer().textureHeight);
+//                header_map.put("width", (float)MinecraftClient.getInstance().getWindow().getFramebufferWidth());
+//                header_map.put("height", (float)MinecraftClient.getInstance().getWindow().getFramebufferHeight());
                 header_map.put("channels", (float)(3));
                 glGetFloatv(GL_PROJECTION_MATRIX, projection);
                 glGetFloatv(GL_MODELVIEW_MATRIX, modelview);
@@ -321,14 +322,23 @@ public class VideoHook {
                 readColumnMajor(modelview_floats, modelview.asReadOnlyBuffer());
                 jo_header.append("projectionMatrix", proj_floats);
                 jo_header.append("modelViewMatrix", modelview_floats);
+                jo_header.append("path_to_img", System.getProperty("java.io.tmpdir")+"/mc_tmp_image.png");
                 int jo_len = jo_header.toString().getBytes(StandardCharsets.UTF_8).length;
                 // Write the frame data:
-                this.videoProducer.getFrame(this.missionInit, this.buffer);
-                ByteBuffer jo_len_buffer = ByteBuffer.allocate(4).order(ByteOrder.BIG_ENDIAN).putInt(jo_len);
-                jo_len_buffer.flip();
-                ByteBuffer[] buffers = {jo_len_buffer, ByteBuffer.wrap(jo_header.toString().getBytes(StandardCharsets.UTF_8)), this.buffer};
-                time_after_render_ns = System.nanoTime();
-                success = this.connection.sendTCPBytes(buffers, size + jo_len + 4);
+                this.buffer = this.videoProducer.getFrame(this.missionInit);
+                if (this.buffer != null)
+                {
+                    ByteBuffer jo_len_buffer = ByteBuffer.allocate(4).order(ByteOrder.BIG_ENDIAN).putInt(jo_len);
+                    jo_len_buffer.flip();
+                    this.buffer.limit(this.buffer.capacity());
+                    int frame_buf_len = this.buffer.capacity();
+                    ByteBuffer[] buffers = {jo_len_buffer, ByteBuffer.wrap(jo_header.toString().getBytes(StandardCharsets.UTF_8)), this.buffer};
+                    time_after_render_ns = System.nanoTime();
+                    success = this.connection.sendTCPBytes(buffers, jo_len + frame_buf_len + 4);
+                    this.buffer.clear();
+                }
+                else
+                    time_after_render_ns = System.nanoTime();
             }
 
 

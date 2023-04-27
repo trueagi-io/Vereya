@@ -13,7 +13,6 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.util.Window;
 import net.minecraft.util.math.Vec3d;
-import org.joml.Matrix4f;
 import org.lwjgl.BufferUtils;
 import org.json.*;
 
@@ -23,11 +22,9 @@ import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
-import java.nio.channels.ClosedChannelException;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
 
 
 /**
@@ -168,7 +165,6 @@ public class VideoHook {
         window.setWindowedSize(this.renderWidth, this.renderHeight);
         this.renderedWidth = window.getFramebufferWidth();
         this.renderedHeight = window.getFramebufferHeight();
-//        this.buffer = BufferUtils.createByteBuffer(this.videoProducer.getRequiredBufferSize());
         // these will cause a number of visual artefacts
 //        window.setFramebufferHeight(this.renderHeight);
 //        window.setFramebufferWidth(this.renderWidth);
@@ -290,29 +286,20 @@ public class VideoHook {
 
         boolean success = false;
 
-        long time_after_render_ns;
+        long time_after_render_ns = 0;
 
         try
         {
-            int size = this.videoProducer.getRequiredBufferSize();
-
             if (AddressHelper.getMissionControlPort() == 0) {
                 success = true;
                 time_after_render_ns = System.nanoTime();
             } else {
-                // Get buffer ready for writing to:
-                // Write the pos data:
                 Map<String, Float> header_map = new HashMap<>();
                 header_map.put("x", x);
                 header_map.put("y", y);
                 header_map.put("z", z);
                 header_map.put("yaw", yaw);
                 header_map.put("pitch", pitch);
-                header_map.put("width", (float)MinecraftClient.getInstance().getFramebuffer().textureWidth);
-                header_map.put("height", (float)MinecraftClient.getInstance().getFramebuffer().textureHeight);
-//                header_map.put("width", (float)MinecraftClient.getInstance().getWindow().getFramebufferWidth());
-//                header_map.put("height", (float)MinecraftClient.getInstance().getWindow().getFramebufferHeight());
-                header_map.put("channels", (float)(3));
                 glGetFloatv(GL_PROJECTION_MATRIX, projection);
                 glGetFloatv(GL_MODELVIEW_MATRIX, modelview);
                 JSONObject jo_header = new JSONObject(header_map);
@@ -322,25 +309,20 @@ public class VideoHook {
                 readColumnMajor(modelview_floats, modelview.asReadOnlyBuffer());
                 jo_header.append("projectionMatrix", proj_floats);
                 jo_header.append("modelViewMatrix", modelview_floats);
-                jo_header.append("path_to_img", System.getProperty("java.io.tmpdir")+"/mc_tmp_image.png");
-                int jo_len = jo_header.toString().getBytes(StandardCharsets.UTF_8).length;
-                // Write the frame data:
+                byte[] jo_bytes = jo_header.toString().getBytes(StandardCharsets.UTF_8);
+                int jo_len = jo_bytes.length;
                 this.buffer = this.videoProducer.getFrame(this.missionInit);
                 if (this.buffer != null)
                 {
                     ByteBuffer jo_len_buffer = ByteBuffer.allocate(4).order(ByteOrder.BIG_ENDIAN).putInt(jo_len);
                     jo_len_buffer.flip();
-                    this.buffer.limit(this.buffer.capacity());
                     int frame_buf_len = this.buffer.capacity();
-                    ByteBuffer[] buffers = {jo_len_buffer, ByteBuffer.wrap(jo_header.toString().getBytes(StandardCharsets.UTF_8)), this.buffer};
+                    this.buffer.limit(frame_buf_len);
+                    ByteBuffer[] buffers = {jo_len_buffer, ByteBuffer.wrap(jo_bytes), this.buffer};
                     time_after_render_ns = System.nanoTime();
                     success = this.connection.sendTCPBytes(buffers, jo_len + frame_buf_len + 4);
-                    this.buffer.clear();
                 }
-                else
-                    time_after_render_ns = System.nanoTime();
             }
-
 
             long time_after_ns = System.nanoTime();
             float ms_send = (time_after_ns - time_after_render_ns) / 1000000.0f;

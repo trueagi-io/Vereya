@@ -1,5 +1,7 @@
 package io.singularitynet.utils;
 
+import org.lwjgl.BufferUtils;
+
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
@@ -176,10 +178,10 @@ public class TCPSocketChannel
         {
             ByteBuffer header = createHeader(length);
             Log(Level.INFO, "Bytes size: " + length);
-            ByteBuffer[] buffers = new ByteBuffer[1 + srcbuffers.length];
-            buffers[0] = header;
-            for (int i = 0; i < srcbuffers.length; i++)
-                buffers[i + 1] = srcbuffers[i];
+            ByteBuffer buffers = BufferUtils.createByteBuffer(length+header.remaining());
+            buffers.put(header);
+            for (ByteBuffer srcbuffer : srcbuffers) buffers.put(srcbuffer);
+            buffers.flip();
             if (TCPUtils.isLogging())
             {
                 long t1 = System.nanoTime();
@@ -220,12 +222,10 @@ public class TCPSocketChannel
         }
     }
 
-    private long write(ByteBuffer[] buffers) throws InterruptedException, TimeoutException, ExecutionException, IOException {
+    private long write(ByteBuffer buffers) throws InterruptedException, TimeoutException, ExecutionException, IOException {
         long bytesWritten = 0;
-        for (ByteBuffer b : buffers) {
-            bytesWritten += b.remaining();
-            safeWrite(b);
-        }
+        bytesWritten += buffers.remaining();
+        safeWrite(buffers);
         return bytesWritten;
     }
 }

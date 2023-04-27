@@ -51,16 +51,6 @@ public interface IVideoProducer
     /** Get the requested height of the video frames returned.*/
     public int getHeight();
 
-    public int getFBWidth();
-
-    public int getFBHeight();
-
-    /** Get the requested width of the framebuffer.*/
-    public void getFBHeightWidth(int[] height, int[] width);
-
-    /** Get the number of bytes required to store a frame.*/
-    public int getRequiredBufferSize();
-
     /** Called once before the mission starts - use for any necessary initialisation.*/
     public void prepare(MissionInit missionInit);
 

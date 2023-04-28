@@ -4,6 +4,7 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import io.singularitynet.MissionHandlerInterfaces.IVideoProducer;
 import io.singularitynet.projectmalmo.MissionInit;
 import io.singularitynet.projectmalmo.VideoProducer;
+import io.singularitynet.utils.ImageClass;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.Framebuffer;
 import net.minecraft.client.texture.NativeImage;
@@ -60,16 +61,17 @@ public class VideoProducerImplementation extends HandlerBase implements IVideoPr
         Framebuffer framebuffer = MinecraftClient.getInstance().getFramebuffer();
         int i = framebuffer.textureWidth;
         int j = framebuffer.textureHeight;
-        NativeImage nativeImage = new NativeImage(i, j, false);
+        ImageClass imageclass = new ImageClass(i, j, false);
         RenderSystem.bindTexture(framebuffer.getColorAttachment());
-        nativeImage.loadFromTextureImage(0, true);
-        nativeImage.mirrorVertically();
+        imageclass.loadFromTextureImage(0, true);
+        imageclass.mirrorVertically();
         byte[] ni_bytes;
         try {
-             ni_bytes = nativeImage.getBytes();
+             ni_bytes = imageclass.getBytes();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+        imageclass.close();
         if (ni_bytes.length <= 0)
             return null;
         else {

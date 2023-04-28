@@ -1569,6 +1569,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
 
         protected void onMissionStarted()
         {
+
             frameTimestamp = 0;
 
             // Open our communication channels:
@@ -1606,15 +1607,6 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
 
             // Make sure we have mouse control:
             ClientStateMachine.this.inputController.setInputType(VereyaModClient.InputType.AI);
-            /*
-            Minecraft.getMinecraft().inGameHasFocus = true; // Otherwise auto-repeat won't work for mouse clicks.
-
-            // Overclocking:
-            ModSettings modsettings = currentMissionInit().getMission().getModSettings();
-            if (modsettings != null && modsettings.getMsPerTick() != null)
-                TimeHelper.setMinecraftClientClockSpeed(1000 / modsettings.getMsPerTick());
-            if (modsettings != null && modsettings.isPrioritiseOffscreenRendering() == Boolean.TRUE)
-                TimeHelper.displayGranularityMs = 1000;*/
         }
 
         protected void onMissionEnded(IState nextState, String errorReport)

@@ -94,13 +94,14 @@ public class ServerStateMachine extends StateMachine implements IMalmoMessageLis
         this.currentMissionInit = minit;
         LOGGER.debug("ServerStateMachine: Initialising with state " + initialState);
         LOGGER.debug("ServerStateMachine: " + this + " server " + server);
+
         this.server = new WeakReference(server);
         // Register ourself on the event busses, so we can harness the server tick:
-        ServerTickEvents.END_SERVER_TICK.register(s -> this.onServerTick(s));
-        ServerLifecycleEvents.SERVER_STOPPING.register(s -> this.onServerStopping(s));
-        ServerLifecycleEvents.SERVER_STOPPED.register(s -> this.onServerStopped(s));
-        ServerLifecycleEvents.SERVER_STARTED.register(s -> this.onServerStarted(s));
-        ServerEntityEventsVereya.BEFORE_ENTITY_ADD.register((e, w) -> this.onGetPotentialSpawns(e, w));
+        ServerTickEvents.END_SERVER_TICK.register(this::onServerTick);
+        ServerLifecycleEvents.SERVER_STOPPING.register(this::onServerStopping);
+        ServerLifecycleEvents.SERVER_STOPPED.register(this::onServerStopped);
+        ServerLifecycleEvents.SERVER_STARTED.register(this::onServerStarted);
+        ServerEntityEventsVereya.BEFORE_ENTITY_ADD.register(this::onGetPotentialSpawns);
     }
 
     /** Used to prevent spawning in our world.*/

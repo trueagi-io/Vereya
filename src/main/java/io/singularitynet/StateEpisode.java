@@ -84,21 +84,21 @@ public abstract class StateEpisode
 
     /** Subclass should overrride this to act on client ticks.
      * @throws Exception */
-    protected void onClientTick(MinecraftClient client) throws Exception {}
+    public void onClientTick(MinecraftClient client) throws Exception {}
     /** Subclass should overrride this to act on server tick end.*/
     protected void onServerTick(MinecraftServer server) {}
 
     /** Subclass should overrride this to act on player ticks.*/
     // protected void onPlayerTick(PlayerTickEvent ev) {}
     /** Subclass should overrride this to act on render ticks.*/
-    protected void onRenderTickEnd(WorldRenderContext ev) {}
-    protected void onRenderTickStart(WorldRenderContext ev) {}
-    protected void onClientStarted(MinecraftClient ev) {}
+    public void onRenderTickEnd(WorldRenderContext ev) {}
+    public void onRenderTickStart(WorldRenderContext ev) {}
+    public void onClientStarted(MinecraftClient ev) {}
     /** Subclass should overrride this to act on chunk load events.*/
-    protected void onChunkLoad(ClientWorld world, WorldChunk chunk) {}
+    public void onChunkLoad(ClientWorld world, WorldChunk chunk) {}
     /** Subclass should overrride this to act on player death events.*/
     // protected void onPlayerDies(LivingDeathEvent event) {}
-    protected void onTitleScreen(){};
+    public void onTitleScreen(){};
 
     /** Subclass should overrride this to act on server tick start.*/
     protected void onServerTickStart(MinecraftServer ev) {};

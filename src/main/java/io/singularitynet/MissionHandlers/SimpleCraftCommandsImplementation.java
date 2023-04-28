@@ -39,34 +39,20 @@ import java.util.Map;
 public class SimpleCraftCommandsImplementation extends CommandBase  implements IMalmoMessageListener {
     private boolean isOverriding;
     // Directly reference a log4j logger.
-    private static final Logger LOGGER = LogManager.getLogger();
+    private static final Logger LOGGER = LogManager.getLogger(SimpleCraftCommandsImplementation.class.getName());
 
-    public static class CraftMessage extends MalmoMessage
-    {
-
-        public CraftMessage(String parameters)
-        {
-            super(MalmoMessageType.CLIENT_CRAFT, parameters);
-        }
-
-        public CraftMessage(String parameters, String fuel_type){
-            super(MalmoMessageType.CLIENT_CRAFT, parameters);
-            this.getData().put("fuel_type", fuel_type);
-        }
-    }
 
     @Override
     protected boolean onExecute(String verb, String parameter, MissionInit missionInit)
     {
         if (verb.equalsIgnoreCase(SimpleCraftCommand.CRAFT.value()))
         {
-            LOGGER.info("crafting message " + verb);
-            ClientPlayNetworking.send(NetworkConstants.CLIENT2SERVER, (new CraftMessage(parameter).toBytes()));
+            LOGGER.info("Sending crafting message " + verb);
+            ClientPlayNetworking.send(NetworkConstants.CLIENT2SERVER, (new SimpleCraftCommandsImplementationServer.CraftMessage(parameter).toBytes()));
             return true;
         }
         return false;
     }
-
 
     @Override
     public void onMessage(MalmoMessageType messageType, Map<String, String> data) {
@@ -74,39 +60,8 @@ public class SimpleCraftCommandsImplementation extends CommandBase  implements I
     }
 
     @Override
-    public void onMessage(MalmoMessageType messageType, Map<String, String> data, ServerPlayerEntity player)
-    {
-        // Try crafting recipes first:
-        List<Recipe> matching_recipes;
-        String[] split = data.get("message").split(" ");
-        matching_recipes = CraftingHelper.getRecipesForRequestedOutput(split[0], false);
-
-        // crafting doensn't require furnace or campfire
-        for (Recipe recipe : matching_recipes.stream().filter(recipe -> {return recipe.getType() == RecipeType.CRAFTING;}).toList())
-        {
-            if (CraftingHelper.attemptCrafting(player, recipe))
-                return;
-        }
-
-        // campfire cooking, requires campfire, doesn't consume furnace
-        for (Recipe recipe : matching_recipes.stream().filter(recipe -> {return recipe.getType() == RecipeType.CAMPFIRE_COOKING;}).toList()) {
-            if (CraftingHelper.attemptCampfireCooking(player, recipe))
-                return;
-        }
-
-        // Now try smelting recipes that require furnace
-        for (Recipe recipe : matching_recipes.stream().filter(recipe -> {return recipe.getType() == RecipeType.SMELTING;}).toList())
-        {
-            String fuel_type = "birch_log";
-            if (split.length > 1) {
-                fuel_type = split[1];
-            }
-
-            if (CraftingHelper.attemptSmelting(player, recipe, fuel_type))
-                return;
-        }
-
-        // blasting is the same as smelting
+    public void onMessage(MalmoMessageType messageType, Map<String, String> data, ServerPlayerEntity player) {
+        throw new RuntimeException("calling server-side message handler on client");
     }
 
     @Override
@@ -122,13 +77,13 @@ public class SimpleCraftCommandsImplementation extends CommandBase  implements I
     }
 
     @Override
-    public void install(MissionInit missionInit)
-    {
-        SidesMessageHandler.client2server.registerForMessage(this, MalmoMessageType.CLIENT_CRAFT);
+    public void install(MissionInit currentMissionInit) {
+        LOGGER.debug("Installing SimpleCraftCommandsImplementation");
     }
 
     @Override
-    public void deinstall(MissionInit missionInit) {
-        SidesMessageHandler.client2server.deregisterForMessage(this, MalmoMessageType.CLIENT_CRAFT);
+    public void deinstall(MissionInit currentMissionInit) {
+        LOGGER.debug("Denstalling SimpleCraftCommandsImplementation");
     }
+
 }

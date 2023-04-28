@@ -20,13 +20,6 @@
 package io.singularitynet;
 
 import io.singularitynet.utils.TCPUtils;
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientChunkEvents;
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
-import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
-
-
 import java.util.ArrayList;
 import java.util.logging.Level;
 
@@ -41,9 +34,14 @@ abstract public class StateMachine
 {
     private IState state;
 
-    private EpisodeEventWrapper eventWrapper = null;
+    protected EpisodeEventWrapper eventWrapper = null;
     private String errorDetails = "";
 	private Thread homeThread;
+
+    protected EpisodeEventWrapper getEventWrapper()
+    {
+        return this.eventWrapper;
+    }
 
     public void clearErrorDetails()
     {
@@ -79,26 +77,12 @@ abstract public class StateMachine
     
     public StateMachine(IState initialState)
     {
-        // Create an EventWrapper to handle the forwarding of events to the mission episodes.
-        this.eventWrapper = new EpisodeEventWrapper();
         setState(initialState);
 
         // Save the current thread as our "home" thread - state changes will only be allowed to happen on this thread.
         this.homeThread = Thread.currentThread();
-        
-        // Register the EventWrapper on the event busses:
-        ClientTickEvents.END_CLIENT_TICK.register(client -> {this.eventWrapper.onEndTick(client);});
-        ServerTickEvents.END_SERVER_TICK.register(server -> {this.eventWrapper.onEndTick(server);});
-        ClientChunkEvents.CHUNK_LOAD.register((world, chunk) ->
-                    {this.eventWrapper.onChunkLoad(world, chunk);});
-        WorldRenderEvents.END.register((context) -> {this.eventWrapper.onRenderTickEnd(context);});
-        WorldRenderEvents.START.register((context) -> {this.eventWrapper.onRenderTickStart(context);});
-        ClientLifecycleEvents.CLIENT_STARTED.register((client) -> {this.eventWrapper.onClientStarted(client);});
-        TitleScreenEvents.END_TITLESCREEN_INIT.register(()-> {this.eventWrapper.onTitleScreenEndInit();});
-        ServerTickEvents.START_SERVER_TICK.register(server -> {this.eventWrapper.onStartTick(server);});
-        //MinecraftForge.EVENT_BUS.register(this.eventWrapper);
     }
-    
+
     /** Private method to set the state - not available to subclasses.<br>
      * Restricted to ensure mod never gets into an illegal state.
      * @param toState state we are transitioning to.

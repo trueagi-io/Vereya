@@ -1,5 +1,6 @@
 package io.singularitynet.Client;
 
+import io.singularitynet.MissionHandlers.MissionBehaviour;
 import io.singularitynet.NetworkConstants;
 import io.singularitynet.SidesMessageHandler;
 import io.singularitynet.events.ScreenEvents;
@@ -10,11 +11,10 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.Keyboard;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.Mouse;
-import net.minecraft.client.gui.screen.ChatScreen;
-import net.minecraft.client.gui.screen.GameMenuScreen;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.screen.TitleScreen;
+import net.minecraft.client.gui.screen.*;
 import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.lwjgl.glfw.GLFW;
 
@@ -23,6 +23,7 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
     public static final String AGENT_DEAD_QUIT_CODE = "MALMO_AGENT_DIED";
     public static final String AGENT_UNRESPONSIVE_CODE = "MALMO_AGENT_NOT_RESPONDING";
     public static final String VIDEO_UNRESPONSIVE_CODE = "MALMO_VIDEO_NOT_RESPONDING";
+    private static final Logger LOGGER = LogManager.getLogger(VereyaModClient.class.getName());
 
     public interface MouseEventListener
     {
@@ -38,19 +39,27 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
         LogManager.getLogger().debug("VereyaModClient: screen changed to " + screen);
         if (screen == null){
             if (this.backupInputType != null) {
-                LogManager.getLogger().info("VereyaModClient: restoring input type to " + this.backupInputType);
+                LOGGER.info("VereyaModClient: restoring input type to " + this.backupInputType);
                 this.setInputType(this.backupInputType);
                 this.backupInputType = null;
             }
             return;
         }
-        if (!(screen instanceof ChatScreen)){
-            LogManager.getLogger().info("VereyaModClient: switching to AI input");
-            this.backupInputType = this.inputType;
-            this.currentScreen = screen;
-            this.setInputType(InputType.HUMAN);  // this calls setScreen(null)
-            this.currentScreen = null;
+        if (screen instanceof GameMenuScreen){
+            setInputOnScreen(screen);
         }
+        if (screen instanceof TitleScreen){
+            setInputOnScreen(screen);
+            this.backupInputType = null;
+        }
+    }
+
+    private void setInputOnScreen(@NotNull Screen screen) {
+        LOGGER.info("VereyaModClient: switching to HUMAN input");
+        this.backupInputType = this.inputType;
+        this.currentScreen = screen;
+        this.setInputType(InputType.HUMAN);  // this calls setScreen(null) which calls this function again
+        this.currentScreen = null;
     }
 
     public class MyMouse extends Mouse {
@@ -71,6 +80,7 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
 
         @Override
         public boolean isCursorLocked() {
+            // This stops Minecraft from doing the annoying thing of stealing your mouse.
             if(VereyaModClient.this.inputType == InputType.AI) {
                 return true;
             }
@@ -148,27 +158,34 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
 
     private ClientStateMachine stateMachine;
     private static final String INFO_MOUSE_CONTROL = "mouse_control";
+
     /** Switch the input type between Human and AI.<br>
      * Will switch on/off the command overrides.
      * @param input type of control (Human/AI)
      */
     public void setInputType(InputType input)
     {
-        if (this.stateMachine.currentMissionBehaviour() != null && this.stateMachine.currentMissionBehaviour().commandHandler != null)
-            this.stateMachine.currentMissionBehaviour().commandHandler.setOverriding(input == InputType.AI);
+        LOGGER.debug("set input type to " + input.name());
+        MissionBehaviour behaviour = this.stateMachine.currentMissionBehaviour();
+        if (behaviour == null) {
+            LOGGER.debug("current mission behaviour is null, returning");
+            return;
+        }
+        if (behaviour.commandHandler == null){
+            LOGGER.debug("commandHandler is null, returning");
+            return;
+        }
+        this.stateMachine.currentMissionBehaviour().commandHandler.setOverriding(input == InputType.AI);
 
-        // This stops Minecraft from doing the annoying thing of stealing your mouse.
-        // System.setProperty("fml.noGrab", input == InputType.AI ? "true" : "false");
-        inputType = input;
+        this.inputType = input;
         if (input == InputType.HUMAN)
         {
             MinecraftClient.getInstance().mouse.lockCursor();
         }
         else {
-            // Minecraft.getMinecraft().mouseHelper.ungrabMouseCursor();
             MinecraftClient.getInstance().mouse.unlockCursor();
         }
-        LogManager.getLogger().info("setting input type to: " + input);
+        LogManager.getLogger().info("successfully set input type to: " + input);
     }
 
     private void onKey(long window, int key, int scancode, int action, int modifiers) {

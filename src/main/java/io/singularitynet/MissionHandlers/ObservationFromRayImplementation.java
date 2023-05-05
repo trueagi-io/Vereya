@@ -17,9 +17,8 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
 import java.util.Map;
 
+
 // https://fabricmc.net/wiki/tutorial:pixel_raycast
-
-
 public class ObservationFromRayImplementation extends HandlerBase implements IObservationProducer
 {
     private ObservationFromRay ofrparams;
@@ -57,7 +56,8 @@ public class ObservationFromRayImplementation extends HandlerBase implements IOb
     public static void buildMouseOverData(JsonObject json, boolean includeNBTData)
     {
         MinecraftClient client = MinecraftClient.getInstance();
-        HitResult mop = client.crosshairTarget;
+        Entity cameraEntity = client.getCameraEntity();
+        HitResult mop = cameraEntity.raycast(96.0, 1.0F, true);
         JsonObject jsonMop = new JsonObject();
         switch(mop.getType()) {
             case MISS:

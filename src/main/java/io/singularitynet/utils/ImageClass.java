@@ -38,6 +38,11 @@ import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.MemoryUtil;
 import org.slf4j.Logger;
 
+/**
+ * This class is the clone of  Minecraft's NativeImage class.
+ * What changed - method write now uses nstbi_write_bmp_to_func instead of nstbi_write_png_to_func.
+ */
+
 @Environment(value=EnvType.CLIENT)
 public final class ImageClass
         implements AutoCloseable {
@@ -447,7 +452,7 @@ public final class ImageClass
         this.checkAllocated();
         try (SeekableByteChannel writableByteChannel = Files.newByteChannel(path, WRITE_TO_FILE_OPEN_OPTIONS, new FileAttribute[0]);){
             if (!this.write(writableByteChannel)) {
-                throw new IOException("Could not write image to the PNG file \"" + path.toAbsolutePath() + "\": " + STBImage.stbi_failure_reason());
+                throw new IOException("Could not write image to the BMP file \"" + path.toAbsolutePath() + "\": " + STBImage.stbi_failure_reason());
             }
         }
     }

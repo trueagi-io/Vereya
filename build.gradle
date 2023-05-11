@@ -36,17 +36,19 @@ dependencies {
 	implementation 'jakarta.xml.bind:jakarta.xml.bind-api:3.0.1'
 	implementation 'jakarta.annotation:jakarta.annotation-api:2.0.0'
 	implementation 'jakarta.activation:jakarta.activation-api:2.0.1'
+	implementation 'org.json:json:20230227'
 
 	xjc "org.glassfish.jaxb:jaxb-runtime:3.0.2"
 	xjc 'org.glassfish.jaxb:jaxb-xjc:3.0.1'
 	xjc 'jakarta.xml.bind:jakarta.xml.bind-api:3.0.1'
 	xjc 'jakarta.annotation:jakarta.annotation-api:2.0.0'
 	xjc 'jakarta.activation:jakarta.activation-api:2.0.1'
+	xjc 'org.json:json:20230227'
 
 	jar {
 		from {
 			configurations.compileClasspath.findAll { ((it.name.startsWith('jakarta') || it.name.startsWith('jaxb') || it.name.startsWith('istack')) &&
-					it.name.endsWith('jar') && !it.name.contains('forge')) }.collect { zipTree(it) }
+					it.name.endsWith('jar') || it.name.startsWith('json') && !it.name.contains('forge')) }.collect { zipTree(it) }
 		}
 	}
 }

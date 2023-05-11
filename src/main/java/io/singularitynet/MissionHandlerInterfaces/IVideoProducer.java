@@ -43,16 +43,13 @@ public interface IVideoProducer
      * @return an array of bytes representing this frame.<br>
      * (The format is unspecified; it is up to the IVideoProducer implementation and the agent to agree on how the data is formatted.)
      */
-    public void getFrame(MissionInit missionInit, ByteBuffer buffer);
+    public ByteBuffer getFrame(MissionInit missionInit);
 
     /** Get the requested width of the video frames returned.*/
     public int getWidth();
 
     /** Get the requested height of the video frames returned.*/
     public int getHeight();
-
-    /** Get the number of bytes required to store a frame.*/
-    public int getRequiredBufferSize();
 
     /** Called once before the mission starts - use for any necessary initialisation.*/
     public void prepare(MissionInit missionInit);

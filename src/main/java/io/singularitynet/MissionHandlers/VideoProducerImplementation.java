@@ -1,18 +1,19 @@
 package io.singularitynet.MissionHandlers;
 
-import com.mojang.blaze3d.platform.GlStateManager;
+import com.mojang.blaze3d.systems.RenderSystem;
 import io.singularitynet.MissionHandlerInterfaces.IVideoProducer;
 import io.singularitynet.projectmalmo.MissionInit;
 import io.singularitynet.projectmalmo.VideoProducer;
+import io.singularitynet.utils.ImageClass;
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.Framebuffer;
-import net.minecraft.client.gl.SimpleFramebuffer;
+import net.minecraft.client.texture.NativeImage;
 import org.lwjgl.BufferUtils;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
-
-import static org.lwjgl.opengl.GL11.*;
-
+;
 
 public class VideoProducerImplementation extends HandlerBase implements IVideoProducer
 {
@@ -36,14 +37,14 @@ public class VideoProducerImplementation extends HandlerBase implements IVideoPr
     }
 
     @Override
-    public void getFrame(MissionInit missionInit, ByteBuffer buffer)
+    public ByteBuffer getFrame(MissionInit missionInit)
     {
         if (!this.videoParams.isWantDepth())
         {
-            getRGBFrame(buffer); // Just return the simple RGB, 3bpp image.
-            return;
+            return getRGBFrame(); // Just return the simple RGB, 3bpp image.
         }
-        throw new RuntimeException("Depth map not implemented");
+        else
+            throw new RuntimeException("Depth map not implemented");
     }
 
     @Override
@@ -53,29 +54,29 @@ public class VideoProducerImplementation extends HandlerBase implements IVideoPr
     }
 
     @Override
-    public int getHeight()
-    {
-        return this.videoParams.getHeight();
-    }
+    public int getHeight() { return this.videoParams.getHeight(); }
 
-    public int getRequiredBufferSize()
+    private ByteBuffer getRGBFrame()
     {
-        return this.videoParams.getWidth() * this.videoParams.getHeight() * (this.videoParams.isWantDepth() ? 4 : 3);
-    }
-
-    private void getRGBFrame(ByteBuffer buffer)
-    {
-        final int format = GL_RGB;
-        final int width = this.videoParams.getWidth();
-        final int height = this.videoParams.getHeight();
-
-        // Now read the pixels out from that:
-        // glReadPixels appears to be faster than doing:
-        // GlStateManager.bindTexture(this.fbo.framebufferTexture);
-        // GL11.glGetTexImage(GL11.GL_TEXTURE_2D, 0, format, GL_UNSIGNED_BYTE,
-        // buffer);
-        GlStateManager._readPixels(0, 0, width, height, format, GL_UNSIGNED_BYTE, buffer);
-        // Minecraft.getMinecraft().getFramebuffer().bindFramebuffer(true);
+        Framebuffer framebuffer = MinecraftClient.getInstance().getFramebuffer();
+        int i = framebuffer.textureWidth;
+        int j = framebuffer.textureHeight;
+        ImageClass imageclass = new ImageClass(i, j, false);
+        RenderSystem.bindTexture(framebuffer.getColorAttachment());
+        imageclass.loadFromTextureImage(0, true);
+        imageclass.mirrorVertically();
+        byte[] ni_bytes;
+        try {
+             ni_bytes = imageclass.getBytes();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        imageclass.close();
+        if (ni_bytes.length <= 0)
+            return null;
+        else {
+            return ByteBuffer.wrap(ni_bytes);
+        }
     }
 
     @Override

@@ -13,8 +13,8 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.util.Window;
 import net.minecraft.util.math.Vec3d;
-import org.joml.Matrix4f;
 import org.lwjgl.BufferUtils;
+import org.json.*;
 
 import static org.lwjgl.opengl.GL11.*;
 
@@ -22,7 +22,9 @@ import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
-import java.nio.channels.ClosedChannelException;
+import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.Map;
 
 
 /**
@@ -83,11 +85,8 @@ public class VideoHook {
     private int renderedWidth = 0;
     private int renderedHeight = 0;
 
-    ByteBuffer buffer = null;
-    ByteBuffer headerbuffer = null;
+    ByteBuffer buffer;
     // check also Malmo/src/TimestampedVideoFrame.h
-    final int POS_HEADER_SIZE = 20 + (16 * 4 * 2); // 20 bytes for the five floats governing x,y,z,yaw and pitch.
-    // + 16 bytes for projection matrix
 
     // For diagnostic purposes:
     private long timeOfFirstFrame = 0;
@@ -109,8 +108,7 @@ public class VideoHook {
         this.missionInit = missionInit;
         this.videoProducer = videoProducer;
         this.observer = observer;
-        this.buffer = BufferUtils.createByteBuffer(this.videoProducer.getRequiredBufferSize());
-        this.headerbuffer = ByteBuffer.allocate(20 + (16 * 4 * 2)).order(ByteOrder.BIG_ENDIAN);
+        this.buffer = BufferUtils.createByteBuffer(0);
         this.renderWidth = videoProducer.getWidth();
         this.renderHeight = videoProducer.getHeight();
         resizeIfNeeded();
@@ -163,8 +161,8 @@ public class VideoHook {
         if( this.renderedWidth == oldRenderWidth && this.renderedHeight == oldRenderHeight )
             return;
 
-        window.setWindowedSize(this.renderWidth, this.renderHeight);
         // Store width and height obtrained in the same way as to be compared to
+        window.setWindowedSize(this.renderWidth, this.renderHeight);
         this.renderedWidth = window.getFramebufferWidth();
         this.renderedHeight = window.getFramebufferHeight();
         // these will cause a number of visual artefacts
@@ -231,48 +229,24 @@ public class VideoHook {
         return y * 4 + x;
     }
 
-    public void writeRowMajor(FloatBuffer buf, Matrix4f mat) {
-        buf.put(pack(0, 0), mat.m00());
-        buf.put(pack(1, 0), mat.m01());
-        buf.put(pack(2, 0), mat.m02());
-        buf.put(pack(3, 0), mat.m03());
-        buf.put(pack(0, 1), mat.m10());
-        buf.put(pack(1, 1), mat.m11());
-        buf.put(pack(2, 1), mat.m12());
-        buf.put(pack(3, 1), mat.m13());
-        buf.put(pack(0, 2), mat.m20());
-        buf.put(pack(1, 2), mat.m21());
-        buf.put(pack(2, 2), mat.m22());
-        buf.put(pack(3, 2), mat.m23());
-        buf.put(pack(0, 3), mat.m30());
-        buf.put(pack(1, 3), mat.m31());
-        buf.put(pack(2, 3), mat.m32());
-        buf.put(pack(3, 3), mat.m33());
-    }
 
-    protected void writeProjectionMatrix(ByteBuffer buffer, Matrix4f result){
-        FloatBuffer buf = buffer.asFloatBuffer();
-        this.writeRowMajor(buf, result);
-        buffer.position(buffer.position() + 16 * 4);
-    }
-
-    public void readColumnMajor(Matrix4f mat, FloatBuffer buf) {
-        mat.m00(buf.get(pack(0, 0)));
-        mat.m01(buf.get(pack(0, 1)));
-        mat.m02(buf.get(pack(0, 2)));
-        mat.m03(buf.get(pack(0, 3)));
-        mat.m10(buf.get(pack(1, 0)));
-        mat.m11(buf.get(pack(1, 1)));
-        mat.m12(buf.get(pack(1, 2)));
-        mat.m13(buf.get(pack(1, 3)));
-        mat.m20(buf.get(pack(2, 0)));
-        mat.m21(buf.get(pack(2, 1)));
-        mat.m22(buf.get(pack(2, 2)));
-        mat.m23(buf.get(pack(2, 3)));
-        mat.m30(buf.get(pack(3, 0)));
-        mat.m31(buf.get(pack(3, 1)));
-        mat.m32(buf.get(pack(3, 2)));
-        mat.m33(buf.get(pack(3, 3)));
+    public void readColumnMajor(float[] float_arr, FloatBuffer buf) {
+        float_arr[0] = buf.get(pack(0, 0));
+        float_arr[1] = buf.get(pack(0, 1));
+        float_arr[2] = buf.get(pack(0, 2));
+        float_arr[3] = buf.get(pack(0, 3));
+        float_arr[4] = buf.get(pack(1, 0));
+        float_arr[5] = buf.get(pack(1, 1));
+        float_arr[6] = buf.get(pack(1, 2));
+        float_arr[7] = buf.get(pack(1, 3));
+        float_arr[8] = buf.get(pack(2, 0));
+        float_arr[9] = buf.get(pack(2, 1));
+        float_arr[10] = buf.get(pack(2, 2));
+        float_arr[11] = buf.get(pack(2, 3));
+        float_arr[12] = buf.get(pack(3, 0));
+        float_arr[13] = buf.get(pack(3, 1));
+        float_arr[14] = buf.get(pack(3, 2));
+        float_arr[15] = buf.get(pack(3, 3));
     }
 
     /**
@@ -312,43 +286,42 @@ public class VideoHook {
 
         boolean success = false;
 
-        long time_after_render_ns;
+        long time_after_render_ns = 0;
 
         try
         {
-            int size = this.videoProducer.getRequiredBufferSize();
-
             if (AddressHelper.getMissionControlPort() == 0) {
                 success = true;
                 time_after_render_ns = System.nanoTime();
             } else {
-                // Get buffer ready for writing to:
-                this.buffer.clear();
-                this.headerbuffer.clear();
-                // Write the pos data:
-                this.headerbuffer.putFloat(x);
-                this.headerbuffer.putFloat(y);
-                this.headerbuffer.putFloat(z);
-                this.headerbuffer.putFloat(yaw);
-                this.headerbuffer.putFloat(pitch);
+                Map<String, Float> header_map = new HashMap<>();
+                header_map.put("x", x);
+                header_map.put("y", y);
+                header_map.put("z", z);
+                header_map.put("yaw", yaw);
+                header_map.put("pitch", pitch);
                 glGetFloatv(GL_PROJECTION_MATRIX, projection);
                 glGetFloatv(GL_MODELVIEW_MATRIX, modelview);
-                Matrix4f projectionMatrix = new Matrix4f();
-                readColumnMajor(projectionMatrix, projection.asReadOnlyBuffer());
-                Matrix4f modelViewMatrix = new Matrix4f();
-                readColumnMajor(modelViewMatrix, modelview.asReadOnlyBuffer());
-
-                this.writeProjectionMatrix(this.headerbuffer, modelViewMatrix);
-                this.writeProjectionMatrix(this.headerbuffer, projectionMatrix);
-                assert(this.headerbuffer.remaining() == 0);
-                // Write the frame data:
-                this.videoProducer.getFrame(this.missionInit, this.buffer);
-                // The buffer gets flipped by getFrame(), but we need to flip our header buffer ourselves:
-                this.headerbuffer.flip();
-                ByteBuffer[] buffers = {this.headerbuffer, this.buffer};
-                time_after_render_ns = System.nanoTime();
-
-                success = this.connection.sendTCPBytes(buffers, size + POS_HEADER_SIZE);
+                JSONObject jo_header = new JSONObject(header_map);
+                float[] proj_floats = new float[16];
+                float[] modelview_floats = new float[16];
+                readColumnMajor(proj_floats, projection.asReadOnlyBuffer());
+                readColumnMajor(modelview_floats, modelview.asReadOnlyBuffer());
+                jo_header.append("projectionMatrix", proj_floats);
+                jo_header.append("modelViewMatrix", modelview_floats);
+                byte[] jo_bytes = jo_header.toString().getBytes(StandardCharsets.UTF_8);
+                int jo_len = jo_bytes.length;
+                this.buffer = this.videoProducer.getFrame(this.missionInit);
+                if (this.buffer != null)
+                {
+                    ByteBuffer jo_len_buffer = ByteBuffer.allocate(4).order(ByteOrder.BIG_ENDIAN).putInt(jo_len);
+                    jo_len_buffer.flip();
+                    int frame_buf_len = this.buffer.capacity();
+                    this.buffer.limit(frame_buf_len);
+                    ByteBuffer[] buffers = {jo_len_buffer, ByteBuffer.wrap(jo_bytes), this.buffer};
+                    time_after_render_ns = System.nanoTime();
+                    success = this.connection.sendTCPBytes(buffers, jo_len + frame_buf_len + 4);
+                }
             }
 
             long time_after_ns = System.nanoTime();

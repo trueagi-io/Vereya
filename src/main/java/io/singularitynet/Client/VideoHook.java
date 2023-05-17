@@ -222,7 +222,8 @@ public class VideoHook {
 
     public void onRenderStart(WorldRenderContext event) {
         // this is here in case the user has resized the window during a mission
-        resizeIfNeeded();
+        // but currently we allow resizing
+        // resizeIfNeeded();
     }
 
     private static int pack(int x, int y) {

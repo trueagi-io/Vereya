@@ -42,7 +42,7 @@ class ObservationFromRecipesImplementation extends HandlerBase implements IObser
         JsonArray recipes = new JsonArray();
         for (Recipe r: result) {
             JsonObject rec = new JsonObject(); // recipe
-            ItemStack out = r.getOutput();
+            ItemStack out = r.getOutput(MinecraftClient.getInstance().world.getRegistryManager());
             rec.add("name", new JsonPrimitive(out.getItem().getTranslationKey()));
             rec.add("count", new JsonPrimitive(out.getCount()));
             DefaultedList<Ingredient> ingredients = r.getIngredients();

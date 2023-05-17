@@ -206,9 +206,9 @@ public final class Quaternion {
     }
 
     public void normalize() {
-        float f = this.getX() * this.getX() + this.getY() * this.getY() + this.getZ() * this.getZ() + this.getW() * this.getW();
+        double f = this.getX() * this.getX() + this.getY() * this.getY() + this.getZ() * this.getZ() + this.getW() * this.getW();
         if (f > 1.0E-6F) {
-            float g = MathHelper.fastInverseSqrt(f);
+            double g = MathHelper.fastInverseSqrt(f);
             this.x *= g;
             this.y *= g;
             this.z *= g;

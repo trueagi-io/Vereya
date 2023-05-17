@@ -141,7 +141,7 @@ public class JSONWorldDataHelper {
 
         JsonArray arr = new JsonArray();
 
-        BlockPos pos = new BlockPos(player.getPos().x, player.getPos().y, player.getPos().z);
+        BlockPos pos = new BlockPos(player.getBlockX(), player.getBlockY(), player.getBlockZ());
         for (int y = environmentDimensions.yMin; y <= environmentDimensions.yMax; y++)
         {
             for (int z = environmentDimensions.zMin; z <= environmentDimensions.zMax; z++)

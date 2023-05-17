@@ -135,11 +135,11 @@ public final class Vec3f {
     }
 
     public boolean normalize() {
-        float f = this.x * this.x + this.y * this.y + this.z * this.z;
+        double f = this.x * this.x + this.y * this.y + this.z * this.z;
         if ((double)f < 1.0E-5D) {
             return false;
         } else {
-            float g = MathHelper.fastInverseSqrt(f);
+            double g = MathHelper.fastInverseSqrt(f);
             this.x *= g;
             this.y *= g;
             this.z *= g;

@@ -14,7 +14,7 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.data.DataOutput;
 import net.minecraft.data.DataWriter;
 import net.minecraft.data.server.loottable.LootTableProvider;
-import net.minecraft.data.server.loottable.VanillaLootTableProviders;
+import net.minecraft.data.server.loottable.vanilla.VanillaLootTableProviders;
 import net.minecraft.item.Item;
 import net.minecraft.loot.LootManager;
 import net.minecraft.loot.LootTable;

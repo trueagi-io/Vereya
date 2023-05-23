@@ -51,14 +51,14 @@ public class CraftingHelper {
      * @param variant if variants should be obeyed in constructing the recipes, i.e. if false, variant blind
      * @return a list of IRecipe objects that result in this item.
      */
-    public static List<Recipe> getRecipesForRequestedOutput(String output, boolean variant) {
+    public static List<Recipe> getRecipesForRequestedOutput(String output, boolean variant, ServerPlayerEntity player) {
         Item item = Registries.ITEM.getOrEmpty(new Identifier(output)).orElseThrow(() -> new RuntimeException("Unknown item '" + output + "'"));
         if (item == Items.AIR) {
             throw new JsonSyntaxException("Invalid item: " + output);
         }
         ItemStack stack = new ItemStack(item);
-        List<Recipe<?>> result = MinecraftClient.getInstance().world.getRecipeManager().values().stream().filter(recipe -> {
-            ItemStack is = recipe.getOutput();
+        List<Recipe<?>> result = player.world.getRecipeManager().values().stream().filter(recipe -> {
+            ItemStack is = recipe.getOutput(player.world.getRegistryManager());
             if(is.isItemEqual(stack)) return true;
             return false;
         }).toList();
@@ -96,7 +96,7 @@ public class CraftingHelper {
             // First, remove the ingredients:
             removeIngredientsFromPlayer(player, requiredCount);
             // Now add the output of the recipe:
-            ItemStack resultForInventory = recipe.getOutput().copy();
+            ItemStack resultForInventory = recipe.getOutput(player.world.getRegistryManager()).copy();
             player.getInventory().offerOrDrop(resultForInventory);
             return true;
         } else {
@@ -281,7 +281,7 @@ public class CraftingHelper {
             removeIngredientsFromPlayer(player, requiredCount);
             burnInventory(player, fuelItemStack);
 
-            ItemStack resultForInventory = recipe.getOutput().copy();
+            ItemStack resultForInventory = recipe.getOutput(player.world.getRegistryManager()).copy();
             LogManager.getLogger().info("adding to inventory " + resultForInventory.toString());
             player.getInventory().offerOrDrop(resultForInventory);
             return true;

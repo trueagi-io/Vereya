@@ -44,7 +44,7 @@ public class SimpleCraftCommandsImplementationServer extends CommandBase  implem
         // Try crafting recipes first:
         List<Recipe> matching_recipes;
         String[] split = data.get("message").split(" ");
-        matching_recipes = CraftingHelper.getRecipesForRequestedOutput(split[0], false);
+        matching_recipes = CraftingHelper.getRecipesForRequestedOutput(split[0], false, player);
 
         // crafting doensn't require furnace or campfire
         for (Recipe recipe : matching_recipes.stream().filter(recipe -> {return recipe.getType() == RecipeType.CRAFTING;}).toList())

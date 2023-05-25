@@ -13,6 +13,7 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.util.Window;
 import net.minecraft.util.math.Vec3d;
+import org.apache.logging.log4j.LogManager;
 import org.lwjgl.BufferUtils;
 import org.json.*;
 
@@ -151,10 +152,15 @@ public class VideoHook {
         if (window == null){
             return;
         }
+
+        if (this.renderWidth == 0 || this.renderHeight == 0) {
+            return;
+        }
         // resize the window if we need to
         if( this.renderedWidth == 0 ) {
             this.renderedWidth = this.renderWidth;
             this.renderedHeight = this.renderHeight;
+            LogManager.getLogger().debug("resizing to " + this.renderHeight + " " + this.renderedWidth);
         }
         int oldRenderWidth = window.getFramebufferWidth();
         int oldRenderHeight = window.getFramebufferHeight();

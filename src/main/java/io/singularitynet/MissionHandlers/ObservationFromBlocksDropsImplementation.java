@@ -25,6 +25,7 @@ import net.minecraft.registry.Registry;
 import net.minecraft.registry.tag.TagKey;
 import net.minecraft.util.Identifier;
 import io.singularitynet.mixin.LootTableProviderMixin;
+import net.minecraft.util.profiler.ProfilerTiming;
 import org.slf4j.Logger;
 
 import java.nio.file.Path;
@@ -62,8 +63,10 @@ public class ObservationFromBlocksDropsImplementation extends HandlerBase implem
         String comm[] = command.split(" ", 2);
         if (comm.length == 2 && comm[0].equalsIgnoreCase(ObservationFromBlocksDrop.BLOCKDROPS.value())) {
             if (comm[1].equalsIgnoreCase("off")) {
+                LOGGER.debug("setting sendRec = false in ObservationFromBlocksDrops");
                 this.sendRec = false;
             } else {
+                LOGGER.debug("setting sendRec = true in ObservationFromBlocksDrops");
                 this.sendRec = true;
             }
             return true;
@@ -272,6 +275,7 @@ public class ObservationFromBlocksDropsImplementation extends HandlerBase implem
         if (!this.sendRec){
             return;
         }
+        LOGGER.debug("ObservationFromBlocksDrops -- start");
         Path pth = Path.of(System.getProperty("java.io.tmpdir"));
         DataOutput doutput = new DataOutput(pth);
         DataWriter writer = DataWriter.UNCACHED;
@@ -347,5 +351,6 @@ public class ObservationFromBlocksDropsImplementation extends HandlerBase implem
             }
         }
         json.add("block_item_tool_triple", triple_array);
+        LOGGER.debug("ObservationFromBlocksDrops -- end");
     }
 }

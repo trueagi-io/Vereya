@@ -5,6 +5,13 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import com.google.gson.*;
 import com.mojang.logging.LogUtils;
+import org.jetbrains.annotations.Nullable;
+import net.minecraft.data.server.loottable.LootTableGenerator;
+import net.minecraft.loot.LootDataKey;
+import net.minecraft.loot.LootDataLookup;
+import net.minecraft.loot.LootDataType;
+import net.minecraft.loot.LootTable;
+
 import io.singularitynet.MissionHandlerInterfaces.ICommandHandler;
 import io.singularitynet.MissionHandlerInterfaces.IObservationProducer;
 import io.singularitynet.projectmalmo.MissionInit;
@@ -225,7 +232,17 @@ public class ObservationFromBlocksDropsImplementation extends HandlerBase implem
         LootContextType var10002 = LootContextTypes.GENERIC;
         Function var10003 = (id) -> null;
         Objects.requireNonNull(map);
-        LootTableReporter lootTableReporter = new LootTableReporter(var10002, var10003, map::get);
+        LootTableReporter lootTableReporter = new LootTableReporter(LootContextTypes.GENERIC, new LootDataLookup(){
+
+            @Override
+            @Nullable
+            public <T> T getElement(LootDataKey<T> lootDataKey) {
+                if (lootDataKey.type() == LootDataType.LOOT_TABLES) {
+                    return (T)map.get(lootDataKey.id());
+                }
+                return null;
+            }
+        });
         Set<Identifier> set = Sets.difference(lootTableIds, map.keySet());
         Iterator var5 = set.iterator();
 
@@ -234,7 +251,7 @@ public class ObservationFromBlocksDropsImplementation extends HandlerBase implem
             lootTableReporter.report("Missing built-in table: " + identifier);
         }
 
-        map.forEach((id, table) -> LootManager.validate(lootTableReporter, id, table));
+        map.forEach((id, table) -> table.validate(lootTableReporter.withContextType(table.getType()).makeChild("{" + id + "}", new LootDataKey<LootTable>(LootDataType.LOOT_TABLES, (Identifier)id))));
         Multimap<String, String> multimap = lootTableReporter.getMessages();
         if (!multimap.isEmpty()) {
             multimap.forEach((name, message) -> {
@@ -248,7 +265,8 @@ public class ObservationFromBlocksDropsImplementation extends HandlerBase implem
                     continue;
                 String block_name = identifier.toString().replace("minecraft:blocks/", "");
                 LootTable loottable = entry.getValue();
-                JsonElement jel = LootManager.toJson(loottable);
+                JsonElement jel = LootDataType.LOOT_TABLES.getGson().toJsonTree(loottable);
+                // JsonElement jel = LootManager.toJson(loottable);
                 List<String> parsed_one_table = this.parseOneTable(jel, block_name);
                 result.put(block_name, parsed_one_table);
             }

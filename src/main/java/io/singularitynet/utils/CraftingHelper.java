@@ -57,9 +57,9 @@ public class CraftingHelper {
             throw new JsonSyntaxException("Invalid item: " + output);
         }
         ItemStack stack = new ItemStack(item);
-        List<Recipe<?>> result = player.world.getRecipeManager().values().stream().filter(recipe -> {
-            ItemStack is = recipe.getOutput(player.world.getRegistryManager());
-            if(is.isItemEqual(stack)) return true;
+        List<Recipe<?>> result = player.getWorld().getRecipeManager().values().stream().filter(recipe -> {
+            ItemStack is = recipe.getOutput(player.getWorld().getRegistryManager());
+            if(ItemStack.areItemsEqual(is, stack)) return true;
             return false;
         }).toList();
 
@@ -96,7 +96,7 @@ public class CraftingHelper {
             // First, remove the ingredients:
             removeIngredientsFromPlayer(player, requiredCount);
             // Now add the output of the recipe:
-            ItemStack resultForInventory = recipe.getOutput(player.world.getRegistryManager()).copy();
+            ItemStack resultForInventory = recipe.getOutput(player.getWorld().getRegistryManager()).copy();
             player.getInventory().offerOrDrop(resultForInventory);
             return true;
         } else {
@@ -281,7 +281,7 @@ public class CraftingHelper {
             removeIngredientsFromPlayer(player, requiredCount);
             burnInventory(player, fuelItemStack);
 
-            ItemStack resultForInventory = recipe.getOutput(player.world.getRegistryManager()).copy();
+            ItemStack resultForInventory = recipe.getOutput(player.getWorld().getRegistryManager()).copy();
             LogManager.getLogger().info("adding to inventory " + resultForInventory.toString());
             player.getInventory().offerOrDrop(resultForInventory);
             return true;

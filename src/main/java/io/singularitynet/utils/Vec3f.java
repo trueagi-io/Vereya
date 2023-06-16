@@ -11,7 +11,6 @@ import org.joml.Matrix3f;
 import org.joml.Vector4f;
 
 public final class Vec3f {
-    public static final Codec<Vec3f> CODEC;
     public static Vec3f NEGATIVE_X;
     public static Vec3f POSITIVE_X;
     public static Vec3f NEGATIVE_Y;
@@ -207,13 +206,6 @@ public final class Vec3f {
     }
 
     static {
-        CODEC = Codec.FLOAT.listOf().comapFlatMap((vec) -> {
-            return Util.toArray(vec, 3).map((vecx) -> {
-                return new Vec3f((Float)vecx.get(0), (Float)vecx.get(1), (Float)vecx.get(2));
-            });
-        }, (vec) -> {
-            return ImmutableList.of(vec.x, vec.y, vec.z);
-        });
         NEGATIVE_X = new Vec3f(-1.0F, 0.0F, 0.0F);
         POSITIVE_X = new Vec3f(1.0F, 0.0F, 0.0F);
         NEGATIVE_Y = new Vec3f(0.0F, -1.0F, 0.0F);

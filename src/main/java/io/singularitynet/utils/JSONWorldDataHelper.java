@@ -121,7 +121,7 @@ public class JSONWorldDataHelper {
 
     public static void buildEnvironmentStats(JsonObject json, PlayerEntity player)
     {
-        json.addProperty("WorldTime", player.world.getTime());  // Current time in ticks
+        json.addProperty("WorldTime", player.getWorld().getTime());  // Current time in ticks
         // json.addProperty("TotalTime", player.world.getTotalWorldTime());  // Total time world has been running
     }
     /**
@@ -154,7 +154,7 @@ public class JSONWorldDataHelper {
                     else
                         p = pos.add(x, y, z);
                     String name = "";
-                    BlockState state = player.world.getBlockState(p);
+                    BlockState state = player.getWorld().getBlockState(p);
                     Identifier blockName = Registries.BLOCK.getId(state.getBlock());
                     name = blockName.getPath();
                     JsonElement element = new JsonPrimitive(name);

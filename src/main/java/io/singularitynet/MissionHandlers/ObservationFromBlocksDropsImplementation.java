@@ -25,7 +25,6 @@ import net.minecraft.registry.Registry;
 import net.minecraft.registry.tag.TagKey;
 import net.minecraft.util.Identifier;
 import io.singularitynet.mixin.LootTableProviderMixin;
-import net.minecraft.util.profiler.ProfilerTiming;
 import org.slf4j.Logger;
 
 import java.nio.file.Path;

@@ -2,20 +2,16 @@ package io.singularitynet.MissionHandlers;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonPrimitive;
-import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import io.singularitynet.MissionHandlerInterfaces.ICommandHandler;
 import io.singularitynet.MissionHandlerInterfaces.IObservationProducer;
 import io.singularitynet.projectmalmo.MissionInit;
 import io.singularitynet.projectmalmo.ObservationFromRecipe;
-import io.singularitynet.projectmalmo.ObservationFromRecipes;
-import io.singularitynet.projectmalmo.SimpleCraftCommand;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.item.ItemStack;
 import net.minecraft.recipe.Ingredient;
 import net.minecraft.recipe.Recipe;
 import net.minecraft.util.collection.DefaultedList;
-import org.lwjgl.system.CallbackI;
 
 import java.util.List;
 

@@ -1508,6 +1508,20 @@
         </xs:restriction>
     </xs:simpleType>
 
+    <xs:simpleType name="ObservationFromSolid">
+        <xs:annotation>
+            <xs:documentation>
+                A command to turn on block, item, tool required triples:
+                    solid
+                turn off:
+                    solid off
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="solid" />
+        </xs:restriction>
+    </xs:simpleType>
+
     <xs:simpleType name="ObservationFromItem">
         <xs:annotation>
             <xs:documentation>
@@ -1650,7 +1664,7 @@
     </xs:simpleType>
 
     <xs:simpleType name="Command">
-        <xs:union memberTypes="ContinuousMovementCommand AbsoluteMovementCommand DiscreteMovementCommand InventoryCommand ChatCommand SimpleCraftCommand BlockPlaceCommand NearbyCraftCommand NearbySmeltCommand MissionQuitCommand HumanLevelCommand ObservationFromRecipe ObservationFromItem ObservationFromBlocksDrop"/>
+        <xs:union memberTypes="ContinuousMovementCommand AbsoluteMovementCommand DiscreteMovementCommand InventoryCommand ChatCommand SimpleCraftCommand BlockPlaceCommand NearbyCraftCommand NearbySmeltCommand MissionQuitCommand HumanLevelCommand ObservationFromRecipe ObservationFromItem ObservationFromBlocksDrop ObservationFromSolid"/>
     </xs:simpleType>
 
 
@@ -1874,6 +1888,30 @@
                             <xs:restriction base="CommandListModifier">
                                 <xs:choice maxOccurs="unbounded">
                                     <xs:element name="command" type="ObservationFromBlocksDrop" minOccurs="0" maxOccurs="unbounded"/>
+                                </xs:choice>
+                            </xs:restriction>
+                        </xs:complexContent>
+                    </xs:complexType>
+                </xs:element>
+            </xs:all>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="ObservationFromSolidness">
+        <xs:annotation>
+            <xs:documentation>
+                When present, the Mod will accept 'solid' and 'solid off' commands
+                which will turn on and off sending of block solidness with each observation
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:all>
+                <xs:element name="ModifierList" minOccurs="0" maxOccurs="1">
+                    <xs:complexType>
+                        <xs:complexContent>
+                            <xs:restriction base="CommandListModifier">
+                                <xs:choice maxOccurs="unbounded">
+                                    <xs:element name="command" type="ObservationFromSolid" minOccurs="0" maxOccurs="unbounded"/>
                                 </xs:choice>
                             </xs:restriction>
                         </xs:complexContent>

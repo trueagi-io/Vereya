@@ -66,6 +66,5 @@ public class ObservationFromItemsImplementation extends HandlerBase implements I
             items.add(item_name);
         }
         json.add("item_list", items);
-//
     }
 }

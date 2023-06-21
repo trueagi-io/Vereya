@@ -64,7 +64,7 @@ public class ObservationFromSolidnessImplementation extends HandlerBase implemen
         JsonArray nonsolid_blocks = new JsonArray();
         for (Block ent: list_blocks)
         {
-            if (!ent.getDefaultState().getMaterial().blocksMovement())
+            if (!ent.getDefaultState().blocksMovement())
             {
                 String item_name = ent.toString().replaceAll("Block|minecraft:|\\{|\\}", "");
                 nonsolid_blocks.add(item_name);

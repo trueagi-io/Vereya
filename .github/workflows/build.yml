@@ -12,7 +12,7 @@ defaults:
 jobs:
   build:
     name: build
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         # Use these Java versions
@@ -43,7 +43,7 @@ jobs:
         run: rsync -v $GITHUB_WORKSPACE/fabric/* /home/tester/.minecraft/mods/
   test:
     needs: build
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - name: start minecraft
         run: ./launch.sh &

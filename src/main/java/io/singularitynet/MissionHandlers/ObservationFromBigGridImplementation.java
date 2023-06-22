@@ -32,13 +32,10 @@ public class ObservationFromBigGridImplementation extends HandlerBase implements
         List<ObservationFromBigGridImplementation.SimpleGridDef> environs = this.environs;
         if (environs != null)
         {
-            long startTime = System.nanoTime();
             for (ObservationFromBigGridImplementation.SimpleGridDef sgd : environs)
             {
                 JSONWorldDataHelper.buildGridData(json, sgd.getEnvirons(), MinecraftClient.getInstance().player, sgd.name);
             }
-            long elapsedTime = System.nanoTime() - startTime;
-            int stub = 0;
         }
     }
 

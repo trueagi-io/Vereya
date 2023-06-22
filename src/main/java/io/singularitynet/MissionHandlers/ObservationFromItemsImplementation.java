@@ -36,12 +36,10 @@ public class ObservationFromItemsImplementation extends HandlerBase implements I
     public boolean execute(String command, MissionInit currentMissionInit) {
         String comm[] = command.split(" ", 2);
         if (comm.length == 2 && comm[0].equalsIgnoreCase(ObservationFromItem.ITEM_LIST.value())){
-          if (comm[1].equalsIgnoreCase("off")) {
-               this.sendRec = false;
-           } else {
-               this.sendRec = true;
-           }
-          return true;
+          if (!comm[1].equalsIgnoreCase("off")) {
+              this.sendRec = true;
+              return true;
+          }
         }
         return false;
     }
@@ -57,6 +55,7 @@ public class ObservationFromItemsImplementation extends HandlerBase implements I
         if (!this.sendRec){
             return;
         }
+        this.sendRec = false;
         Registry<Item> str_ent =  MinecraftClient.getInstance().world.getRegistryManager().get(ITEM.getKey());
         List<Item> list_ent = str_ent.stream().toList();
         JsonArray items = new JsonArray();

@@ -39,12 +39,6 @@ public class ObservationFromSolidnessImplementation extends HandlerBase implemen
             this.sendRec = true;
             return true;
         }
-        if (comm.length == 2 && comm[0].equalsIgnoreCase(ObservationFromSolid.SOLID.value()) &&
-                comm[1].equalsIgnoreCase("off")
-        ) {
-            this.sendRec = false;
-            return true;
-        }
         return false;
     }
 
@@ -59,6 +53,7 @@ public class ObservationFromSolidnessImplementation extends HandlerBase implemen
         if (!this.sendRec){
             return;
         }
+        this.sendRec = false;
         Registry<Block> blocks = MinecraftClient.getInstance().world.getRegistryManager().get(BLOCK.getKey());
         List<Block> list_blocks = blocks.stream().toList();
         JsonArray nonsolid_blocks = new JsonArray();

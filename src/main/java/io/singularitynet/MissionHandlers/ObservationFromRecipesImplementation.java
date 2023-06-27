@@ -34,6 +34,7 @@ class ObservationFromRecipesImplementation extends HandlerBase implements IObser
         if (!this.sendRec){
             return;
         }
+        this.sendRec = false;
         List<Recipe<?>> result = MinecraftClient.getInstance().world.getRecipeManager().values().stream().toList();
         JsonArray recipes = new JsonArray();
         for (Recipe r: result) {
@@ -87,12 +88,6 @@ class ObservationFromRecipesImplementation extends HandlerBase implements IObser
         if (comm.length == 2 && comm[0].equalsIgnoreCase(ObservationFromRecipe.RECIPES.value()) &&
                 !comm[1].equalsIgnoreCase("off")) {
             this.sendRec = true;
-            return true;
-        }
-        if (comm.length == 2 && comm[0].equalsIgnoreCase(ObservationFromRecipe.RECIPES.value()) &&
-                comm[1].equalsIgnoreCase("off")
-           ) {
-            this.sendRec = false;
             return true;
         }
         return false;

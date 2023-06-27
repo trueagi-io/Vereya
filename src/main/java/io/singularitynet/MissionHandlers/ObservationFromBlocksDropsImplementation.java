@@ -68,14 +68,11 @@ public class ObservationFromBlocksDropsImplementation extends HandlerBase implem
     public boolean execute(String command, MissionInit currentMissionInit) {
         String comm[] = command.split(" ", 2);
         if (comm.length == 2 && comm[0].equalsIgnoreCase(ObservationFromBlocksDrop.BLOCKDROPS.value())) {
-            if (comm[1].equalsIgnoreCase("off")) {
+            if (!comm[1].equalsIgnoreCase("off")) {
                 LOGGER.debug("setting sendRec = false in ObservationFromBlocksDrops");
-                this.sendRec = false;
-            } else {
-                LOGGER.debug("setting sendRec = true in ObservationFromBlocksDrops");
                 this.sendRec = true;
+                return true;
             }
-            return true;
         }
         return false;
     }
@@ -292,6 +289,7 @@ public class ObservationFromBlocksDropsImplementation extends HandlerBase implem
         if (!this.sendRec){
             return;
         }
+        this.sendRec = false;
         LOGGER.debug("ObservationFromBlocksDrops -- start");
         Path pth = Path.of(System.getProperty("java.io.tmpdir"));
         DataOutput doutput = new DataOutput(pth);

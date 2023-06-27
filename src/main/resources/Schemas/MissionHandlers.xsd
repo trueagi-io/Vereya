@@ -1483,10 +1483,8 @@
     <xs:simpleType name="ObservationFromRecipe">
         <xs:annotation>
             <xs:documentation>
-                A command to turn on recipes:
+                A command to get recipes:
                     recipes
-                turn off:
-                    recipes off
             </xs:documentation>
         </xs:annotation>
         <xs:restriction base="xs:string">
@@ -1497,10 +1495,8 @@
     <xs:simpleType name="ObservationFromBlocksDrop">
         <xs:annotation>
             <xs:documentation>
-                A command to turn on block, item, tool required triples:
+                A command to get block, item, tool required triples:
                     blockdrops
-                turn off:
-                    blockdrops off
             </xs:documentation>
         </xs:annotation>
         <xs:restriction base="xs:string">
@@ -1511,10 +1507,8 @@
     <xs:simpleType name="ObservationFromSolid">
         <xs:annotation>
             <xs:documentation>
-                A command to turn on block, item, tool required triples:
+                A command to get blocks' solidness:
                     solid
-                turn off:
-                    solid off
             </xs:documentation>
         </xs:annotation>
         <xs:restriction base="xs:string">
@@ -1525,14 +1519,24 @@
     <xs:simpleType name="ObservationFromItem">
         <xs:annotation>
             <xs:documentation>
-                A command to turn on item_list:
+                A command to get item_list:
                     item_list
-                turn off:
-                    item_list off
             </xs:documentation>
         </xs:annotation>
         <xs:restriction base="xs:string">
             <xs:enumeration value="item_list" />
+        </xs:restriction>
+    </xs:simpleType>
+
+    <xs:simpleType name="ObservationFromFindBlck">
+        <xs:annotation>
+            <xs:documentation>
+                A command to find block in big grid:
+                    find_block
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="find_block" />
         </xs:restriction>
     </xs:simpleType>
 
@@ -1664,7 +1668,7 @@
     </xs:simpleType>
 
     <xs:simpleType name="Command">
-        <xs:union memberTypes="ContinuousMovementCommand AbsoluteMovementCommand DiscreteMovementCommand InventoryCommand ChatCommand SimpleCraftCommand BlockPlaceCommand NearbyCraftCommand NearbySmeltCommand MissionQuitCommand HumanLevelCommand ObservationFromRecipe ObservationFromItem ObservationFromBlocksDrop ObservationFromSolid"/>
+        <xs:union memberTypes="ContinuousMovementCommand AbsoluteMovementCommand DiscreteMovementCommand InventoryCommand ChatCommand SimpleCraftCommand BlockPlaceCommand NearbyCraftCommand NearbySmeltCommand MissionQuitCommand HumanLevelCommand ObservationFromRecipe ObservationFromItem ObservationFromBlocksDrop ObservationFromSolid ObservationFromFindBlck"/>
     </xs:simpleType>
 
 
@@ -1852,8 +1856,8 @@
     <xs:element name="ObservationFromRecipes">
         <xs:annotation>
             <xs:documentation>
-                When present, the Mod will accept 'recipes' and 'recipes off' commands
-                which will turn on and off sending of recipes with each observation
+                When present, the Mod will accept 'recipes' command
+                which will turn on sending of recipes but only once
             </xs:documentation>
         </xs:annotation>
         <xs:complexType>
@@ -1873,11 +1877,37 @@
         </xs:complexType>
     </xs:element>
 
+    <xs:element name="ObservationFromFindBlock">
+        <xs:annotation>
+            <xs:documentation>
+                When present, the Mod will accept 'find_block' command which will 
+                turn on sending of block location found in bigger grid than in 
+                ObservationFromGrid (or Empty if no such block in bigger grid found) but only once
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+            <xs:all>
+                <xs:element name="ModifierList" minOccurs="0" maxOccurs="1">
+                    <xs:complexType>                   
+                        <xs:complexContent>
+                            <xs:restriction base="CommandListModifier">
+                                <xs:choice maxOccurs="unbounded">
+                                    <xs:element name="command" type="ObservationFromFindBlck" minOccurs="0" maxOccurs="unbounded"/>
+                                </xs:choice>
+                            </xs:restriction>
+                        </xs:complexContent>
+                    </xs:complexType>
+                </xs:element>
+                <xs:element name="Grid" type="GridDefinition" minOccurs="1"/>
+            </xs:all>
+        </xs:complexType>
+    </xs:element>
+
     <xs:element name="ObservationFromBlocksDrops">
         <xs:annotation>
             <xs:documentation>
-                When present, the Mod will accept 'blockdrops' and 'blockdrops off' commands
-                which will turn on and off sending of block, item, tool required triples with each observation
+                When present, the Mod will accept 'blockdrops' command
+                which will turn on sending of block, item, tool required triples but only once
             </xs:documentation>
         </xs:annotation>
         <xs:complexType>
@@ -1900,8 +1930,8 @@
     <xs:element name="ObservationFromSolidness">
         <xs:annotation>
             <xs:documentation>
-                When present, the Mod will accept 'solid' and 'solid off' commands
-                which will turn on and off sending of block solidness with each observation
+                When present, the Mod will accept 'solid' command
+                which will turn on sending of block solidness but only once
             </xs:documentation>
         </xs:annotation>
         <xs:complexType>
@@ -1924,8 +1954,8 @@
     <xs:element name="ObservationFromItems">
         <xs:annotation>
             <xs:documentation>
-                When present, the Mod will accept 'item_list' and 'item_list off' commands
-                which will turn on and off sending of item_list with each observation
+                When present, the Mod will accept 'item_list' command
+                which will turn on sending of item_list but only once
             </xs:documentation>
         </xs:annotation>
         <xs:complexType>

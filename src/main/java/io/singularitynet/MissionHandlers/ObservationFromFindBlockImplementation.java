@@ -32,6 +32,15 @@ public class ObservationFromFindBlockImplementation extends HandlerBase implemen
     @Override
     public void prepare(MissionInit missionInit) {}
 
+    private double getDistance(BlockPos a, BlockPos b)
+    {
+        double dx = a.getX() - b.getX();
+        double dy = a.getY() - b.getY();
+        double dz = a.getZ() - b.getZ();
+        // penalty for height from minecraft-demo's nearestFromGrid function
+        return dx * dx + (dy - 1.66) * (dy - 1.66) * 4 + dz * dz;
+    }
+
     private void findNearestBlockInGrid(JsonObject json, JSONWorldDataHelper.GridDimensions environmentDimensions,
                                         PlayerEntity player, String jsonName, String block_name)
     {
@@ -43,6 +52,7 @@ public class ObservationFromFindBlockImplementation extends HandlerBase implemen
                                              player.getBlockY() + environmentDimensions.yMax + 1,
                                              player.getBlockZ() + environmentDimensions.zMax + 1);
         boolean foundBlock = false;
+        double dist_nearest = getDistance(pos, nearestBlock);
         for (int y = environmentDimensions.yMin; y <= environmentDimensions.yMax; y++)
         {
             for (int z = environmentDimensions.zMin; z <= environmentDimensions.zMax; z++)
@@ -61,10 +71,10 @@ public class ObservationFromFindBlockImplementation extends HandlerBase implemen
                     if (name.equals(block_name))
                     {
                         foundBlock = true;
-                        double dist_cur = p.getSquaredDistance(pos);
-                        double dist_nearest = p.getSquaredDistance(nearestBlock);
+                        double dist_cur = getDistance(pos, p);
                         if (dist_cur < dist_nearest)
                         {
+                            dist_nearest = dist_cur;
                             nearestBlock = p;
                         }
                     }

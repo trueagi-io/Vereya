@@ -334,7 +334,7 @@
             <xs:element ref="ObservationFromFullInventory" minOccurs="0"/>
             <xs:element ref="ObservationFromSubgoalPositionList" minOccurs="0"/>
             <xs:element ref="ObservationFromGrid" minOccurs="0"/>
-            <xs:element ref="ObservationFromBigGrid" minOccurs="0"/>
+            <xs:element ref="ObservationFromFindBlock" minOccurs="0"/>
             <xs:element ref="ObservationFromDistance" minOccurs="0"/>
             <xs:element ref="ObservationFromDiscreteCell" minOccurs="0"/>
             <xs:element ref="ObservationFromChat" minOccurs="0"/>

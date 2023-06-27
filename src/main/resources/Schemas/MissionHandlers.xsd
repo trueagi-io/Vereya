@@ -1528,15 +1528,15 @@
         </xs:restriction>
     </xs:simpleType>
 
-    <xs:simpleType name="ObservationFromBigGrd">
+    <xs:simpleType name="ObservationFromFindBlck">
         <xs:annotation>
             <xs:documentation>
-                A command to get observation from big grid:
-                    big_grid
+                A command to find block in big grid:
+                    find_block
             </xs:documentation>
         </xs:annotation>
         <xs:restriction base="xs:string">
-            <xs:enumeration value="big_grid" />
+            <xs:enumeration value="find_block" />
         </xs:restriction>
     </xs:simpleType>
 
@@ -1668,7 +1668,7 @@
     </xs:simpleType>
 
     <xs:simpleType name="Command">
-        <xs:union memberTypes="ContinuousMovementCommand AbsoluteMovementCommand DiscreteMovementCommand InventoryCommand ChatCommand SimpleCraftCommand BlockPlaceCommand NearbyCraftCommand NearbySmeltCommand MissionQuitCommand HumanLevelCommand ObservationFromRecipe ObservationFromItem ObservationFromBlocksDrop ObservationFromSolid ObservationFromBigGrd"/>
+        <xs:union memberTypes="ContinuousMovementCommand AbsoluteMovementCommand DiscreteMovementCommand InventoryCommand ChatCommand SimpleCraftCommand BlockPlaceCommand NearbyCraftCommand NearbySmeltCommand MissionQuitCommand HumanLevelCommand ObservationFromRecipe ObservationFromItem ObservationFromBlocksDrop ObservationFromSolid ObservationFromFindBlck"/>
     </xs:simpleType>
 
 
@@ -1877,12 +1877,12 @@
         </xs:complexType>
     </xs:element>
 
-    <xs:element name="ObservationFromBigGrid">
+    <xs:element name="ObservationFromFindBlock">
         <xs:annotation>
             <xs:documentation>
-                When present, the Mod will accept 'big_grid' command
-                which will turn on sending of observation from bigger 
-                grid than ObservationFromGrid but only once
+                When present, the Mod will accept 'find_block' command which will 
+                turn on sending of block location found in bigger grid than in 
+                ObservationFromGrid (or Empty if no such block in bigger grid found) but only once
             </xs:documentation>
         </xs:annotation>
         <xs:complexType>
@@ -1892,7 +1892,7 @@
                         <xs:complexContent>
                             <xs:restriction base="CommandListModifier">
                                 <xs:choice maxOccurs="unbounded">
-                                    <xs:element name="command" type="ObservationFromBigGrd" minOccurs="0" maxOccurs="unbounded"/>
+                                    <xs:element name="command" type="ObservationFromFindBlck" minOccurs="0" maxOccurs="unbounded"/>
                                 </xs:choice>
                             </xs:restriction>
                         </xs:complexContent>

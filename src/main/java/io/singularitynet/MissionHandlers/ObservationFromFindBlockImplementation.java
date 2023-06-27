@@ -8,8 +8,8 @@ import io.singularitynet.MissionHandlerInterfaces.IObservationProducer;
 import io.singularitynet.utils.JSONWorldDataHelper;
 import io.singularitynet.projectmalmo.GridDefinition;
 import io.singularitynet.projectmalmo.MissionInit;
-import io.singularitynet.projectmalmo.ObservationFromBigGrid;
-import io.singularitynet.projectmalmo.ObservationFromBigGrd;
+import io.singularitynet.projectmalmo.ObservationFromFindBlock;
+import io.singularitynet.projectmalmo.ObservationFromFindBlck;
 import net.minecraft.block.BlockState;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.entity.player.PlayerEntity;
@@ -21,8 +21,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-public class ObservationFromBigGridImplementation extends HandlerBase implements IObservationProducer, ICommandHandler {
-    private List<ObservationFromBigGridImplementation.SimpleGridDef> environs = null;
+public class ObservationFromFindBlockImplementation extends HandlerBase implements IObservationProducer, ICommandHandler {
+    private List<ObservationFromFindBlockImplementation.SimpleGridDef> environs = null;
     private boolean sendRec;
     private String block_name = "";
 
@@ -89,12 +89,12 @@ public class ObservationFromBigGridImplementation extends HandlerBase implements
             return;
         }
         this.sendRec = false;
-        List<ObservationFromBigGridImplementation.SimpleGridDef> environs = this.environs;
+        List<ObservationFromFindBlockImplementation.SimpleGridDef> environs = this.environs;
         if (environs != null)
         {
-            for (ObservationFromBigGridImplementation.SimpleGridDef sgd : environs)
+            for (ObservationFromFindBlockImplementation.SimpleGridDef sgd : environs)
             {
-                this.findNearestBlockInGrid(json, sgd.getEnvirons(), MinecraftClient.getInstance().player, sgd.name, this.block_name);
+                this.findNearestBlockInGrid(json, sgd.getEnvirons(), MinecraftClient.getInstance().player, "block_pos_big_grid", this.block_name);
             }
         }
         this.block_name = "";
@@ -115,7 +115,7 @@ public class ObservationFromBigGridImplementation extends HandlerBase implements
     @Override
     public boolean execute(String command, MissionInit currentMissionInit) {
         String comm[] = command.split(" ", 2);
-        if (comm.length == 2 && comm[0].equalsIgnoreCase(ObservationFromBigGrd.BIG_GRID.value()) &&
+        if (comm.length == 2 && comm[0].equalsIgnoreCase(ObservationFromFindBlck.FIND_BLOCK.value()) &&
                 !comm[1].equalsIgnoreCase("off")) {
             this.sendRec = true;
             this.block_name = comm[1];
@@ -165,13 +165,13 @@ public class ObservationFromBigGridImplementation extends HandlerBase implements
     @Override
     public boolean parseParameters(Object params)
     {
-        if (params == null || !(params instanceof ObservationFromBigGrid))
+        if (params == null || !(params instanceof ObservationFromFindBlock))
             return false;
 
-        ObservationFromBigGrid ogparams = (ObservationFromBigGrid)params;
-        this.environs = new ArrayList<ObservationFromBigGridImplementation.SimpleGridDef>();
+        ObservationFromFindBlock ogparams = (ObservationFromFindBlock)params;
+        this.environs = new ArrayList<ObservationFromFindBlockImplementation.SimpleGridDef>();
         GridDefinition gd = ogparams.getGrid();
-        ObservationFromBigGridImplementation.SimpleGridDef sgd = new ObservationFromBigGridImplementation.SimpleGridDef(
+        ObservationFromFindBlockImplementation.SimpleGridDef sgd = new ObservationFromFindBlockImplementation.SimpleGridDef(
                 gd.getMin().getX().intValue(),
                 gd.getMin().getY().intValue(),
                 gd.getMin().getZ().intValue(),

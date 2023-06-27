@@ -47,48 +47,48 @@ public class ObservationFromFindBlockImplementation extends HandlerBase implemen
         if (player == null || json == null)
             return;
 
-        BlockPos pos = new BlockPos(player.getBlockX(), player.getBlockY(), player.getBlockZ());
-        BlockPos nearestBlock = new BlockPos(player.getBlockX() + environmentDimensions.xMax + 1,
+        BlockPos player_pos = new BlockPos(player.getBlockX(), player.getBlockY(), player.getBlockZ());
+        BlockPos nearest_block = new BlockPos(player.getBlockX() + environmentDimensions.xMax + 1,
                                              player.getBlockY() + environmentDimensions.yMax + 1,
                                              player.getBlockZ() + environmentDimensions.zMax + 1);
-        boolean foundBlock = false;
-        double dist_nearest = getDistance(pos, nearestBlock);
+        boolean found_block = false;
+        double dist_nearest = getDistance(player_pos, nearest_block);
         for (int y = environmentDimensions.yMin; y <= environmentDimensions.yMax; y++)
         {
             for (int z = environmentDimensions.zMin; z <= environmentDimensions.zMax; z++)
             {
                 for (int x = environmentDimensions.xMin; x <= environmentDimensions.xMax; x++)
                 {
-                    BlockPos p;
+                    BlockPos current_block;
                     if( environmentDimensions.absoluteCoords )
-                        p = new BlockPos(x, y, z);
+                        current_block = new BlockPos(x, y, z);
                     else
-                        p = pos.add(x, y, z);
+                        current_block = player_pos.add(x, y, z);
                     String name = "";
-                    BlockState state = player.getWorld().getBlockState(p);
-                    Identifier blockName = Registries.BLOCK.getId(state.getBlock());
-                    name = blockName.getPath();
+                    BlockState state = player.getWorld().getBlockState(current_block);
+                    Identifier cur_block_name = Registries.BLOCK.getId(state.getBlock());
+                    name = cur_block_name.getPath();
                     if (name.equals(block_name))
                     {
-                        foundBlock = true;
-                        double dist_cur = getDistance(pos, p);
+                        found_block = true;
+                        double dist_cur = getDistance(player_pos, current_block);
                         if (dist_cur < dist_nearest)
                         {
                             dist_nearest = dist_cur;
-                            nearestBlock = p;
+                            nearest_block = current_block;
                         }
                     }
                 }
             }
         }
-        if (!foundBlock)
+        if (!found_block)
             json.add(jsonName, new JsonPrimitive("Empty"));
         else
         {
             JsonArray arr = new JsonArray(3);
-            arr.add(nearestBlock.getX());
-            arr.add(nearestBlock.getY());
-            arr.add(nearestBlock.getZ());
+            arr.add(nearest_block.getX());
+            arr.add(nearest_block.getY());
+            arr.add(nearest_block.getZ());
             json.add(jsonName, arr);
         }
     }

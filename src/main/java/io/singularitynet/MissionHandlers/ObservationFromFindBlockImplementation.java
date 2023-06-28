@@ -85,10 +85,11 @@ public class ObservationFromFindBlockImplementation extends HandlerBase implemen
             json.add(jsonName, new JsonPrimitive("Empty"));
         else
         {
-            JsonArray arr = new JsonArray(3);
+            JsonArray arr = new JsonArray(4);
             arr.add(nearest_block.getX());
             arr.add(nearest_block.getY());
             arr.add(nearest_block.getZ());
+            arr.add(block_name);
             json.add(jsonName, arr);
         }
     }

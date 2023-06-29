@@ -303,8 +303,7 @@ public class VideoHook {
                 tictac = "tic";
                 success = true;
                 time_after_render_ns = System.nanoTime();
-            }
-            else {
+            } else {
                 tictac = "tac";
                 Map<String, Float> header_map = new HashMap<>();
                 header_map.put("x", x);

@@ -306,7 +306,6 @@ public class VideoHook {
             }
             else {
                 tictac = "tac";
-                this.buffer.clear();
                 Map<String, Float> header_map = new HashMap<>();
                 header_map.put("x", x);
                 header_map.put("y", y);

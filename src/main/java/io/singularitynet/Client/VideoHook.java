@@ -61,6 +61,8 @@ public class VideoHook {
      */
     private boolean isRunning = false;
 
+    private String tictac = "tic";
+
     /**
      * MissionInit object for passing to the IVideoProducer.
      */
@@ -167,7 +169,7 @@ public class VideoHook {
         if( this.renderedWidth == oldRenderWidth && this.renderedHeight == oldRenderHeight )
             return;
 
-        // Store width and height obtrained in the same way as to be compared to
+        // Store width and height obtained in the same way as to be compared to
         window.setWindowedSize(this.renderWidth, this.renderHeight);
         this.renderedWidth = window.getFramebufferWidth();
         this.renderedHeight = window.getFramebufferHeight();
@@ -301,33 +303,40 @@ public class VideoHook {
                 success = true;
                 time_after_render_ns = System.nanoTime();
             } else {
-                Map<String, Float> header_map = new HashMap<>();
-                header_map.put("x", x);
-                header_map.put("y", y);
-                header_map.put("z", z);
-                header_map.put("yaw", yaw);
-                header_map.put("pitch", pitch);
-                glGetFloatv(GL_PROJECTION_MATRIX, projection);
-                glGetFloatv(GL_MODELVIEW_MATRIX, modelview);
-                JSONObject jo_header = new JSONObject(header_map);
-                float[] proj_floats = new float[16];
-                float[] modelview_floats = new float[16];
-                readColumnMajor(proj_floats, projection.asReadOnlyBuffer());
-                readColumnMajor(modelview_floats, modelview.asReadOnlyBuffer());
-                jo_header.append("projectionMatrix", proj_floats);
-                jo_header.append("modelViewMatrix", modelview_floats);
-                byte[] jo_bytes = jo_header.toString().getBytes(StandardCharsets.UTF_8);
-                int jo_len = jo_bytes.length;
-                this.buffer = this.videoProducer.getFrame(this.missionInit);
-                if (this.buffer != null)
-                {
-                    ByteBuffer jo_len_buffer = ByteBuffer.allocate(4).order(ByteOrder.BIG_ENDIAN).putInt(jo_len);
-                    jo_len_buffer.flip();
-                    int frame_buf_len = this.buffer.capacity();
-                    this.buffer.limit(frame_buf_len);
-                    ByteBuffer[] buffers = {jo_len_buffer, ByteBuffer.wrap(jo_bytes), this.buffer};
+                if (tictac.equals("tic")) {
+                    tictac = "tac";
+                    this.buffer.clear();
+                    Map<String, Float> header_map = new HashMap<>();
+                    header_map.put("x", x);
+                    header_map.put("y", y);
+                    header_map.put("z", z);
+                    header_map.put("yaw", yaw);
+                    header_map.put("pitch", pitch);
+                    glGetFloatv(GL_PROJECTION_MATRIX, projection);
+                    glGetFloatv(GL_MODELVIEW_MATRIX, modelview);
+                    JSONObject jo_header = new JSONObject(header_map);
+                    float[] proj_floats = new float[16];
+                    float[] modelview_floats = new float[16];
+                    readColumnMajor(proj_floats, projection.asReadOnlyBuffer());
+                    readColumnMajor(modelview_floats, modelview.asReadOnlyBuffer());
+                    jo_header.append("projectionMatrix", proj_floats);
+                    jo_header.append("modelViewMatrix", modelview_floats);
+                    byte[] jo_bytes = jo_header.toString().getBytes(StandardCharsets.UTF_8);
+                    int jo_len = jo_bytes.length;
+                    this.buffer = this.videoProducer.getFrame(this.missionInit);
                     time_after_render_ns = System.nanoTime();
-                    success = this.connection.sendTCPBytes(buffers, jo_len + frame_buf_len + 4);
+                    if (this.buffer != null) {
+                        ByteBuffer jo_len_buffer = ByteBuffer.allocate(4).order(ByteOrder.BIG_ENDIAN).putInt(jo_len);
+                        jo_len_buffer.flip();
+                        int frame_buf_len = this.buffer.capacity();
+                        this.buffer.limit(frame_buf_len);
+                        ByteBuffer[] buffers = {jo_len_buffer, ByteBuffer.wrap(jo_bytes), this.buffer};
+                        success = this.connection.sendTCPBytes(buffers, jo_len + frame_buf_len + 4);
+                    }
+                }
+                else {
+                    tictac = "tic";
+                    success = true;
                 }
             }
 

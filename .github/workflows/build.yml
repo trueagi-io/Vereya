@@ -45,6 +45,8 @@ jobs:
     needs: build
     runs-on: self-hosted
     steps:
+      - name: lock file
+        run: lockfile /tmp/minecraft-test-lock
       - name: start minecraft
         run: ./launch.sh &
         env:
@@ -61,4 +63,6 @@ jobs:
         run: |
           ps a|grep [j]ava &&
           conda activate py31 && cd $GITHUB_WORKSPACE/minecraft-demo/tests/vereya &&
+      - name: remove lock
+        run: rm /tmp/minecraft-test-lock
           python run_tests.py

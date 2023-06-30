@@ -61,6 +61,8 @@ public class VideoHook {
      */
     private boolean isRunning = false;
 
+    private String tictac = "tic";
+
     /**
      * MissionInit object for passing to the IVideoProducer.
      */
@@ -167,7 +169,7 @@ public class VideoHook {
         if( this.renderedWidth == oldRenderWidth && this.renderedHeight == oldRenderHeight )
             return;
 
-        // Store width and height obtrained in the same way as to be compared to
+        // Store width and height obtained in the same way as to be compared to
         window.setWindowedSize(this.renderWidth, this.renderHeight);
         this.renderedWidth = window.getFramebufferWidth();
         this.renderedHeight = window.getFramebufferHeight();
@@ -297,10 +299,12 @@ public class VideoHook {
 
         try
         {
-            if (AddressHelper.getMissionControlPort() == 0) {
+            if (AddressHelper.getMissionControlPort() == 0 || tictac.equals("tac")) {
+                tictac = "tic";
                 success = true;
                 time_after_render_ns = System.nanoTime();
             } else {
+                tictac = "tac";
                 Map<String, Float> header_map = new HashMap<>();
                 header_map.put("x", x);
                 header_map.put("y", y);
@@ -319,14 +323,13 @@ public class VideoHook {
                 byte[] jo_bytes = jo_header.toString().getBytes(StandardCharsets.UTF_8);
                 int jo_len = jo_bytes.length;
                 this.buffer = this.videoProducer.getFrame(this.missionInit);
-                if (this.buffer != null)
-                {
+                time_after_render_ns = System.nanoTime();
+                if (this.buffer != null) {
                     ByteBuffer jo_len_buffer = ByteBuffer.allocate(4).order(ByteOrder.BIG_ENDIAN).putInt(jo_len);
                     jo_len_buffer.flip();
                     int frame_buf_len = this.buffer.capacity();
                     this.buffer.limit(frame_buf_len);
                     ByteBuffer[] buffers = {jo_len_buffer, ByteBuffer.wrap(jo_bytes), this.buffer};
-                    time_after_render_ns = System.nanoTime();
                     success = this.connection.sendTCPBytes(buffers, jo_len + frame_buf_len + 4);
                 }
             }

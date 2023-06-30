@@ -7,13 +7,11 @@ import io.singularitynet.projectmalmo.VideoProducer;
 import io.singularitynet.utils.ImageClass;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.Framebuffer;
-import net.minecraft.client.texture.NativeImage;
 import org.lwjgl.BufferUtils;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
-;
 
 public class VideoProducerImplementation extends HandlerBase implements IVideoProducer
 {

@@ -25,11 +25,18 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
+import io.singularitynet.Client.VereyaModClient;
 import net.minecraft.block.BlockState;
+import net.minecraft.entity.InventoryOwner;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.mob.MobEntity;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.inventory.SimpleInventory;
 import net.minecraft.registry.Registries;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
+
+import java.util.Map;
 
 
 /**
@@ -105,18 +112,20 @@ public class JSONWorldDataHelper {
         json.addProperty("IsAlive", player.isAlive());
         json.addProperty("Air", player.getAir());
         json.addProperty("Name", player.getName().getString());
+        json.addProperty("safeFallDistance", player.getSafeFallDistance());
     }
 
     /** Builds the player position data to be used as observation signals by the listener.
      * @param json a JSON object into which the positional information will be added.
      */
-    public static void buildPositionStats(JsonObject json, PlayerEntity player)
+    public static void buildPositionStats(JsonObject json, LivingEntity entity)
     {
-        json.addProperty("XPos",  player.getX());
-        json.addProperty("YPos",  player.getY());
-        json.addProperty("ZPos", player.getZ());
-        json.addProperty("Pitch",  player.getPitch());
-        json.addProperty("Yaw", player.getYaw());
+        json.addProperty("XPos",  entity.getX());
+        json.addProperty("YPos",  entity.getY());
+        json.addProperty("ZPos", entity.getZ());
+        json.addProperty("Pitch",  entity.getPitch());
+        json.addProperty("Yaw", entity.getYaw());
+        json.addProperty("bodyYaw", entity.getBodyYaw());
     }
 
     public static void buildEnvironmentStats(JsonObject json, PlayerEntity player)
@@ -134,7 +143,7 @@ public class JSONWorldDataHelper {
      * @param environmentDimensions object which specifies the required dimensions of the grid to be returned.
      * @param jsonName name to use for identifying the returned JSON array.
      */
-    public static void buildGridData(JsonObject json, GridDimensions environmentDimensions, PlayerEntity player, String jsonName)
+    public static void buildGridData(JsonObject json, GridDimensions environmentDimensions, LivingEntity player, String jsonName)
     {
         if (player == null || json == null)
             return;
@@ -163,5 +172,30 @@ public class JSONWorldDataHelper {
             }
         }
         json.add(jsonName, arr);
+    }
+
+    public static void buildControllableMobsData(JsonObject json, Map<String, MobEntity> entities){
+        JsonObject controllableEntities = null;
+        if(!json.has(VereyaModClient.CONTROLLABLE)){
+            controllableEntities = new JsonObject();
+            json.add(VereyaModClient.CONTROLLABLE, controllableEntities);
+        }
+        controllableEntities = json.getAsJsonObject(VereyaModClient.CONTROLLABLE);
+
+        for(String key: entities.keySet()){
+            JsonObject mobObj = new JsonObject();
+            MobEntity entity = entities.get(key);
+            mobObj.addProperty("uuid", key);
+            mobObj.addProperty("age", entity.age);
+            buildPositionStats(mobObj, entity);
+            if (entity instanceof InventoryOwner){
+                InventoryOwner owner = (InventoryOwner) entity;
+                SimpleInventory inventory = owner.getInventory();
+            }
+            mobObj.addProperty("safeFallDistance", entity.getSafeFallDistance());
+            mobObj.addProperty("name", entity.getEntityName());
+            mobObj.addProperty("type", entity.getType().getUntranslatedName());
+            controllableEntities.add(key, mobObj);
+        }
     }
 }

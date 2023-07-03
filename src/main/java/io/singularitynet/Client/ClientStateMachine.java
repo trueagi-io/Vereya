@@ -37,6 +37,7 @@ import jakarta.xml.bind.JAXBException;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientChunkEvents;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientEntityEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
@@ -44,6 +45,10 @@ import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
+import net.minecraft.client.world.ClientWorld;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.mob.MobEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.network.PacketByteBuf;
 import net.minecraft.registry.RegistryKey;
@@ -87,6 +92,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
     private MissionBehaviour serverHandlers = null;
     private String missionQuitCode = ""; // The reason why this mission ended.
     Map<RegistryKey<World>, Object> generatorProperties = new HashMap<>();
+    public Map<String, MobEntity> controllableEntities = new HashMap();
 
     private MissionDiagnostics missionEndedData = new MissionDiagnostics();
     private IScreenHelper screenHelper = new ScreenHelper();
@@ -95,6 +101,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
     private static String mod_version = "- 21";
     static {
     	Properties properties = new Properties();
+
         try {
 			properties.load(ClientStateMachine.class.getClassLoader().getResourceAsStream("version.properties"));
 	        mod_version = properties.getProperty("version");
@@ -205,8 +212,28 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
 
         // Register ourself on the event busses, so we can harness the client tick:
         ClientTickEvents.END_CLIENT_TICK.register(client -> this.onClientTick(client));
+        ClientEntityEvents.ENTITY_LOAD.register(this::onEntityLoad);
+        ClientEntityEvents.ENTITY_UNLOAD.register(this::onEntityUnoad);
         SidesMessageHandler.server2client.registerForMessage(this, MalmoMessageType.SERVER_TEXT);
         setupClientCallbacks();
+    }
+
+    private void onEntityUnoad(Entity entity, ClientWorld clientWorld) {
+        if (entity instanceof MobEntity) {
+            String uuid = entity.getUuidAsString();
+            if (controllableEntities.containsKey(uuid)) {
+                controllableEntities.remove(uuid);
+            }
+        }
+    }
+
+    private void onEntityLoad(Entity entity, ClientWorld clientWorld) {
+        if (entity instanceof MobEntity) {
+            MobEntity mobEntity = (MobEntity) entity;
+            if (mobEntity.isAiDisabled()){
+                this.controllableEntities.put(mobEntity.getUuidAsString(), mobEntity);
+            }
+        }
     }
 
     @Override
@@ -1794,6 +1821,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
             if (currentMissionBehaviour() != null && currentMissionBehaviour().observationProducer != null)
             {
                 JsonObject json = new JsonObject();
+                json.add(VereyaModClient.CONTROLLABLE, new JsonObject());
                 currentMissionBehaviour().observationProducer.writeObservationsToJSON(json, currentMissionInit());
                 VereyaModClient.InputType inptype = ClientStateMachine.this.inputController.getInputType();
                 json.add("input_type", new JsonPrimitive(inptype.name()));

@@ -33,11 +33,13 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientChunkEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
+import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.player.PlayerEntity;
 
 import net.minecraft.item.ItemStack;
@@ -80,6 +82,7 @@ public class ServerStateMachine extends StateMachine implements IMalmoMessageLis
     // this list, but can't be found in the MinecraftServer.getServer().getAllUsernames(), that constitutes an error, and the mission will exit.
     private ArrayList<String> userConnectionWatchList = new ArrayList<String>();
     private ArrayList<String> userTurnSchedule = new ArrayList<String>();
+    public Map<Integer, LivingEntity> controllableEntities = new HashMap();
 
     /** Called to initialise a state machine for a specific Mission request.<br>
      * Most likely caused by the client creating an integrated server.
@@ -102,6 +105,13 @@ public class ServerStateMachine extends StateMachine implements IMalmoMessageLis
         ServerLifecycleEvents.SERVER_STOPPED.register(this::onServerStopped);
         ServerLifecycleEvents.SERVER_STARTED.register(this::onServerStarted);
         ServerEntityEventsVereya.BEFORE_ENTITY_ADD.register(this::onGetPotentialSpawns);
+        ServerEntityEvents.ENTITY_UNLOAD.register(this::onEntityUnload);
+    }
+
+    protected void onEntityUnload(Entity entity, ServerWorld world){
+        if(this.controllableEntities.get(entity.getUuidAsString()) != null){
+            this.controllableEntities.remove(entity.getId());
+        }
     }
 
     /** Used to prevent spawning in our world.*/
@@ -128,7 +138,7 @@ public class ServerStateMachine extends StateMachine implements IMalmoMessageLis
                 boolean allowed = false;
                 for (EntityTypes mob : sic.getAllowedMobs())
                 {
-                    if (mob.value().toLowerCase().equals(mobName.toLowerCase())) { allowed = true; }
+                    if (mob.value().equalsIgnoreCase(mobName.toLowerCase())) { allowed = true; }
                 }
                 if (!allowed) {
                     if (entity.isPlayer()) return ActionResult.PASS;

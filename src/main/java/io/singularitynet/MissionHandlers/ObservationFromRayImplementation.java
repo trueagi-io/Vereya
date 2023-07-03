@@ -1,6 +1,7 @@
 package io.singularitynet.MissionHandlers;
 
 import com.google.gson.JsonObject;
+import io.singularitynet.Client.VereyaModClient;
 import io.singularitynet.MissionHandlerInterfaces.IObservationProducer;
 import io.singularitynet.projectmalmo.MissionInit;
 import io.singularitynet.projectmalmo.ObservationFromRay;
@@ -36,7 +37,15 @@ public class ObservationFromRayImplementation extends HandlerBase implements IOb
     @Override
     public void writeObservationsToJSON(JsonObject json, MissionInit missionInit)
     {
-        buildMouseOverData(json, this.ofrparams.isIncludeNBT());
+        MinecraftClient client = MinecraftClient.getInstance();
+        Entity cameraEntity = client.getCameraEntity();
+        buildMouseOverData(cameraEntity, json, this.ofrparams.isIncludeNBT());
+        for(Entity entity: VereyaModClient.getControllableEntities().values()){
+            String uuid = entity.getUuidAsString();
+            if (!json.has(VereyaModClient.CONTROLLABLE)){
+                json.addProperty();
+            }
+        }
     }
 
     @Override
@@ -53,10 +62,9 @@ public class ObservationFromRayImplementation extends HandlerBase implements IOb
      * If there is any data to be returned, the json will be added in a subnode called "LineOfSight".
      * @param json a JSON object into which the info for the object under the mouse will be added.
      */
-    public static void buildMouseOverData(JsonObject json, boolean includeNBTData)
+    public static void buildMouseOverData(Entity cameraEntity, JsonObject json, boolean includeNBTData)
     {
         MinecraftClient client = MinecraftClient.getInstance();
-        Entity cameraEntity = client.getCameraEntity();
         HitResult mop = cameraEntity.raycast(96.0, 1.0F, true);
         JsonObject jsonMop = new JsonObject();
         switch(mop.getType()) {
@@ -88,7 +96,7 @@ public class ObservationFromRayImplementation extends HandlerBase implements IOb
             jsonMop.addProperty("x", hitPoint.x);
             jsonMop.addProperty("y", hitPoint.y);
             jsonMop.addProperty("z", hitPoint.z);
-            double distance = client.cameraEntity.getCameraPosVec(1.0f).distanceTo(hitPoint);
+            double distance = cameraEntity.getCameraPosVec(1.0f).distanceTo(hitPoint);
             jsonMop.addProperty("distance", distance);
             float reachDistance = 4.5f;
             if (client.interactionManager.hasExtendedReach()) {

@@ -18,6 +18,8 @@ jobs:
         # Use these Java versions
         java: [ 17, ]  # Current Java LTS & minimum supported by Minecraft
     steps:
+      - name: lock file
+        run: lockfile /tmp/minecraft-test-lock
       - name: checkout repository
         uses: actions/checkout@v2
       - name: validate gradle wrapper
@@ -41,6 +43,9 @@ jobs:
         run: rm /home/tester/.minecraft/mods/* && cp $GITHUB_WORKSPACE/build/libs/* /home/tester/.minecraft/mods/
       - name: install fabric
         run: rsync -v $GITHUB_WORKSPACE/fabric/* /home/tester/.minecraft/mods/
+      - name: remove lock
+        if: failure()
+        run: rm -f /tmp/minecraft-test-lock
   test:
     needs: build
     runs-on: self-hosted
@@ -62,3 +67,10 @@ jobs:
           ps a|grep [j]ava &&
           conda activate py31 && cd $GITHUB_WORKSPACE/minecraft-demo/tests/vereya &&
           python run_tests.py
+  cleanup:
+    runs-on: self-hosted
+    needs: [test, build]
+    if: always()
+    steps:
+      - name: remove lock
+        run: rm -f /tmp/minecraft-test-lock

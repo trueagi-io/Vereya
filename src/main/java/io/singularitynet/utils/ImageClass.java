@@ -28,6 +28,8 @@ import net.fabricmc.api.Environment;
 import net.minecraft.client.util.Untracker;
 import org.apache.commons.io.IOUtils;
 import org.jetbrains.annotations.Nullable;
+import org.lwjgl.BufferUtils;
+import org.lwjgl.opengl.GL11;
 import org.lwjgl.stb.STBIWriteCallback;
 import org.lwjgl.stb.STBImage;
 import org.lwjgl.stb.STBImageResize;
@@ -37,6 +39,9 @@ import org.lwjgl.stb.STBTruetype;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.MemoryUtil;
 import org.slf4j.Logger;
+
+import static org.lwjgl.opengl.GL11C.GL_RGBA;
+import static org.lwjgl.opengl.GL11C.glGetTexImage;
 
 /**
  * This class is the clone of  Minecraft's NativeImage class.
@@ -397,6 +402,13 @@ public final class ImageClass
         }
     }
 
+    public ByteBuffer getImageAsByteBuffer() {
+        ByteBuffer res = BufferUtils.createByteBuffer(this.getHeight() * this.getWidth() * 4);
+        res.flip();
+        GlStateManager._readPixels(0, 0, this.getWidth(), this.getHeight(), this.format.toGl(), GL11.GL_UNSIGNED_BYTE, res);
+        return res;
+    }
+
     public void loadFromTextureImage(int level, boolean removeAlpha) {
         RenderSystem.assertOnRenderThread();
         this.checkAllocated();
@@ -494,10 +506,13 @@ public final class ImageClass
             if (i < this.getHeight()) {
                 LOGGER.warn("Dropping image height from {} to {} to fit the size into 32-bit signed int", (Object)this.getHeight(), (Object)i);
             }
+            long time1 = System.nanoTime();
             if (STBImageWrite.nstbi_write_bmp_to_func(writeCallback.address(), 0L, this.getWidth(), i, this.format.getChannelCount(), this.pointer) == 0) {
                 boolean bl = false;
                 return bl;
             }
+            long time2 = System.nanoTime();
+            float writebmp = (time2 - time1) / 1000000.0f;
             writeCallback.throwStoredException();
             boolean bl = true;
             return bl;

@@ -22,6 +22,7 @@ package io.singularitynet.MissionHandlerInterfaces;
 import io.singularitynet.projectmalmo.MissionInit;
 
 import java.nio.ByteBuffer;
+import java.util.Map;
 
 /** Interface for objects which are responsible for providing Minecraft video data.
  */
@@ -38,12 +39,14 @@ public interface IVideoProducer
     /** Get the type of video frames returned.*/
     public VideoType getVideoType();
 
-    /** Get a frame of video from Minecraft.
+    /**
+     * Get a frame of video from Minecraft.
+     *
      * @param missionInit the MissionInit object for the currently running mission, which may contain parameters for the video requirements.
      * @return an array of bytes representing this frame.<br>
      * (The format is unspecified; it is up to the IVideoProducer implementation and the agent to agree on how the data is formatted.)
      */
-    public ByteBuffer getFrame(MissionInit missionInit);
+    public Map.Entry<ByteBuffer, int[]> getFrame(MissionInit missionInit);
 
     /** Get the requested width of the video frames returned.*/
     public int getWidth();

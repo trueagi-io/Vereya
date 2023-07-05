@@ -24,6 +24,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.AbstractMap;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -320,9 +321,14 @@ public class VideoHook {
                 readColumnMajor(modelview_floats, modelview.asReadOnlyBuffer());
                 jo_header.append("projectionMatrix", proj_floats);
                 jo_header.append("modelViewMatrix", modelview_floats);
+                AbstractMap.Entry<ByteBuffer, int[]> res = this.videoProducer.getFrame(this.missionInit);
+                this.buffer = res.getKey();
+                int[] sizes = res.getValue();
+                jo_header.append("img_width", sizes[0]);
+                jo_header.append("img_height", sizes[1]);
+                jo_header.append("img_ch", sizes[2]);
                 byte[] jo_bytes = jo_header.toString().getBytes(StandardCharsets.UTF_8);
                 int jo_len = jo_bytes.length;
-                this.buffer = this.videoProducer.getFrame(this.missionInit);
                 time_after_render_ns = System.nanoTime();
                 if (this.buffer != null) {
                     ByteBuffer jo_len_buffer = ByteBuffer.allocate(4).order(ByteOrder.BIG_ENDIAN).putInt(jo_len);

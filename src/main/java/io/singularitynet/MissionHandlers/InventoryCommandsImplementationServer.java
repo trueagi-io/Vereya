@@ -1,9 +1,8 @@
 package io.singularitynet.MissionHandlers;
 
-import io.singularitynet.IMalmoMessageListener;
-import io.singularitynet.MalmoMessage;
+import io.singularitynet.IVereyaMessageListener;
+import io.singularitynet.VereyaMessage;
 import io.singularitynet.MalmoMessageType;
-import io.singularitynet.MissionHandlerInterfaces.ICommandHandler;
 import io.singularitynet.SidesMessageHandler;
 import io.singularitynet.projectmalmo.MissionInit;
 import net.minecraft.entity.player.PlayerInventory;
@@ -24,7 +23,7 @@ import java.util.Map;
  * in slots 0 and 10.<br>
  * The hotbar slots are 0-8, so this mechanism allows an agent to move items in to/out of the hotbar.
  */
-public class InventoryCommandsImplementationServer extends CommandBase implements IMalmoMessageListener
+public class InventoryCommandsImplementationServer extends CommandBase implements IVereyaMessageListener
 {
     private static final Logger LOGGER = LogManager.getLogger(InventoryCommandsImplementationServer.class.getName());
 
@@ -222,7 +221,7 @@ public class InventoryCommandsImplementationServer extends CommandBase implement
         throw new RuntimeException("InventoryCommandsImplementationServer.onExecute() should never be called!");
     }
 
-    public static class InventoryMessage extends MalmoMessage {
+    public static class InventoryMessage extends VereyaMessage {
         String invA;
         String invB;
         int slotA;

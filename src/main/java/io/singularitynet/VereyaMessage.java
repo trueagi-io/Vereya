@@ -14,20 +14,20 @@ import java.util.Map;
 /** General purpose messaging class<br>
  * Used to pass messages from the server to the client.
  */
-public class MalmoMessage implements SidesMessageHandler.IMessage
+public class VereyaMessage implements SidesMessageHandler.IMessage
 {
     private MalmoMessageType messageType = MalmoMessageType.SERVER_NULLMESSASGE;
     private int uid = 0;
     private Map<String, String> data = new HashMap<String, String>();
 
-    public MalmoMessage()
+    public VereyaMessage()
     {}
 
     /** Construct a message for all listeners of that messageType
      * @param messageType
      * @param message
      */
-    public MalmoMessage(MalmoMessageType messageType, String message)
+    public VereyaMessage(MalmoMessageType messageType, String message)
     {
         this.messageType = messageType;
         this.uid = 0;
@@ -39,7 +39,7 @@ public class MalmoMessage implements SidesMessageHandler.IMessage
      * @param uid a hash code that (more or less) uniquely identifies the targeted listener
      * @param message
      */
-    public MalmoMessage(MalmoMessageType messageType, int uid, Map<String, String> data)
+    public VereyaMessage(MalmoMessageType messageType, int uid, Map<String, String> data)
     {
         this.messageType = messageType;
         this.uid = uid;

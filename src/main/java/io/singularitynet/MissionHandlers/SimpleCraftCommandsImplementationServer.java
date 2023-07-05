@@ -1,7 +1,7 @@
 package io.singularitynet.MissionHandlers;
 
-import io.singularitynet.IMalmoMessageListener;
-import io.singularitynet.MalmoMessage;
+import io.singularitynet.IVereyaMessageListener;
+import io.singularitynet.VereyaMessage;
 import io.singularitynet.MalmoMessageType;
 import io.singularitynet.SidesMessageHandler;
 import io.singularitynet.projectmalmo.MissionInit;
@@ -15,10 +15,10 @@ import org.apache.logging.log4j.Logger;
 import java.util.List;
 import java.util.Map;
 
-public class SimpleCraftCommandsImplementationServer extends CommandBase  implements IMalmoMessageListener {
+public class SimpleCraftCommandsImplementationServer extends CommandBase  implements IVereyaMessageListener {
     private static final Logger LOGGER = LogManager.getLogger(SimpleCraftCommandsImplementationServer.class.getName());
 
-    public static class CraftMessage extends MalmoMessage
+    public static class CraftMessage extends VereyaMessage
     {
 
         public CraftMessage(String parameters)

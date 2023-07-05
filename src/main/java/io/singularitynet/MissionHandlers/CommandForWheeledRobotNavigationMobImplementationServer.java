@@ -1,8 +1,8 @@
 package io.singularitynet.MissionHandlers;
 
 
-import io.singularitynet.IMalmoMessageListener;
-import io.singularitynet.MalmoMessage;
+import io.singularitynet.IVereyaMessageListener;
+import io.singularitynet.VereyaMessage;
 import io.singularitynet.MalmoMessageType;
 import io.singularitynet.SidesMessageHandler;
 import io.singularitynet.mixin.MobEntityAccessorMixin;
@@ -12,7 +12,6 @@ import io.singularitynet.projectmalmo.MissionInit;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents;
-import net.minecraft.client.input.Input;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.ai.control.JumpControl;
 import net.minecraft.entity.ai.control.MoveControl;
@@ -31,7 +30,7 @@ import java.util.Map;
  * This allows the player to act as a robot with the ability to move backwards/forwards, strafe left/right, and turn clockwise/anticlockwise,
  * with a camera that is able to pivot up/down but not turn independently of the agent's body.
  */
-public class CommandForWheeledRobotNavigationMobImplementationServer extends CommandBase implements IMalmoMessageListener
+public class CommandForWheeledRobotNavigationMobImplementationServer extends CommandBase implements IVereyaMessageListener
 {
     @Override
     public void onMessage(MalmoMessageType messageType, Map<String, String> data) {
@@ -50,7 +49,7 @@ public class CommandForWheeledRobotNavigationMobImplementationServer extends Com
         return false;
     }
 
-    public static class MotionMessage extends MalmoMessage {
+    public static class MotionMessage extends VereyaMessage {
 
         public MotionMessage(String parameters, String uuid, String value){
             super(MalmoMessageType.CLIENT_MOVE, parameters);
@@ -99,8 +98,6 @@ public class CommandForWheeledRobotNavigationMobImplementationServer extends Com
     private Map<String, InternalFields> motionParams;
 
     private static final Logger LOGGER = LogManager.getLogger(CommandForWheeledRobotNavigationMobImplementationServer.class.getName());
-    private Input overrideMovement = null;
-    private Input originalMovement = null;
 
     public static final String ON_COMMAND_STRING = "1";
     public static final String OFF_COMMAND_STRING = "0";
@@ -332,15 +329,6 @@ public class CommandForWheeledRobotNavigationMobImplementationServer extends Com
     public void deinstall(MissionInit missionInit)
     {
         SidesMessageHandler.client2server.deregisterForMessage(this, MalmoMessageType.CLIENT_MOVE);
+        this.motionParams.clear();
     }
-
-    /** Provide access to the MovementInput object we are using to control the player.<br>
-     * This is required by the unit tests.
-     * @return our MovementInput object.
-     */
-    public Input getMover()
-    {
-        return this.overrideMovement;
-    }
-
 }

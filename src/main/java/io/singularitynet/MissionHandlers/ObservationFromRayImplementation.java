@@ -40,12 +40,15 @@ public class ObservationFromRayImplementation extends HandlerBase implements IOb
         MinecraftClient client = MinecraftClient.getInstance();
         Entity cameraEntity = client.getCameraEntity();
         buildMouseOverData(cameraEntity, json, this.ofrparams.isIncludeNBT());
-        for(Entity entity: VereyaModClient.getControllableEntities().values()){
-            String uuid = entity.getUuidAsString();
-            if (!json.has(VereyaModClient.CONTROLLABLE)){
-                json.addProperty();
+        if (json.has(VereyaModClient.CONTROLLABLE)){
+            JsonObject controllable = json.getAsJsonObject(VereyaModClient.CONTROLLABLE);
+            for(Entity entity: VereyaModClient.getControllableEntities().values()){
+                String uuid = entity.getUuidAsString();
+                if (!controllable.has(uuid)) controllable.add(uuid, new JsonObject());
+                JsonObject entityJson = controllable.getAsJsonObject(uuid);
+                ObservationFromRayImplementation.buildMouseOverData(entity, entityJson, this.ofrparams.isIncludeNBT());
+                }
             }
-        }
     }
 
     @Override

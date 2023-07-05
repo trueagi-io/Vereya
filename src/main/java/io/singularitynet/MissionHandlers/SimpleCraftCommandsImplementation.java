@@ -23,20 +23,15 @@ import io.singularitynet.*;
 
 import io.singularitynet.projectmalmo.MissionInit;
 import io.singularitynet.projectmalmo.SimpleCraftCommand;
-import io.singularitynet.utils.CraftingHelper;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.recipe.Recipe;
-import net.minecraft.recipe.RecipeType;
 import net.minecraft.server.network.ServerPlayerEntity;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.util.List;
 import java.util.Map;
 
 
-public class SimpleCraftCommandsImplementation extends CommandBase  implements IMalmoMessageListener {
+public class SimpleCraftCommandsImplementation extends CommandBase  implements IVereyaMessageListener {
     private boolean isOverriding;
     // Directly reference a log4j logger.
     private static final Logger LOGGER = LogManager.getLogger(SimpleCraftCommandsImplementation.class.getName());

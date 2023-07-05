@@ -36,18 +36,14 @@ import io.singularitynet.utils.TCPInputPoller.CommandAndIPAddress;
 import jakarta.xml.bind.JAXBException;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientChunkEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientEntityEvents;
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
-import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.entity.Entity;
-import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.mob.MobEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.network.PacketByteBuf;
@@ -78,7 +74,7 @@ import java.util.logging.Level;
  */
 
 @Environment(EnvType.CLIENT)
-public class ClientStateMachine extends StateMachine implements IMalmoMessageListener
+public class ClientStateMachine extends StateMachine implements IVereyaMessageListener
 {
     private static final int WAIT_MAX_TICKS = 3000; // Over 3 minute and a half in client ticks.
     private static final int VIDEO_MAX_WAIT = 90 * 1000; // Max wait for video in ms.
@@ -809,7 +805,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
     // Episode helpers - each extends a MissionStateEpisode to encapsulate a certain state
     // ---------------------------------------------------------------------------------------------------------
 
-    public abstract class ErrorAwareEpisode extends StateEpisode implements IMalmoMessageListener
+    public abstract class ErrorAwareEpisode extends StateEpisode implements IVereyaMessageListener
     {
         protected Boolean errorFlag = false;
         protected Map<String, String> errorData = null;
@@ -1196,7 +1192,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
                         }
                         // send mission init to server
                         ClientPlayNetworking.send(NetworkConstants.CLIENT2SERVER,
-                                (new MalmoMessage(MalmoMessageType.CLIENT_MISSION_INIT, 0, map)).toBytes());
+                                (new VereyaMessage(MalmoMessageType.CLIENT_MISSION_INIT, 0, map)).toBytes());
                         episodeHasCompleted(ClientState.WAITING_FOR_SERVER_READY);
                     }
                 } else { // not needNewWorld and no world: error
@@ -1212,7 +1208,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
     /**
      * Attempt to connect to a server. Wait until connection is established.
      */
-    public class WaitingForServerEpisode extends ErrorAwareEpisode implements IMalmoMessageListener
+    public class WaitingForServerEpisode extends ErrorAwareEpisode implements IVereyaMessageListener
     {
         String agentName;
         int ticksUntilNextPing = 0;
@@ -1310,7 +1306,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
                     currentMissionBehaviour().appendExtraServerInformation(map);
                     LOGGER.info("***Telling server we are ready - " + agentName);
                     ClientPlayNetworking.send(NetworkConstants.CLIENT2SERVER,
-                            (new MalmoMessage(MalmoMessageType.CLIENT_AGENTREADY, 0, map)).toBytes());
+                            (new VereyaMessage(MalmoMessageType.CLIENT_AGENTREADY, 0, map)).toBytes());
                 }
 
                 // We also ping our agent, just to check it is still available:
@@ -1605,7 +1601,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
             // Tell the server we have started:
             HashMap<String, String> map = new HashMap<String, String>();
             map.put("username", MinecraftClient.getInstance().player.getName().getString());
-            MalmoMessage msg = new MalmoMessage(MalmoMessageType.CLIENT_AGENTRUNNING, 0, map);
+            VereyaMessage msg = new VereyaMessage(MalmoMessageType.CLIENT_AGENTRUNNING, 0, map);
             ClientPlayNetworking.send(NetworkConstants.CLIENT2SERVER,  msg.toBytes());
 
             // Set up our mission handlers:
@@ -1784,7 +1780,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
                 map.put("username", MinecraftClient.getInstance().player.getName().getString());
                 map.put("quitcode", this.quitCode);
                 LOGGER.info("informing server that player has quited");
-                ClientPlayNetworking.send(NetworkConstants.CLIENT2SERVER, (new MalmoMessage(MalmoMessageType.CLIENT_AGENTFINISHEDMISSION, 0, map)).toBytes());
+                ClientPlayNetworking.send(NetworkConstants.CLIENT2SERVER, (new VereyaMessage(MalmoMessageType.CLIENT_AGENTFINISHEDMISSION, 0, map)).toBytes());
                 ClientStateMachine.this.cancelReservation();
                 onMissionEnded(ClientState.IDLING, null);
             }
@@ -2132,7 +2128,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
                 if (player != null) // Might not be a player yet.
                     map.put("username", player.getName().getString());
                 map.put("error", ClientStateMachine.this.getErrorDetails());
-                PacketByteBuf buf = new MalmoMessage(MalmoMessageType.CLIENT_BAILED, 0, map).toBytes();
+                PacketByteBuf buf = new VereyaMessage(MalmoMessageType.CLIENT_BAILED, 0, map).toBytes();
                 LOGGER.debug("informing server of a failure with: " + map.toString());
                 ClientPlayNetworking.send(NetworkConstants.CLIENT2SERVER, buf);
             }
@@ -2245,7 +2241,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
             HashMap<String, String> map = new HashMap<String, String>();
             map.put("agentname", agentName);
             ClientPlayNetworking.send(NetworkConstants.CLIENT2SERVER,
-                    new MalmoMessage(MalmoMessageType.CLIENT_AGENTSTOPPED, 0, map).toBytes());
+                    new VereyaMessage(MalmoMessageType.CLIENT_AGENTSTOPPED, 0, map).toBytes());
         }
 
         @Override

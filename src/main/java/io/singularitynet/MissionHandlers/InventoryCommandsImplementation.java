@@ -25,11 +25,6 @@ import io.singularitynet.projectmalmo.InventoryCommands;
 import io.singularitynet.projectmalmo.MissionInit;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.entity.player.PlayerInventory;
-import net.minecraft.inventory.Inventory;
-import net.minecraft.item.ItemStack;
-import net.minecraft.network.packet.s2c.play.ScreenHandlerSlotUpdateS2CPacket;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.util.math.BlockPos;
 
@@ -45,7 +40,7 @@ import org.apache.logging.log4j.Logger;
  * in slots 0 and 10.<br>
  * The hotbar slots are 0-8, so this mechanism allows an agent to move items in to/out of the hotbar.
  */
-public class InventoryCommandsImplementation extends CommandGroup implements IMalmoMessageListener
+public class InventoryCommandsImplementation extends CommandGroup implements IVereyaMessageListener
 {
     private static final Logger LOGGER = LogManager.getLogger(InventoryCommandsImplementation.class.getName());
 

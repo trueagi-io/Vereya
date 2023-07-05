@@ -19,17 +19,11 @@
 
 package io.singularitynet;
 
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.network.PacketByteBuf;
 
 import java.util.*;
 
-import io.singularitynet.NetworkConstants;
-import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.network.ServerPlayNetworkHandler;
 import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.util.Identifier;
 import net.minecraft.util.thread.ThreadExecutor;
 import org.jetbrains.annotations.Nullable;
 
@@ -43,15 +37,15 @@ public class SidesMessageHandler
 
     public interface IMessage {};
 
-    private Map<MalmoMessageType, List<IMalmoMessageListener>> listeners = new HashMap<MalmoMessageType, List<IMalmoMessageListener>>();
+    private Map<MalmoMessageType, List<IVereyaMessageListener>> listeners = new HashMap<MalmoMessageType, List<IVereyaMessageListener>>();
 
     public SidesMessageHandler() {}
 
-    public boolean registerForMessage(IMalmoMessageListener listener,  MalmoMessageType messageType)
+    public boolean registerForMessage(IVereyaMessageListener listener, MalmoMessageType messageType)
     {
         synchronized (listeners) {
             if (!listeners.containsKey(messageType))
-                listeners.put(messageType, new ArrayList<IMalmoMessageListener>());
+                listeners.put(messageType, new ArrayList<IVereyaMessageListener>());
 
             if (listeners.get(messageType).contains(listener))
                 return false;    // Already registered.
@@ -61,7 +55,7 @@ public class SidesMessageHandler
         return true;
     }
 
-    public boolean deregisterForMessage(IMalmoMessageListener listener, MalmoMessageType messageType)
+    public boolean deregisterForMessage(IVereyaMessageListener listener, MalmoMessageType messageType)
     {
         synchronized (listeners) {
             if (!listeners.containsKey(messageType)) {
@@ -74,13 +68,13 @@ public class SidesMessageHandler
 
     public void onMessage(ThreadExecutor executor, PacketByteBuf buf)
     {
-        final MalmoMessage message = new MalmoMessage();
+        final VereyaMessage message = new VereyaMessage();
         message.fromBytes(buf);
 
-        final List<IMalmoMessageListener> interestedParties = getMessageListeners(message);
+        final List<IVereyaMessageListener> interestedParties = getMessageListeners(message);
         if (interestedParties == null) return;
         executor.execute(() -> {
-            for (IMalmoMessageListener l : interestedParties)
+            for (IVereyaMessageListener l : interestedParties)
             {
                 // If the message's uid is set (ie non-zero), then use it to ensure that only the matching listener receives this message.
                 // Otherwise, let all listeners who are interested get a look.
@@ -92,8 +86,8 @@ public class SidesMessageHandler
     }
 
     @Nullable
-    private List<IMalmoMessageListener> getMessageListeners(MalmoMessage message) {
-        List<IMalmoMessageListener> interestedParties;
+    private List<IVereyaMessageListener> getMessageListeners(VereyaMessage message) {
+        List<IVereyaMessageListener> interestedParties;
         synchronized (listeners) {
             interestedParties = listeners.get(message.getMessageType());
             if (interestedParties == null) {
@@ -107,12 +101,12 @@ public class SidesMessageHandler
 
     public void onMessage(ThreadExecutor executor, PacketByteBuf buf, ServerPlayerEntity player)
     {
-        final MalmoMessage message = new MalmoMessage();
+        final VereyaMessage message = new VereyaMessage();
         message.fromBytes(buf);
-        final List<IMalmoMessageListener> interestedParties = getMessageListeners(message);
+        final List<IVereyaMessageListener> interestedParties = getMessageListeners(message);
         if (interestedParties == null) return;
         executor.execute(() -> {
-            for (IMalmoMessageListener l : interestedParties)
+            for (IVereyaMessageListener l : interestedParties)
             {
                 // If the message's uid is set (ie non-zero), then use it to ensure that only the matching listener receives this message.
                 // Otherwise, let all listeners who are interested get a look.

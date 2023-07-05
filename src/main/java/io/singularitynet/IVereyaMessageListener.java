@@ -7,6 +7,6 @@ import java.util.Map;
 
 public interface IVereyaMessageListener
 {
-    void onMessage(MalmoMessageType messageType, Map<String, String> data);
-    void onMessage(MalmoMessageType messageType, Map<String, String> data, ServerPlayerEntity player);
+    void onMessage(VereyaMessageType messageType, Map<String, String> data);
+    void onMessage(VereyaMessageType messageType, Map<String, String> data, ServerPlayerEntity player);
 }

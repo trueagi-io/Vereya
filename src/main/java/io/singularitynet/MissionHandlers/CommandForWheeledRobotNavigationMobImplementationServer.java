@@ -3,7 +3,7 @@ package io.singularitynet.MissionHandlers;
 
 import io.singularitynet.IVereyaMessageListener;
 import io.singularitynet.VereyaMessage;
-import io.singularitynet.MalmoMessageType;
+import io.singularitynet.VereyaMessageType;
 import io.singularitynet.SidesMessageHandler;
 import io.singularitynet.mixin.MobEntityAccessorMixin;
 import io.singularitynet.projectmalmo.ContinuousMovementCommand;
@@ -33,13 +33,13 @@ import java.util.Map;
 public class CommandForWheeledRobotNavigationMobImplementationServer extends CommandBase implements IVereyaMessageListener
 {
     @Override
-    public void onMessage(MalmoMessageType messageType, Map<String, String> data) {
+    public void onMessage(VereyaMessageType messageType, Map<String, String> data) {
         throw new RuntimeException("calling client-side message handler on server " + messageType.toString());
     }
 
     @Override
-    public void onMessage(MalmoMessageType messageType, Map<String, String> data, ServerPlayerEntity player) {
-        CommandForWheeledRobotNavigationMobImplementationServer.MotionMessage msg = new CommandForWheeledRobotNavigationMobImplementationServer.MotionMessage(data);
+    public void onMessage(VereyaMessageType messageType, Map<String, String> data, ServerPlayerEntity player) {
+        CommandForWheeledRobotNavigationMobImplementation.MotionMessage msg = new CommandForWheeledRobotNavigationMobImplementation.MotionMessage(data);
         LOGGER.debug("InventoryCommandsImplementationServer.onMessage: " + msg);
         runCommand(msg);
     }
@@ -47,33 +47,6 @@ public class CommandForWheeledRobotNavigationMobImplementationServer extends Com
     @Override
     protected boolean onExecute(String verb, String parameter, MissionInit missionInit) {
         return false;
-    }
-
-    public static class MotionMessage extends VereyaMessage {
-
-        public MotionMessage(String parameters, String uuid, String value){
-            super(MalmoMessageType.CLIENT_MOVE, parameters);
-            this.getData().put("uuid", uuid);
-            this.getData().put("value", value);
-        }
-
-        public MotionMessage(Map<String, String> data) {
-            super(MalmoMessageType.CLIENT_MOVE, data.get("message"));
-            this.getData().put("uuid", data.get("uuid"));
-            this.getData().put("value", data.get("value"));
-        }
-
-        public String getUuid(){
-            return this.getData().get("uuid");
-        }
-
-        public String getValue(){
-            return this.getData().get("value");
-        }
-
-        public String getVerb(){
-            return this.getData().get("message");
-        }
     }
 
     float maxAngularVelocityDegreesPerSecond = 180;
@@ -155,13 +128,14 @@ public class CommandForWheeledRobotNavigationMobImplementationServer extends Com
         ServerEntityEvents.ENTITY_LOAD.register(this::onEntityLoad);
         ServerEntityEvents.ENTITY_UNLOAD.register(this::onEntityUnoad);
         LOGGER.info("Installing CommandForWheeledRobotNavigationMobServer");
-        SidesMessageHandler.client2server.registerForMessage(this, MalmoMessageType.CLIENT_MOVE);
+        SidesMessageHandler.client2server.registerForMessage(this, VereyaMessageType.CLIENT_MOVE);
     }
 
     private void onEntityUnoad(Entity entity, ServerWorld clientWorld) {
         if (entity instanceof MobEntity) {
             String uuid = entity.getUuidAsString();
             if (motionParams.containsKey(uuid)) {
+                LOGGER.info("removed controllable mob: " + entity.getUuidAsString() + " " + entity.getType().getUntranslatedName());
                 motionParams.remove(uuid);
             }
         }
@@ -171,6 +145,7 @@ public class CommandForWheeledRobotNavigationMobImplementationServer extends Com
         if (entity instanceof MobEntity) {
             MobEntity mobEntity = (MobEntity) entity;
             if (mobEntity.isAiDisabled()){
+                LOGGER.info("created controllable mob: " + mobEntity.getUuidAsString() + " " + mobEntity.getType().getUntranslatedName());
                 this.motionParams.put(mobEntity.getUuidAsString(), new InternalFields());
                 ((MobEntityAccessorMixin)mobEntity).setMoveControl(new AIMoveControl(mobEntity));
                 ((MobEntityAccessorMixin)mobEntity).setJumpControl(new AIJumpControl(mobEntity));
@@ -253,7 +228,7 @@ public class CommandForWheeledRobotNavigationMobImplementationServer extends Com
 
     }
 
-    public boolean runCommand(MotionMessage msg)
+    public boolean runCommand(CommandForWheeledRobotNavigationMobImplementation.MotionMessage msg)
     {
         String verb = msg.getData().get("message");
         if (verb == null || verb.length() == 0)
@@ -328,7 +303,7 @@ public class CommandForWheeledRobotNavigationMobImplementationServer extends Com
     @Override
     public void deinstall(MissionInit missionInit)
     {
-        SidesMessageHandler.client2server.deregisterForMessage(this, MalmoMessageType.CLIENT_MOVE);
+        SidesMessageHandler.client2server.deregisterForMessage(this, VereyaMessageType.CLIENT_MOVE);
         this.motionParams.clear();
     }
 }

@@ -37,11 +37,11 @@ public class SidesMessageHandler
 
     public interface IMessage {};
 
-    private Map<MalmoMessageType, List<IVereyaMessageListener>> listeners = new HashMap<MalmoMessageType, List<IVereyaMessageListener>>();
+    private Map<VereyaMessageType, List<IVereyaMessageListener>> listeners = new HashMap<VereyaMessageType, List<IVereyaMessageListener>>();
 
     public SidesMessageHandler() {}
 
-    public boolean registerForMessage(IVereyaMessageListener listener, MalmoMessageType messageType)
+    public boolean registerForMessage(IVereyaMessageListener listener, VereyaMessageType messageType)
     {
         synchronized (listeners) {
             if (!listeners.containsKey(messageType))
@@ -55,7 +55,7 @@ public class SidesMessageHandler
         return true;
     }
 
-    public boolean deregisterForMessage(IVereyaMessageListener listener, MalmoMessageType messageType)
+    public boolean deregisterForMessage(IVereyaMessageListener listener, VereyaMessageType messageType)
     {
         synchronized (listeners) {
             if (!listeners.containsKey(messageType)) {

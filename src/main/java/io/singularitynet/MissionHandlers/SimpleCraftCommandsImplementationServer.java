@@ -2,7 +2,7 @@ package io.singularitynet.MissionHandlers;
 
 import io.singularitynet.IVereyaMessageListener;
 import io.singularitynet.VereyaMessage;
-import io.singularitynet.MalmoMessageType;
+import io.singularitynet.VereyaMessageType;
 import io.singularitynet.SidesMessageHandler;
 import io.singularitynet.projectmalmo.MissionInit;
 import io.singularitynet.utils.CraftingHelper;
@@ -23,22 +23,22 @@ public class SimpleCraftCommandsImplementationServer extends CommandBase  implem
 
         public CraftMessage(String parameters)
         {
-            super(MalmoMessageType.CLIENT_CRAFT, parameters);
+            super(VereyaMessageType.CLIENT_CRAFT, parameters);
         }
 
         public CraftMessage(String parameters, String fuel_type){
-            super(MalmoMessageType.CLIENT_CRAFT, parameters);
+            super(VereyaMessageType.CLIENT_CRAFT, parameters);
             this.getData().put("fuel_type", fuel_type);
         }
     }
 
     @Override
-    public void onMessage(MalmoMessageType messageType, Map<String, String> data) {
+    public void onMessage(VereyaMessageType messageType, Map<String, String> data) {
         throw new RuntimeException("Calling client message handler on server");
     }
 
     @Override
-    public void onMessage(MalmoMessageType messageType, Map<String, String> data, ServerPlayerEntity player)
+    public void onMessage(VereyaMessageType messageType, Map<String, String> data, ServerPlayerEntity player)
     {
         LOGGER.debug("Got crafting message " + messageType + " " + data.get("message"));
         // Try crafting recipes first:
@@ -89,13 +89,13 @@ public class SimpleCraftCommandsImplementationServer extends CommandBase  implem
     public void install(MissionInit missionInit)
     {
         LOGGER.debug("Installing SimpleCraftCommandsImplementationServer");
-        SidesMessageHandler.client2server.registerForMessage(this, MalmoMessageType.CLIENT_CRAFT);
+        SidesMessageHandler.client2server.registerForMessage(this, VereyaMessageType.CLIENT_CRAFT);
     }
 
     @Override
     public void deinstall(MissionInit missionInit) {
         LOGGER.debug("Deinstalling SimpleCraftCommandsImplementationServer");
-        SidesMessageHandler.client2server.deregisterForMessage(this, MalmoMessageType.CLIENT_CRAFT);
+        SidesMessageHandler.client2server.deregisterForMessage(this, VereyaMessageType.CLIENT_CRAFT);
     }
 
     @Override

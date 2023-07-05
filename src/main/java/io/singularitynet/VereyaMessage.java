@@ -16,7 +16,7 @@ import java.util.Map;
  */
 public class VereyaMessage implements SidesMessageHandler.IMessage
 {
-    private MalmoMessageType messageType = MalmoMessageType.SERVER_NULLMESSASGE;
+    private VereyaMessageType messageType = VereyaMessageType.SERVER_NULLMESSASGE;
     private int uid = 0;
     private Map<String, String> data = new HashMap<String, String>();
 
@@ -27,7 +27,7 @@ public class VereyaMessage implements SidesMessageHandler.IMessage
      * @param messageType
      * @param message
      */
-    public VereyaMessage(MalmoMessageType messageType, String message)
+    public VereyaMessage(VereyaMessageType messageType, String message)
     {
         this.messageType = messageType;
         this.uid = 0;
@@ -39,7 +39,7 @@ public class VereyaMessage implements SidesMessageHandler.IMessage
      * @param uid a hash code that (more or less) uniquely identifies the targeted listener
      * @param message
      */
-    public VereyaMessage(MalmoMessageType messageType, int uid, Map<String, String> data)
+    public VereyaMessage(VereyaMessageType messageType, int uid, Map<String, String> data)
     {
         this.messageType = messageType;
         this.uid = uid;
@@ -88,10 +88,10 @@ public class VereyaMessage implements SidesMessageHandler.IMessage
     public void fromBytes(PacketByteBuf buf)
     {
         int i = buf.readVarInt();	// Read message type from first byte.
-        if (i >= 0 && i <= MalmoMessageType.values().length)
-            this.messageType = MalmoMessageType.values()[i];
+        if (i >= 0 && i <= VereyaMessageType.values().length)
+            this.messageType = VereyaMessageType.values()[i];
         else
-            this.messageType = MalmoMessageType.SERVER_NULLMESSASGE;
+            this.messageType = VereyaMessageType.SERVER_NULLMESSASGE;
 
         // Now read the uid:
         this.uid = buf.readInt();
@@ -162,7 +162,7 @@ public class VereyaMessage implements SidesMessageHandler.IMessage
         return buf;
     }
 
-    public MalmoMessageType getMessageType(){
+    public VereyaMessageType getMessageType(){
         return this.messageType;
     }
 

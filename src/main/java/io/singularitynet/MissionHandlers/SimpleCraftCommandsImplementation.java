@@ -50,12 +50,12 @@ public class SimpleCraftCommandsImplementation extends CommandBase  implements I
     }
 
     @Override
-    public void onMessage(MalmoMessageType messageType, Map<String, String> data) {
+    public void onMessage(VereyaMessageType messageType, Map<String, String> data) {
         throw new RuntimeException("Unexpected message to client");
     }
 
     @Override
-    public void onMessage(MalmoMessageType messageType, Map<String, String> data, ServerPlayerEntity player) {
+    public void onMessage(VereyaMessageType messageType, Map<String, String> data, ServerPlayerEntity player) {
         throw new RuntimeException("calling server-side message handler on client");
     }
 

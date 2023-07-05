@@ -1,6 +1,6 @@
 package io.singularitynet;
 
-public enum MalmoMessageType
+public enum VereyaMessageType
 {
     SERVER_NULLMESSASGE,
     SERVER_ALLPLAYERSJOINED,

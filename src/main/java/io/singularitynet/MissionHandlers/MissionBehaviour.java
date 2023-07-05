@@ -106,10 +106,10 @@ public class MissionBehaviour implements IMissionBehaviour {
         {
             return null;
         }
+        // To avoid name collisions, the java class will have the suffix "Implementation".
+        String classname = "io.singularitynet.MissionHandlers." + handlerClass + "Implementation";
         try
         {
-            // To avoid name collisions, the java class will have the suffix "Implementation".
-            String classname = "io.singularitynet.MissionHandlers." + handlerClass + "Implementation";
             if (isServer)
                 classname += "Server";
             Class<?> c = Class.forName(classname);
@@ -126,18 +126,18 @@ public class MissionBehaviour implements IMissionBehaviour {
         }
         catch (InstantiationException e)
         {
-            LogManager.getLogger().error("Could not instantiate specified MissionHandler.", e);
+            LogManager.getLogger().error("Could not instantiate specified MissionHandler. " + classname, e);
             this.failedHandlers += "Failed to create " + handlerClass + "\n";
         }
         catch (IllegalAccessException e)
         {
-            LogManager.getLogger().error("Could not instantiate specified MissionHandler.", e);
+            LogManager.getLogger().error("Could not instantiate specified MissionHandler. " + classname, e);
             this.failedHandlers += "Failed to access " + handlerClass + "\n";
         } catch (InvocationTargetException e) {
-            LogManager.getLogger().error("Could not instantiate specified MissionHandler.", e);
+            LogManager.getLogger().error("Could not instantiate specified MissionHandler. " + classname, e);
             this.failedHandlers += "Failed to access " + handlerClass + "\n";
         } catch (NoSuchMethodException e) {
-            LogManager.getLogger().error("Could not instantiate specified MissionHandler.", e);
+            LogManager.getLogger().error("Could not instantiate specified MissionHandler. " + classname, e);
             this.failedHandlers += "Failed to access constructor in " + handlerClass + "\n";
         }
         return handler;

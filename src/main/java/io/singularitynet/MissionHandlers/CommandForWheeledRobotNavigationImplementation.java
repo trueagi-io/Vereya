@@ -62,7 +62,7 @@ public class CommandForWheeledRobotNavigationImplementation extends CommandBase
     /** Small MovementInput class that calls our own movement handling code.
      * This object is used by Minecraft to decide how to move the player.
      */
-    @Environment(value= EnvType.SERVER)
+    @Environment(value= EnvType.CLIENT)
     public class AIMovementInput extends KeyboardInput {
 
         public AIMovementInput(GameOptions settings) {

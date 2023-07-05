@@ -45,12 +45,12 @@ public class InventoryCommandsImplementation extends CommandGroup implements IVe
     private static final Logger LOGGER = LogManager.getLogger(InventoryCommandsImplementation.class.getName());
 
     @Override
-    public void onMessage(MalmoMessageType messageType, Map<String, String> data) {
+    public void onMessage(VereyaMessageType messageType, Map<String, String> data) {
         throw new RuntimeException("unexpected message from server " + messageType.toString());
     }
 
     @Override
-    public void onMessage(MalmoMessageType messageType, Map<String, String> data, ServerPlayerEntity player) {
+    public void onMessage(VereyaMessageType messageType, Map<String, String> data, ServerPlayerEntity player) {
         throw new RuntimeException("Calling server-side message handler on client " + messageType.toString());
     }
 

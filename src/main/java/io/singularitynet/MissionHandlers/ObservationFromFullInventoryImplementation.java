@@ -23,6 +23,7 @@ import io.singularitynet.MissionHandlerInterfaces.IObservationProducer;
 import io.singularitynet.projectmalmo.DrawItem;
 import io.singularitynet.projectmalmo.MissionInit;
 import io.singularitynet.projectmalmo.ObservationFromFullInventory;
+import io.singularitynet.utils.JSONWorldDataHelper;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.PlayerInventory;
@@ -49,13 +50,13 @@ public class ObservationFromFullInventoryImplementation extends HandlerBase impl
         // b) any chest-type objects the player is looking at. todo
         // Newer approach - an array of objects.
         JsonArray arr = new JsonArray();
-        getInventoryJSON(arr, player.getInventory());
+        JSONWorldDataHelper.getInventoryJSON(arr, player.getInventory());
         json.add("inventory", arr);
 
         // Also add an entry for each type of inventory available.
         JsonArray arrInvs = new JsonArray();
         JsonObject jobjPlayer = new JsonObject();
-        jobjPlayer.add("name", new JsonPrimitive(getInventoryName(player.getInventory())));
+        jobjPlayer.add("name", new JsonPrimitive(JSONWorldDataHelper.getInventoryName(player.getInventory())));
         jobjPlayer.add("size", new JsonPrimitive(player.getInventory().size()));
         arrInvs.add(jobjPlayer);
 
@@ -75,35 +76,6 @@ public class ObservationFromFullInventoryImplementation extends HandlerBase impl
 
         this.flat = ((ObservationFromFullInventory)params).isFlat();
         return true;
-    }
-
-    public static String getInventoryName(Inventory inv)
-    {
-        String invName = "inventory";
-        String prefix = "container.";
-        if (invName.startsWith(prefix))
-            invName = invName.substring(prefix.length());
-        return invName;
-    }
-
-    public static void getInventoryJSON(JsonArray arr, Inventory inventory)
-    {
-        String invName = getInventoryName(inventory);
-        for (int i = 0; i < inventory.size(); i++)
-        {
-            ItemStack is = inventory.getStack(i);
-            if (is != null && !is.isEmpty())
-            {
-                Item item = is.getItem();
-                JsonObject jobj = new JsonObject();
-                String name = item.toString();
-                jobj.add("type", new JsonPrimitive(name));
-                jobj.add("index", new JsonPrimitive(i));
-                jobj.add("quantity", new JsonPrimitive(is.getCount()));
-                jobj.add("inventory",  new JsonPrimitive(invName));
-                arr.add(jobj);
-            }
-        }
     }
 
     public static void getInventoryJSON(JsonObject json, String prefix, Inventory inventory, int maxSlot)

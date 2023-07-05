@@ -31,7 +31,10 @@ import net.minecraft.entity.InventoryOwner;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.mob.MobEntity;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.inventory.Inventory;
 import net.minecraft.inventory.SimpleInventory;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
 import net.minecraft.registry.Registries;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
@@ -191,11 +194,44 @@ public class JSONWorldDataHelper {
             if (entity instanceof InventoryOwner){
                 InventoryOwner owner = (InventoryOwner) entity;
                 SimpleInventory inventory = owner.getInventory();
+                JsonArray arr = new JsonArray();
+                getInventoryJSON(arr, inventory);
+                json.add("inventory", arr);
             }
             mobObj.addProperty("safeFallDistance", entity.getSafeFallDistance());
             mobObj.addProperty("name", entity.getEntityName());
             mobObj.addProperty("type", entity.getType().getUntranslatedName());
             controllableEntities.add(key, mobObj);
+        }
+    }
+
+
+    public static String getInventoryName(Inventory inv)
+    {
+        String invName = "inventory";
+        String prefix = "container.";
+        if (invName.startsWith(prefix))
+            invName = invName.substring(prefix.length());
+        return invName;
+    }
+
+    public static void getInventoryJSON(JsonArray arr, Inventory inventory)
+    {
+        String invName = getInventoryName(inventory);
+        for (int i = 0; i < inventory.size(); i++)
+        {
+            ItemStack is = inventory.getStack(i);
+            if (is != null && !is.isEmpty())
+            {
+                Item item = is.getItem();
+                JsonObject jobj = new JsonObject();
+                String name = item.toString();
+                jobj.add("type", new JsonPrimitive(name));
+                jobj.add("index", new JsonPrimitive(i));
+                jobj.add("quantity", new JsonPrimitive(is.getCount()));
+                jobj.add("inventory",  new JsonPrimitive(invName));
+                arr.add(jobj);
+            }
         }
     }
 }

@@ -50,6 +50,7 @@ import net.minecraft.network.PacketByteBuf;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.util.profiler.Profiler;
 import net.minecraft.world.World;
 import net.minecraft.world.level.storage.LevelStorage;
 import org.apache.logging.log4j.LogManager;
@@ -1818,11 +1819,14 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
             {
                 JsonObject json = new JsonObject();
                 json.add(VereyaModClient.CONTROLLABLE, new JsonObject());
+                Profiler profiler = MinecraftClient.getInstance().getProfiler();
+                profiler.push("writeObservationsToJSON");
                 currentMissionBehaviour().observationProducer.writeObservationsToJSON(json, currentMissionInit());
                 VereyaModClient.InputType inptype = ClientStateMachine.this.inputController.getInputType();
                 json.add("input_type", new JsonPrimitive(inptype.name()));
                 json.add("isPaused", new JsonPrimitive(MinecraftClient.getInstance().isPaused()));
                 data = json.toString();
+                profiler.pop();
             }
             // Minecraft.getMinecraft().mcProfiler.endStartSection("malmoSendTCPObservations");
 
@@ -1970,53 +1974,12 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
                     */
 
                 onMissionEnded(ClientState.MISSION_ENDED, null);
-            }/*
-            else if (messageType == MalmoMessageType.SERVER_GO)
-            {
-                // First, force all entities to get re-added to their chunks, clearing out any old entities in the process.
-                // We need to do this because the process of teleporting all agents to their start positions, combined
-                // with setting them to/from spectator mode, leaves the client chunk entity lists etc in a parlous state.
-
-                List lel = Minecraft.getMinecraft().world.loadedEntityList;
-                for (int i = 0; i < lel.size(); i++)
-                {
-                    Entity entity = (Entity)lel.get(i);
-                    Chunk chunk = Minecraft.getMinecraft().world.getChunkFromChunkCoords(entity.chunkCoordX, entity.chunkCoordZ);
-                    List<Entity> entitiesToRemove = new ArrayList<Entity>();
-                    for (int k = 0; k < chunk.getEntityLists().length; k++)
-                    {
-                        Iterator iterator = chunk.getEntityLists()[k].iterator();
-                        while (iterator.hasNext())
-                        {
-                            Entity chunkent = (Entity)iterator.next();
-                            if (chunkent.getEntityId() == entity.getEntityId())
-                            {
-                                entitiesToRemove.add(chunkent);
-                            }
-                        }
-                    }
-                    for (Entity removeEnt : entitiesToRemove)
-                    {
-                        chunk.removeEntity(removeEnt);
-                    }
-                    entity.addedToChunk = false;    // Will force it to get re-added to the chunk list.
-                    if (entity instanceof EntityLivingBase)
-                    {
-                        // If we want the entities to be rendered with the correct yaw from the outset,
-                        // we need to set their render offset manually.
-                        // (Set the offset from the outset to avoid the onset of upset.)
-                        ((EntityLivingBase)entity).renderYawOffset = entity.rotationYaw;
-                        ((EntityLivingBase)entity).prevRenderYawOffset = entity.rotationYaw;
-                    }
-                    if (entity instanceof EntityPlayerSP)
-                    {
-                        // Although the following call takes place on the server, and should have taken effect already,
-                        // there is some discontinuity which is causing the effects to get lost, so we call it here too:
-                        entity.setInvisible(false);
-                    }
-                }*/
+            } else if (messageType == MalmoMessageType.SERVER_GO) {
                 this.serverHasFiredStartingPistol = true; // GO GO GO!
+            } else {
+                throw new RuntimeException("unexpected message received " + messageType.name());
             }
+        }
 
         @Override
         public void cleanup()

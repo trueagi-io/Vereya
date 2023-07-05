@@ -46,10 +46,6 @@ jobs:
       - name: remove lock
         if: failure()
         run: rm -f /tmp/minecraft-test-lock
-  test:
-    needs: build
-    runs-on: self-hosted
-    steps:
       - name: start minecraft
         run: ./launch.sh &
         env:
@@ -67,10 +63,6 @@ jobs:
           ps a|grep [j]ava &&
           conda activate py31 && cd $GITHUB_WORKSPACE/minecraft-demo/tests/vereya &&
           python run_tests.py
-  cleanup:
-    runs-on: self-hosted
-    needs: [test, build]
-    if: always()
-    steps:
       - name: remove lock
+        if: always()
         run: rm -f /tmp/minecraft-test-lock

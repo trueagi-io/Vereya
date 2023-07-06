@@ -73,7 +73,7 @@ public class VideoProducerImplementation extends HandlerBase implements IVideoPr
     {
         boolean useDepth = this.videoParams.isWantDepth();
         // Create a buffer for retrieving the depth map, if requested:
-        if (this.videoParams.isWantDepth())
+        if (useDepth)
             this.depthBuffer = BufferUtils.createFloatBuffer(this.videoParams.getWidth() * this.videoParams.getHeight());
         // Set the requested camera position
         // Minecraft.getMinecraft().gameSettings.thirdPersonView = this.videoParams.getViewpoint();

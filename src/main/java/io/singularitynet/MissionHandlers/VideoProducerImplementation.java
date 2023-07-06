@@ -11,7 +11,6 @@ import org.lwjgl.BufferUtils;
 import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
 import java.util.AbstractMap;
-import java.util.Map;
 
 public class VideoProducerImplementation extends HandlerBase implements IVideoProducer
 {

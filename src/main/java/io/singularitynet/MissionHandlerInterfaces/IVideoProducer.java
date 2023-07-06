@@ -28,7 +28,7 @@ import java.util.Map;
  */
 public interface IVideoProducer
 {
-    public enum VideoType
+    enum VideoType
     {
         VIDEO,
         DEPTH_MAP,
@@ -37,7 +37,7 @@ public interface IVideoProducer
     };
 
     /** Get the type of video frames returned.*/
-    public VideoType getVideoType();
+    VideoType getVideoType();
 
     /**
      * Get a frame of video from Minecraft.
@@ -46,17 +46,17 @@ public interface IVideoProducer
      * @return an array of bytes representing this frame.<br>
      * (The format is unspecified; it is up to the IVideoProducer implementation and the agent to agree on how the data is formatted.)
      */
-    public Map.Entry<ByteBuffer, int[]> getFrame(MissionInit missionInit);
+    Map.Entry<ByteBuffer, int[]> getFrame(MissionInit missionInit);
 
     /** Get the requested width of the video frames returned.*/
-    public int getWidth();
+    int getWidth();
 
     /** Get the requested height of the video frames returned.*/
-    public int getHeight();
+    int getHeight();
 
     /** Called once before the mission starts - use for any necessary initialisation.*/
-    public void prepare(MissionInit missionInit);
+    void prepare(MissionInit missionInit);
 
     /** Called once after the mission ends - use for any necessary cleanup.*/
-    public void cleanup();
+    void cleanup();
 }

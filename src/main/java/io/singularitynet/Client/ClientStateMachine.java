@@ -86,7 +86,7 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
     private static final Logger LOGGER = LogManager.getLogger();
     private MissionInit currentMissionInit = null; // The MissionInit object for the mission currently being loaded/run.
     private MissionBehaviour missionBehaviour = null;// new MissionBehaviour();
-    private MissionBehaviour serverHandlers = null;
+    private IWorldGenerator worldGenerator = null;
     private String missionQuitCode = ""; // The reason why this mission ended.
     Map<RegistryKey<World>, Object> generatorProperties = new HashMap<>();
     public Map<String, MobEntity> controllableEntities = new HashMap();
@@ -356,6 +356,16 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
         public MissionInit missionInit = null;
         public boolean wasMissionInit = false;
         public String error = null;
+        public String toString(){
+            if (wasMissionInit)
+            {
+                return "MissionInit: " + missionInit.toString();
+            }
+            else
+            {
+                return "null";
+            }
+        }
     }
 
     protected MissionInitResult decodeMissionInit(String command)
@@ -1003,11 +1013,11 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
                 totalTicks = 0;
 
                 // We need to use the server's MissionHandlers here:
-                ClientStateMachine.this.serverHandlers = MissionBehaviour.createServerHandlersFromMissionInit(currentMissionInit());
-                if (ClientStateMachine.this.serverHandlers != null && ClientStateMachine.this.serverHandlers.worldGenerator != null)
+                ClientStateMachine.this.worldGenerator = MissionBehaviour.createWorldGenerator(currentMissionInit());
+                if (ClientStateMachine.this.worldGenerator != null)
                 {
                     updateSaveDirs();
-                    if (ClientStateMachine.this.serverHandlers.worldGenerator.createWorld(currentMissionInit()))
+                    if (ClientStateMachine.this.worldGenerator.createWorld(currentMissionInit()))
                     {
                         ClientStateMachine.this.generatorProperties.clear();
                         this.worldCreated = true;
@@ -1018,7 +1028,7 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
                     else
                     {
                         // World has not been created.
-                        episodeHasCompletedWithErrors(ClientState.ERROR_CANNOT_CREATE_WORLD, "Server world-creation handler failed to create a world: " + serverHandlers.worldGenerator.getErrorDetails());
+                        episodeHasCompletedWithErrors(ClientState.ERROR_CANNOT_CREATE_WORLD, "Server world-creation handler failed to create a world: " + ClientStateMachine.this.worldGenerator.getErrorDetails());
                     }
                 }
             }
@@ -1426,9 +1436,9 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
             if (messageType != VereyaMessageType.SERVER_ALLPLAYERSJOINED)
                 return;
             MinecraftClient client = MinecraftClient.getInstance();
-            if (ClientStateMachine.this.serverHandlers != null)
+            if (ClientStateMachine.this.worldGenerator != null)
                 ClientStateMachine.this.generatorProperties.put(client.world.getRegistryKey(),
-                    ClientStateMachine.this.serverHandlers.worldGenerator.getOptions());
+                    ClientStateMachine.this.worldGenerator.getOptions());
             List<Object> handlers = new ArrayList<Object>();
             for (Map.Entry<String, String> entry : data.entrySet())
             {

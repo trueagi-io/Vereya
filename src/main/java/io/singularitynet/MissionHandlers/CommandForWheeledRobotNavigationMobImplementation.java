@@ -1,5 +1,6 @@
 package io.singularitynet.MissionHandlers;
 
+import io.singularitynet.MissionHandlerInterfaces.ICommandHandler;
 import io.singularitynet.VereyaMessage;
 import io.singularitynet.NetworkConstants;
 import io.singularitynet.VereyaMessageType;

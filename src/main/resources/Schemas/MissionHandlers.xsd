@@ -1761,6 +1761,32 @@
         </xs:complexType>
     </xs:element>
 
+    <xs:element name="CommandForWheeledRobotNavigationMob">
+        <xs:annotation>
+            <xs:documentation>
+                When present, the Mod will accept commands that control smooth movement of a mob.
+
+                Commands take the form of "verb uuid value&gt;" e.g. "{{{move uuid 1}}}" to move forwards with normal speed.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:complexType>
+        <xs:all>
+            <xs:element name="ModifierList" minOccurs="0" maxOccurs="1">
+                <xs:complexType>
+                    <xs:complexContent>
+                        <xs:restriction base="CommandListModifier">
+                            <xs:choice maxOccurs="unbounded">
+                                <xs:element name="command" type="ContinuousMovementCommand" minOccurs="0" maxOccurs="unbounded"/>
+                            </xs:choice>
+                        </xs:restriction>
+                    </xs:complexContent>
+                </xs:complexType>
+            </xs:element>
+        </xs:all>
+        </xs:complexType>
+    </xs:element>
+
+
     <xs:element name="AbsoluteMovementCommands">
         <xs:annotation>
             <xs:documentation>

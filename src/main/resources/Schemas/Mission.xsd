@@ -370,6 +370,7 @@
             <xs:element ref="RewardForDamagingEntity" minOccurs="0"/>
 
             <xs:element ref="ContinuousMovementCommands" minOccurs="0"/>
+            <xs:element ref="CommandForWheeledRobotNavigationMob" minOccurs="0" />
             <xs:element ref="AbsoluteMovementCommands" minOccurs="0"/>
             <xs:element ref="DiscreteMovementCommands" minOccurs="0"/>
             <xs:element ref="InventoryCommands" minOccurs="0"/>
@@ -383,7 +384,6 @@
             <xs:element ref="MissionQuitCommands" minOccurs="0"/>
             <xs:element ref="TurnBasedCommands" minOccurs="0"/>
             <xs:element ref="HumanLevelCommands" minOccurs="0"/>
-            <!-- When adding a new command handler, make sure to update MissionSpec::getListOfCommandHandlers and MissionSpec::getAllowedCommands, and add to TurnBasedApplicableCommandHandlers (below) if appropriate --> 
 
             <xs:element ref="AgentQuitFromTimeUp" minOccurs="0" />
             <xs:element ref="AgentQuitFromReachingPosition" minOccurs="0" />

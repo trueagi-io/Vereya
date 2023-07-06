@@ -1,12 +1,14 @@
 package io.singularitynet.MissionHandlers;
 
+import com.mojang.blaze3d.platform.GlStateManager;
 import io.singularitynet.MissionHandlerInterfaces.IVideoProducer;
 import io.singularitynet.projectmalmo.MissionInit;
 import io.singularitynet.projectmalmo.VideoProducer;
-import io.singularitynet.utils.ImageClass;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.Framebuffer;
+import net.minecraft.client.texture.NativeImage;
 import org.lwjgl.BufferUtils;
+import org.lwjgl.opengl.GL11;
 
 import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
@@ -58,8 +60,10 @@ public class VideoProducerImplementation extends HandlerBase implements IVideoPr
         Framebuffer framebuffer = MinecraftClient.getInstance().getFramebuffer();
         int i = framebuffer.textureWidth;
         int j = framebuffer.textureHeight;
-        ImageClass imageclass = new ImageClass(i, j, false);
-        ByteBuffer resBuffer = imageclass.getImageAsByteBuffer();
+        NativeImage nativeimage = new NativeImage(i, j, false);
+        ByteBuffer resBuffer = BufferUtils.createByteBuffer(nativeimage.getHeight() * nativeimage.getWidth() * 4);
+        resBuffer.flip();
+        GlStateManager._readPixels(0, 0, nativeimage.getWidth(), nativeimage.getHeight(), nativeimage.getFormat().toGl(), GL11.GL_UNSIGNED_BYTE, resBuffer);
         int[] sizes = new int[3];
         sizes[0] = i;
         sizes[1] = j;

@@ -47,7 +47,7 @@ public interface IVideoProducer
      * (The format is unspecified; it is up to the IVideoProducer implementation and the agent to agree on how the data is formatted.)
      */
 
-    int[] getFrame(MissionInit missionInit, ByteBuffer buffer);
+    int[] writeFrame(MissionInit missionInit, ByteBuffer buffer);
 
     /** Get the requested width of the video frames returned.*/
     int getWidth();

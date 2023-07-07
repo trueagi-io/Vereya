@@ -36,11 +36,11 @@ public class VideoProducerImplementation extends HandlerBase implements IVideoPr
     }
 
     @Override
-    public int[] getFrame(MissionInit missionInit, ByteBuffer buffer)
+    public int[] writeFrame(MissionInit missionInit, ByteBuffer buffer)
     {
         if (!this.videoParams.isWantDepth())
         {
-            return getRGBFrame(buffer); // Just return the simple RGB, 3bpp image.
+            return writeRGBFrame(buffer); // Just return the simple RGB, 3bpp image.
         }
         else
             throw new RuntimeException("Depth map not implemented");
@@ -55,7 +55,7 @@ public class VideoProducerImplementation extends HandlerBase implements IVideoPr
     @Override
     public int getHeight() { return this.videoParams.getHeight(); }
 
-    private int[] getRGBFrame(ByteBuffer buffer)
+    private int[] writeRGBFrame(ByteBuffer buffer)
     {
         Framebuffer framebuffer = MinecraftClient.getInstance().getFramebuffer();
         int i = framebuffer.textureWidth;

@@ -313,7 +313,6 @@ public class VideoHook {
                 tictac = "tac";
                 Map<String, Number> header_map = new HashMap<>();
                 this.buffer.clear();
-                this.buffer.flip();
                 if (this.framebuffer.textureWidth * this.framebuffer.textureHeight * this.texChannels != this.buffer.limit())
                 {
                     this.buffer = BufferUtils.createByteBuffer(this.framebuffer.textureWidth * this.framebuffer.textureHeight * this.texChannels);
@@ -325,7 +324,7 @@ public class VideoHook {
                 header_map.put("pitch", pitch);
                 glGetFloatv(GL_PROJECTION_MATRIX, projection);
                 glGetFloatv(GL_MODELVIEW_MATRIX, modelview);
-                int[] sizes = this.videoProducer.getFrame(this.missionInit, this.buffer);
+                int[] sizes = this.videoProducer.writeFrame(this.missionInit, this.buffer);
                 header_map.put("img_width", sizes[0]);
                 header_map.put("img_height", sizes[1]);
                 header_map.put("img_ch", this.texChannels);

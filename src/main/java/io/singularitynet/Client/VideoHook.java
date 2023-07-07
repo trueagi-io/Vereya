@@ -24,6 +24,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.AbstractMap;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -305,7 +306,7 @@ public class VideoHook {
                 time_after_render_ns = System.nanoTime();
             } else {
                 tictac = "tac";
-                Map<String, Float> header_map = new HashMap<>();
+                Map<String, Number> header_map = new HashMap<>();
                 header_map.put("x", x);
                 header_map.put("y", y);
                 header_map.put("z", z);
@@ -313,6 +314,11 @@ public class VideoHook {
                 header_map.put("pitch", pitch);
                 glGetFloatv(GL_PROJECTION_MATRIX, projection);
                 glGetFloatv(GL_MODELVIEW_MATRIX, modelview);
+                AbstractMap.Entry<ByteBuffer, int[]> res = this.videoProducer.getFrame(this.missionInit);
+                int[] sizes = res.getValue();
+                header_map.put("img_width", sizes[0]);
+                header_map.put("img_height", sizes[1]);
+                header_map.put("img_ch", sizes[2]);
                 JSONObject jo_header = new JSONObject(header_map);
                 float[] proj_floats = new float[16];
                 float[] modelview_floats = new float[16];
@@ -320,9 +326,9 @@ public class VideoHook {
                 readColumnMajor(modelview_floats, modelview.asReadOnlyBuffer());
                 jo_header.append("projectionMatrix", proj_floats);
                 jo_header.append("modelViewMatrix", modelview_floats);
+                this.buffer = res.getKey();
                 byte[] jo_bytes = jo_header.toString().getBytes(StandardCharsets.UTF_8);
                 int jo_len = jo_bytes.length;
-                this.buffer = this.videoProducer.getFrame(this.missionInit);
                 time_after_render_ns = System.nanoTime();
                 if (this.buffer != null) {
                     ByteBuffer jo_len_buffer = ByteBuffer.allocate(4).order(ByteOrder.BIG_ENDIAN).putInt(jo_len);

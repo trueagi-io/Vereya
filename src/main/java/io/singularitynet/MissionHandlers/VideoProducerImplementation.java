@@ -60,11 +60,9 @@ public class VideoProducerImplementation extends HandlerBase implements IVideoPr
         Framebuffer framebuffer = MinecraftClient.getInstance().getFramebuffer();
         int i = framebuffer.textureWidth;
         int j = framebuffer.textureHeight;
-//        NativeImage nativeimage = new NativeImage(i, j, false);
         ByteBuffer resBuffer = BufferUtils.createByteBuffer(i * j * 4);
         resBuffer.flip();
         GlStateManager._readPixels(0, 0, i, j, NativeImage.Format.RGBA.toGl(), GL11.GL_UNSIGNED_BYTE, resBuffer);
-//        GlStateManager._readPixels(0, 0, nativeimage.getWidth(), nativeimage.getHeight(), nativeimage.getFormat().toGl(), GL11.GL_UNSIGNED_BYTE, resBuffer);
         int[] sizes = new int[3];
         sizes[0] = i;
         sizes[1] = j;

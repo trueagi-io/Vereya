@@ -46,6 +46,7 @@ public interface IVideoProducer
      * @return an array of bytes representing this frame.<br>
      * (The format is unspecified; it is up to the IVideoProducer implementation and the agent to agree on how the data is formatted.)
      */
+
     int[] getFrame(MissionInit missionInit, ByteBuffer buffer);
 
     /** Get the requested width of the video frames returned.*/

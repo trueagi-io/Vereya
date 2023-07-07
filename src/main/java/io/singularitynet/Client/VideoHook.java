@@ -306,7 +306,7 @@ public class VideoHook {
                 time_after_render_ns = System.nanoTime();
             } else {
                 tictac = "tac";
-                Map<String, Float> header_map = new HashMap<>();
+                Map<String, Number> header_map = new HashMap<>();
                 header_map.put("x", x);
                 header_map.put("y", y);
                 header_map.put("z", z);
@@ -314,6 +314,11 @@ public class VideoHook {
                 header_map.put("pitch", pitch);
                 glGetFloatv(GL_PROJECTION_MATRIX, projection);
                 glGetFloatv(GL_MODELVIEW_MATRIX, modelview);
+                AbstractMap.Entry<ByteBuffer, int[]> res = this.videoProducer.getFrame(this.missionInit);
+                int[] sizes = res.getValue();
+                header_map.put("img_width", sizes[0]);
+                header_map.put("img_height", sizes[1]);
+                header_map.put("img_ch", sizes[2]);
                 JSONObject jo_header = new JSONObject(header_map);
                 float[] proj_floats = new float[16];
                 float[] modelview_floats = new float[16];
@@ -321,12 +326,7 @@ public class VideoHook {
                 readColumnMajor(modelview_floats, modelview.asReadOnlyBuffer());
                 jo_header.append("projectionMatrix", proj_floats);
                 jo_header.append("modelViewMatrix", modelview_floats);
-                AbstractMap.Entry<ByteBuffer, int[]> res = this.videoProducer.getFrame(this.missionInit);
                 this.buffer = res.getKey();
-                int[] sizes = res.getValue();
-                jo_header.append("img_width", sizes[0]);
-                jo_header.append("img_height", sizes[1]);
-                jo_header.append("img_ch", sizes[2]);
                 byte[] jo_bytes = jo_header.toString().getBytes(StandardCharsets.UTF_8);
                 int jo_len = jo_bytes.length;
                 time_after_render_ns = System.nanoTime();

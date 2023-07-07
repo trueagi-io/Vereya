@@ -20,6 +20,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(MobEntity.class)
 public abstract class MobEntityMixin extends LivingEntity {
 
+    @Shadow protected JumpControl jumpControl;
+    @Shadow protected MoveControl moveControl;
+
     protected MobEntityMixin(EntityType<? extends MobEntity> entityType, World world) {
         super(entityType, world);
     }
@@ -29,9 +32,12 @@ public abstract class MobEntityMixin extends LivingEntity {
         cir.setReturnValue(!this.getWorld().isClient);
     }
 
+
     @Inject(method = "tickNewAi", at = @At("HEAD"), cancellable = true)
     protected void tickNewAi(CallbackInfo ci){
         if (this.isAiDisabled()){
+            this.moveControl.tick();
+            this.jumpControl.tick();
             ci.cancel();
         }
     }

@@ -8,7 +8,8 @@
     "TitleScreenMixin", "SessionMixin", "MinecraftClientMixin", "GameOptionsMixin",
     "KeyBindingMixin", "MouseMixin", "MouseAccessorMixin", "InGameHudMixin", "ServerWorldEntityLoaderMixin",
     "ServerEntityManagerMixin", "ServerWorldMixin", "LevelStorageMixin",
-    "MinecraftClientEventsMixin", "LootTableProviderMixin", "MobEntityMixin"
+    "MinecraftClientEventsMixin", "LootTableProviderMixin", "MobEntityMixin", "MobEntityAccessorMixin",
+    "ClientWorldMixinAccess"
   ],
   "server": [],
   "injectors": {

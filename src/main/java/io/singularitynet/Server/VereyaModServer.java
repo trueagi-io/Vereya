@@ -28,9 +28,13 @@ import net.fabricmc.api.Environment;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import net.minecraft.entity.mob.MobEntity;
 import net.minecraft.server.MinecraftServer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+
+import java.util.HashMap;
+import java.util.Map;
 
 public class VereyaModServer implements ModInitializer {
     private ServerStateMachine stateMachine = null;
@@ -40,6 +44,12 @@ public class VereyaModServer implements ModInitializer {
         return instance;
     }
 
+    public Map<String, MobEntity> getControlledMobs(){
+        if (this.stateMachine == null){
+            return new HashMap<>();
+        }
+        return this.stateMachine.controllableEntities;
+    }
     public boolean hasServer(){
         return stateMachine != null;
     }
@@ -69,12 +79,14 @@ public class VereyaModServer implements ModInitializer {
     }
 
     public void initServerStateMachine(MissionInit init, MinecraftServer server){
-        Logger LOGGER = LogManager.getLogger();
-        LOGGER.info("Server initialized");
-        if (stateMachine == null ) {
-            stateMachine = new ServerStateMachine(ServerState.WAITING_FOR_MOD_READY, init, server);
-        } else {
-            this.stateMachine.setMissionInit(init);
-        }
+        server.execute(() -> {
+            Logger LOGGER = LogManager.getLogger();
+            LOGGER.info("Server initialized");
+            if (stateMachine == null ) {
+                stateMachine = new ServerStateMachine(ServerState.WAITING_FOR_MOD_READY, init, server);
+            } else {
+                this.stateMachine.setMissionInit(init);
+            }
+        });
     }
 }

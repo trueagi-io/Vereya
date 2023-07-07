@@ -27,6 +27,7 @@ import io.singularitynet.utils.ScreenHelper;
 import jakarta.xml.bind.JAXBElement;
 import jakarta.xml.bind.JAXBException;
 
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
@@ -34,6 +35,7 @@ import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.mob.MobEntity;
 import net.minecraft.entity.player.PlayerEntity;
 
 import net.minecraft.item.ItemStack;
@@ -69,13 +71,13 @@ public class ServerStateMachine extends StateMachine implements IVereyaMessageLi
     private MissionBehaviour missionHandlers = null;	// The Mission handlers for the mission currently being loaded/run.
     protected String quitCode = "";						// Code detailing the reason for quitting this mission.
     private WeakReference<MinecraftServer> server;
-    private static final Logger LOGGER = LogManager.getLogger();
+    private static final Logger LOGGER = LogManager.getLogger(ServerStateMachine.class);
 
     // agentConnectionWatchList is used to keep track of the clients in a multi-agent mission. If, at any point, a username appears in
     // this list, but can't be found in the MinecraftServer.getServer().getAllUsernames(), that constitutes an error, and the mission will exit.
     private ArrayList<String> userConnectionWatchList = new ArrayList<String>();
     private ArrayList<String> userTurnSchedule = new ArrayList<String>();
-    public Map<Integer, LivingEntity> controllableEntities = new HashMap();
+    public Map<String, MobEntity> controllableEntities = new HashMap();
 
     /** Called to initialise a state machine for a specific Mission request.<br>
      * Most likely caused by the client creating an integrated server.
@@ -98,14 +100,34 @@ public class ServerStateMachine extends StateMachine implements IVereyaMessageLi
         ServerLifecycleEvents.SERVER_STOPPED.register(this::onServerStopped);
         ServerLifecycleEvents.SERVER_STARTED.register(this::onServerStarted);
         ServerEntityEventsVereya.BEFORE_ENTITY_ADD.register(this::onGetPotentialSpawns);
-        ServerEntityEvents.ENTITY_UNLOAD.register(this::onEntityUnload);
+        ServerEntityEvents.ENTITY_UNLOAD.register(this::onEntityUnoad);
+        ServerEntityEvents.ENTITY_LOAD.register(this::onEntityLoad);
     }
 
-    protected void onEntityUnload(Entity entity, ServerWorld world){
-        if(this.controllableEntities.get(entity.getUuidAsString()) != null){
-            this.controllableEntities.remove(entity.getId());
+    private void onEntityUnoad(Entity entity, ServerWorld serverWorld) {
+        if (entity instanceof MobEntity) {
+            MobEntity mobEntity = (MobEntity) entity;
+            String uuid = mobEntity.getUuidAsString();
+            if (controllableEntities.containsKey(uuid)) {
+                LOGGER.debug("removing controlled mob uuid: " + uuid);
+                controllableEntities.remove(uuid);
+            }
         }
     }
+
+    private void onEntityLoad(Entity entity, ServerWorld serverWorld) {
+        if (entity instanceof MobEntity){
+            MobEntity mobEntity = (MobEntity) entity;
+            if (mobEntity.isAiDisabled()){
+                String uuid = mobEntity.getUuidAsString();
+                controllableEntities.put(uuid, mobEntity);
+                LOGGER.debug("sending new controlled mob message to client uuid: " + uuid);
+                sendToAll(new VereyaMessage(VereyaMessageType.SERVER_CONTROLLED_MOB, uuid));
+            }
+        }
+    }
+
+
 
     /** Used to prevent spawning in our world.*/
     public ActionResult onGetPotentialSpawns(Entity entity, ServerWorld world)
@@ -240,8 +262,8 @@ public class ServerStateMachine extends StateMachine implements IVereyaMessageLi
 
     protected void initialiseHandlers(MissionInit init) throws Exception
     {
-        LOGGER.info("initialising handlers on Server");
         this.missionHandlers = MissionBehaviour.createServerHandlersFromMissionInit(init);
+        LOGGER.info("initialised handlers on Server" + this.server);
     }
 
     @Override
@@ -545,7 +567,9 @@ public class ServerStateMachine extends StateMachine implements IVereyaMessageLi
             }
             catch (Exception e)
             {
-                // TODO: What?
+                LOGGER.error("Failed to initialize server state machine", e);
+                // exit
+                System.exit(1);
             }
             // Move on to next state:
             ServerSection ss = currentMissionInit().getMission().getServerSection();
@@ -710,6 +734,8 @@ public class ServerStateMachine extends StateMachine implements IVereyaMessageLi
                 // Initialise the player, and store a record mapping from the username to the agentname.
                 String username = data.get("username");
                 String agentname = data.get("agentname");
+                LOGGER.debug("username: " + username + ", agentname: " + agentname);
+                LOGGER.debug("pendingReadyAgents now contains " + this.pendingReadyAgents);
                 if (username != null && agentname != null && this.pendingReadyAgents.contains(agentname))
                 {
                     initialisePlayer(username, agentname);

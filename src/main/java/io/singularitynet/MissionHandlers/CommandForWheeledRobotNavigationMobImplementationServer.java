@@ -2,6 +2,7 @@ package io.singularitynet.MissionHandlers;
 
 
 import io.singularitynet.IVereyaMessageListener;
+import io.singularitynet.Server.VereyaModServer;
 import io.singularitynet.VereyaMessage;
 import io.singularitynet.VereyaMessageType;
 import io.singularitynet.SidesMessageHandler;
@@ -12,6 +13,7 @@ import io.singularitynet.projectmalmo.MissionInit;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents;
+import net.minecraft.client.texture.NativeImage;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.ai.control.JumpControl;
 import net.minecraft.entity.ai.control.MoveControl;
@@ -51,7 +53,6 @@ public class CommandForWheeledRobotNavigationMobImplementationServer extends Com
 
     float maxAngularVelocityDegreesPerSecond = 180;
     private class InternalFields {
-        MobEntity entity;
         float maxAngularVelocityDegreesPerSecond=CommandForWheeledRobotNavigationMobImplementationServer.this.maxAngularVelocityDegreesPerSecond;
         boolean overrideKeyboardInput=true;
         float mVelocity = 0;
@@ -78,16 +79,17 @@ public class CommandForWheeledRobotNavigationMobImplementationServer extends Com
     /** Custom MoveControl
      *
      */
-    @Environment(value=EnvType.SERVER)
     class AIMoveControl extends MoveControl {
         InternalFields fields;
-        public AIMoveControl(MobEntity entity) {
+        public AIMoveControl(MobEntity entity, InternalFields fields1) {
             super(entity);
-            CommandForWheeledRobotNavigationMobImplementationServer.this.motionParams.get(entity.getUuidAsString());
+            fields = fields1;
         }
 
         public void tick(){
-            if (CommandForWheeledRobotNavigationMobImplementationServer.this.updateState(fields)) {
+            if (CommandForWheeledRobotNavigationMobImplementationServer.this.updateState(entity, fields)) {
+                this.speed = fields.mVelocity;
+                this.sidewaysMovement = fields.mStrafeVelocity;
                 // from MoveControl.tick
                 float f = (float) this.entity.getAttributeValue(EntityAttributes.GENERIC_MOVEMENT_SPEED);
                 float g = (float) this.speed * f;
@@ -100,19 +102,18 @@ public class CommandForWheeledRobotNavigationMobImplementationServer extends Com
         }
     }
 
-    @Environment(value=EnvType.SERVER)
     class AIJumpControl extends JumpControl {
         InternalFields fields;
         protected MobEntity myentity;
 
-        public AIJumpControl(MobEntity entity) {
+        public AIJumpControl(MobEntity entity, InternalFields fields1) {
             super(entity);
             myentity = entity;
-            CommandForWheeledRobotNavigationMobImplementationServer.this.motionParams.get(entity.getUuidAsString());
+            fields = fields1;
         }
 
         public void tick() {
-            this.myentity.setJumping(this.active);
+            this.myentity.setJumping(this.fields.jumping);
             this.active = false;  // this is used in rabbit
         }
     }
@@ -145,10 +146,11 @@ public class CommandForWheeledRobotNavigationMobImplementationServer extends Com
         if (entity instanceof MobEntity) {
             MobEntity mobEntity = (MobEntity) entity;
             if (mobEntity.isAiDisabled()){
-                LOGGER.info("created controllable mob: " + mobEntity.getUuidAsString() + " " + mobEntity.getType().getUntranslatedName());
-                this.motionParams.put(mobEntity.getUuidAsString(), new InternalFields());
-                ((MobEntityAccessorMixin)mobEntity).setMoveControl(new AIMoveControl(mobEntity));
-                ((MobEntityAccessorMixin)mobEntity).setJumpControl(new AIJumpControl(mobEntity));
+                LOGGER.info("created motion params for: " + mobEntity.getUuidAsString() + " " + mobEntity.getType().getUntranslatedName());
+                InternalFields fields = new InternalFields();
+                this.motionParams.put(mobEntity.getUuidAsString(), fields);
+                ((MobEntityAccessorMixin)mobEntity).setMoveControl(new AIMoveControl(mobEntity, fields));
+                ((MobEntityAccessorMixin)mobEntity).setJumpControl(new AIJumpControl(mobEntity, fields));
             }
         }
     }
@@ -170,7 +172,7 @@ public class CommandForWheeledRobotNavigationMobImplementationServer extends Com
     /** Called by our overridden MovementInputFromOptions class.
      * @return true if we've handled the movement; false if the MovementInputFromOptions class should delegate to the default handling.
      */
-    protected boolean updateState(InternalFields fields)
+    protected boolean updateState(MobEntity entity, InternalFields fields)
     {
         if (!fields.overrideKeyboardInput) {
             return false;   // Let the class do the default thing.
@@ -182,13 +184,13 @@ public class CommandForWheeledRobotNavigationMobImplementationServer extends Com
         } else {
             fields.mVelocity = fields.mTargetVelocity;
         }
-        updateYawAndPitch(fields);
+        updateYawAndPitch(entity, fields);
         return true;
     }
 
     /** Called to turn the robot / move the camera.
      */
-    public void updateYawAndPitch(InternalFields fields)
+    public void updateYawAndPitch(MobEntity entity, InternalFields fields)
     {
         // Work out the time that has elapsed since we last updated the values.
         // (We need to do this because we can't guarantee that this method will be
@@ -208,7 +210,6 @@ public class CommandForWheeledRobotNavigationMobImplementationServer extends Com
         fields.mCameraPitch = (fields.mCameraPitch < -90) ? -90 : (fields.mCameraPitch > 90 ? 90 : fields.mCameraPitch);    // Clamp to [-90, 90]
 
         // And update the player:
-        MobEntity entity = fields.entity;
         if (entity != null)
         {
             entity.setPitch(fields.mCameraPitch);
@@ -242,6 +243,10 @@ public class CommandForWheeledRobotNavigationMobImplementationServer extends Com
         if (current == null){
             return false;
         }
+
+        MobEntity mobEntity = VereyaModServer.getInstance().getControlledMobs().get(entity_uuid);
+        LOGGER.info("processing mob " + mobEntity.getUuidAsString());
+        LOGGER.info("canMove: " + mobEntity.canMoveVoluntarily());
 
         // Now parse the command:
         if (verb.equalsIgnoreCase(ContinuousMovementCommand.MOVE.value()))

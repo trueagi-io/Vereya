@@ -28,6 +28,7 @@ import io.singularitynet.MissionHandlerInterfaces.IWorldGenerator;
 import io.singularitynet.MissionHandlers.MissionBehaviour;
 import io.singularitynet.MissionHandlers.MultidimensionalReward;
 import io.singularitynet.Server.VereyaModServer;
+import io.singularitynet.mixin.ClientWorldMixinAccess;
 import io.singularitynet.mixin.LevelStorageMixin;
 import io.singularitynet.mixin.SessionMixin;
 import io.singularitynet.projectmalmo.*;
@@ -52,6 +53,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.util.profiler.Profiler;
 import net.minecraft.world.World;
+import net.minecraft.world.entity.EntityLookup;
 import net.minecraft.world.level.storage.LevelStorage;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -63,6 +65,8 @@ import java.io.IOException;
 import java.net.UnknownHostException;
 import java.nio.file.Path;
 import java.util.*;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 
 /**
@@ -83,7 +87,7 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
     private static final String INFO_MCP_PORT = "info_mcp";
     private static final String INFO_RESERVE_STATUS = "info_reservation";
     // Directly reference a log4j logger.
-    private static final Logger LOGGER = LogManager.getLogger();
+    private static final Logger LOGGER = LogManager.getLogger(ClientStateMachine.class);
     private MissionInit currentMissionInit = null; // The MissionInit object for the mission currently being loaded/run.
     private MissionBehaviour missionBehaviour = null;// new MissionBehaviour();
     private IWorldGenerator worldGenerator = null;
@@ -96,6 +100,8 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
     protected IMalmoModClient inputController;
     private static String mod_version_xml = "0.1.0";
     private static String mod_version = "- 21";
+    private Set<String> mobQueue = new HashSet<>();
+    private Lock mobLock = new ReentrantLock();
     static {
     	Properties properties = new Properties();
 
@@ -209,26 +215,36 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
 
         // Register ourself on the event busses, so we can harness the client tick:
         ClientTickEvents.END_CLIENT_TICK.register(client -> this.onClientTick(client));
-        ClientEntityEvents.ENTITY_LOAD.register(this::onEntityLoad);
         ClientEntityEvents.ENTITY_UNLOAD.register(this::onEntityUnoad);
+        ClientEntityEvents.ENTITY_UNLOAD.register(this::onEntityLoad);
         SidesMessageHandler.server2client.registerForMessage(this, VereyaMessageType.SERVER_TEXT);
+        SidesMessageHandler.server2client.registerForMessage(this, VereyaMessageType.SERVER_CONTROLLED_MOB);
         setupClientCallbacks();
+    }
+
+    private void onEntityLoad(Entity entity, ClientWorld clientWorld) {
+        if (entity instanceof MobEntity) {
+            String uuid = entity.getUuidAsString();
+            mobLock.lock();
+            try{
+                if (mobQueue.contains(uuid)){
+                    LOGGER.debug("storing controlled mob on client " + uuid);
+                    this.controllableEntities.put(uuid, (MobEntity)entity);
+                }
+                removeUuid(uuid);
+            } finally {
+                mobLock.unlock();
+            }
+        }
     }
 
     private void onEntityUnoad(Entity entity, ClientWorld clientWorld) {
         if (entity instanceof MobEntity) {
             String uuid = entity.getUuidAsString();
             if (controllableEntities.containsKey(uuid)) {
+                LOGGER.info("removing " + uuid + "from controllableEntities " + entity.getType().toString());
                 controllableEntities.remove(uuid);
-            }
-        }
-    }
-
-    private void onEntityLoad(Entity entity, ClientWorld clientWorld) {
-        if (entity instanceof MobEntity) {
-            MobEntity mobEntity = (MobEntity) entity;
-            if (mobEntity.isAiDisabled()){
-                this.controllableEntities.put(mobEntity.getUuidAsString(), mobEntity);
+                removeUuid(uuid);
             }
         }
     }
@@ -261,6 +277,43 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
         }
         if (messageType == VereyaMessageType.SERVER_STOPPED) {
             this.onServerStopped();
+        }
+        if (messageType == VereyaMessageType.SERVER_CONTROLLED_MOB){
+            LOGGER.info("got server mob message" + data.toString());
+            this.onAddMobMsg(data);
+        }
+    }
+
+    protected void onAddMobMsg(Map<String, String> data){
+        String uuid = data.get("message");
+        mobLock.lock();
+        try {
+            mobQueue.add(uuid);
+        } finally {
+            mobLock.unlock();
+        }
+        this.findMob(uuid);
+    }
+
+    protected void findMob(String uuid){
+        ClientWorldMixinAccess world = (ClientWorldMixinAccess)MinecraftClient.getInstance().world;
+        if (world != null) {
+            EntityLookup<Entity> lookup = world.getEntityManager().getLookup();
+            MobEntity entity = (MobEntity)lookup.get(UUID.fromString(uuid));
+            if(entity != null){
+                LOGGER.debug("storing controlled mob on client: " + uuid);
+                controllableEntities.put(uuid, entity);
+                removeUuid(uuid);
+            }
+        }
+    }
+
+    private void removeUuid(String uuid) {
+        mobLock.lock();
+        try{
+            mobQueue.remove(uuid);
+        } finally {
+            mobLock.unlock();
         }
     }
 
@@ -1059,6 +1112,7 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
                 // The server has started ticking - we can set up its state machine,
                 // and move on to the next state in our own machine.
                 this.serverStarted = true;
+                LOGGER.info("server started: initializing state machine from CreateWorldEpisode");
                 VereyaModServer.getInstance().initServerStateMachine(currentMissionInit(), server); // Needs to be done from the server thread.
                 episodeHasCompleted(ClientState.WAITING_FOR_SERVER_READY);
             }
@@ -1181,6 +1235,7 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
                                     if (VereyaModServer.getInstance().hasServer()) {
                                         VereyaModServer.getInstance().sendMissionInitDirectToServer(currentMissionInit);
                                     } else {
+                                        LOGGER.info("creating server state machine from EvaluateWorldRequirementsEpisode");
                                         VereyaModServer.getInstance().initServerStateMachine(currentMissionInit(), MinecraftClient.getInstance().getServer()); // Needs to be done from the server thread.
                                     }
                                     //MalmoMod.instance.sendMissionInitDirectToServer(currentMissionInit);

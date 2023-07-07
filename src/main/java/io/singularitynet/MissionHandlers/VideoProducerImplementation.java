@@ -36,11 +36,11 @@ public class VideoProducerImplementation extends HandlerBase implements IVideoPr
     }
 
     @Override
-    public AbstractMap.Entry<ByteBuffer, int[]> getFrame(MissionInit missionInit)
+    public int[] writeFrame(MissionInit missionInit, ByteBuffer buffer)
     {
         if (!this.videoParams.isWantDepth())
         {
-            return getRGBFrame(); // Just return the simple RGB, 3bpp image.
+            return writeRGBFrame(buffer); // Just return the simple RGB, 3bpp image.
         }
         else
             throw new RuntimeException("Depth map not implemented");
@@ -55,20 +55,16 @@ public class VideoProducerImplementation extends HandlerBase implements IVideoPr
     @Override
     public int getHeight() { return this.videoParams.getHeight(); }
 
-    private AbstractMap.Entry<ByteBuffer, int[]> getRGBFrame()
+    private int[] writeRGBFrame(ByteBuffer buffer)
     {
         Framebuffer framebuffer = MinecraftClient.getInstance().getFramebuffer();
         int i = framebuffer.textureWidth;
         int j = framebuffer.textureHeight;
-        ByteBuffer resBuffer = BufferUtils.createByteBuffer(i * j * 4);
-        resBuffer.flip();
-        GlStateManager._readPixels(0, 0, i, j, NativeImage.Format.RGBA.toGl(), GL11.GL_UNSIGNED_BYTE, resBuffer);
-        int[] sizes = new int[3];
+        GlStateManager._readPixels(0, 0, i, j, NativeImage.Format.RGBA.toGl(), GL11.GL_UNSIGNED_BYTE, buffer);
+        int[] sizes = new int[2];
         sizes[0] = i;
         sizes[1] = j;
-        sizes[2] = 4; //since RGBA image
-        AbstractMap.Entry<ByteBuffer, int[]> res = new AbstractMap.SimpleEntry<>(resBuffer , sizes);
-        return res;
+        return sizes;
     }
 
     @Override

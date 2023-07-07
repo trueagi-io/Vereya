@@ -10,6 +10,7 @@ import io.singularitynet.utils.AddressHelper;
 import io.singularitynet.utils.TCPSocketChannel;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gl.Framebuffer;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.util.Window;
 import net.minecraft.util.math.Vec3d;
@@ -57,6 +58,8 @@ public class VideoHook {
      */
     private long retry_time_ns = 0;
 
+
+    private Framebuffer framebuffer = MinecraftClient.getInstance().getFramebuffer();
     /**
      * Calling stop() if we're not running is a no-op.
      */
@@ -89,6 +92,8 @@ public class VideoHook {
     private int renderedWidth = 0;
     private int renderedHeight = 0;
 
+    private int texChannels = 4;
+
     ByteBuffer buffer;
     // check also Malmo/src/TimestampedVideoFrame.h
 
@@ -112,7 +117,7 @@ public class VideoHook {
         this.missionInit = missionInit;
         this.videoProducer = videoProducer;
         this.observer = observer;
-        this.buffer = BufferUtils.createByteBuffer(0);
+        this.buffer = BufferUtils.createByteBuffer(this.framebuffer.textureWidth * this.framebuffer.textureHeight * this.texChannels);
         this.renderWidth = videoProducer.getWidth();
         this.renderHeight = videoProducer.getHeight();
         resizeIfNeeded();
@@ -307,6 +312,12 @@ public class VideoHook {
             } else {
                 tictac = "tac";
                 Map<String, Number> header_map = new HashMap<>();
+                this.buffer.clear();
+                this.buffer.flip();
+                if (this.framebuffer.textureWidth * this.framebuffer.textureHeight * this.texChannels != this.buffer.limit())
+                {
+                    this.buffer = BufferUtils.createByteBuffer(this.framebuffer.textureWidth * this.framebuffer.textureHeight * this.texChannels);
+                }
                 header_map.put("x", x);
                 header_map.put("y", y);
                 header_map.put("z", z);
@@ -314,11 +325,10 @@ public class VideoHook {
                 header_map.put("pitch", pitch);
                 glGetFloatv(GL_PROJECTION_MATRIX, projection);
                 glGetFloatv(GL_MODELVIEW_MATRIX, modelview);
-                AbstractMap.Entry<ByteBuffer, int[]> res = this.videoProducer.getFrame(this.missionInit);
-                int[] sizes = res.getValue();
+                int[] sizes = this.videoProducer.getFrame(this.missionInit, this.buffer);
                 header_map.put("img_width", sizes[0]);
                 header_map.put("img_height", sizes[1]);
-                header_map.put("img_ch", sizes[2]);
+                header_map.put("img_ch", this.texChannels);
                 JSONObject jo_header = new JSONObject(header_map);
                 float[] proj_floats = new float[16];
                 float[] modelview_floats = new float[16];
@@ -326,7 +336,6 @@ public class VideoHook {
                 readColumnMajor(modelview_floats, modelview.asReadOnlyBuffer());
                 jo_header.append("projectionMatrix", proj_floats);
                 jo_header.append("modelViewMatrix", modelview_floats);
-                this.buffer = res.getKey();
                 byte[] jo_bytes = jo_header.toString().getBytes(StandardCharsets.UTF_8);
                 int jo_len = jo_bytes.length;
                 time_after_render_ns = System.nanoTime();

@@ -1,3 +1,5 @@
+![CI](https://github.com/trueagi-io/Vereya/actions/workflows/build.yml/badge.svg)
+
 ## Overview
 
 Vereya provides API for controlling AI agents in Minecraft. This mod inherits some pieces of the Malmo project, but with various changes and additions. 

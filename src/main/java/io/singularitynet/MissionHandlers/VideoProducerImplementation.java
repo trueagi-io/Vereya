@@ -6,13 +6,13 @@ import io.singularitynet.projectmalmo.MissionInit;
 import io.singularitynet.projectmalmo.VideoProducer;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.Framebuffer;
-import net.minecraft.client.texture.NativeImage;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL11;
 
 import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
-import java.util.AbstractMap;
+
+import static org.lwjgl.opengl.GL12.GL_BGRA;
 
 public class VideoProducerImplementation extends HandlerBase implements IVideoProducer
 {
@@ -60,7 +60,7 @@ public class VideoProducerImplementation extends HandlerBase implements IVideoPr
         Framebuffer framebuffer = MinecraftClient.getInstance().getFramebuffer();
         int i = framebuffer.textureWidth;
         int j = framebuffer.textureHeight;
-        GlStateManager._readPixels(0, 0, i, j, NativeImage.Format.RGBA.toGl(), GL11.GL_UNSIGNED_BYTE, buffer);
+        GlStateManager._readPixels(0, 0, i, j, GL_BGRA, GL11.GL_UNSIGNED_BYTE, buffer);
         int[] sizes = new int[2];
         sizes[0] = i;
         sizes[1] = j;

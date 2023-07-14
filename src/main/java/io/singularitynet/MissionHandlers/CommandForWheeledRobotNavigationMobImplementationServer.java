@@ -88,14 +88,13 @@ public class CommandForWheeledRobotNavigationMobImplementationServer extends Com
 
         public void tick(){
             if (CommandForWheeledRobotNavigationMobImplementationServer.this.updateState(entity, fields)) {
-                this.speed = fields.mVelocity;
-                this.sidewaysMovement = fields.mStrafeVelocity;
-                // from MoveControl.tick
+                float speed = fields.mVelocity;
+                float sidewaysMovement = fields.mStrafeVelocity;
                 float f = (float) this.entity.getAttributeValue(EntityAttributes.GENERIC_MOVEMENT_SPEED);
-                float g = (float) this.speed * f;
-                this.entity.setMovementSpeed(g);
-                this.entity.setForwardSpeed(this.forwardMovement);
-                this.entity.setSidewaysSpeed(this.sidewaysMovement);
+                float g = speed * f;
+                this.entity.setMovementSpeed(f);
+                this.entity.setForwardSpeed(g);
+                this.entity.setSidewaysSpeed(sidewaysMovement * f);
             } else {
                 super.tick();
             }

@@ -377,7 +377,6 @@
             <xs:element ref="ChatCommands" minOccurs="0"/>
             <xs:element ref="SimpleCraftCommands" minOccurs="0"/>
             <xs:element ref="BlockPlaceCommands" minOccurs="0"/>
-            <xs:element ref="MobPlaceCommands" minOccurs="0"/>
             <xs:element ref="NearbyCraftCommands" minOccurs="0"/>
             <xs:element ref="NearbySmeltCommands" minOccurs="0"/>
             <xs:element ref="PlaceCommands" minOccurs="0"/>

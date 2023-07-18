@@ -1621,21 +1621,6 @@
         </xs:restriction>
     </xs:simpleType>
 
-    <xs:simpleType name="MobPlaceCommand">
-        <xs:annotation>
-            <xs:documentation>
-                A command for placing a block:
-
-                "placeBlock 1 2 3 minecraft:stone replace"
-
-                etc.
-            </xs:documentation>
-        </xs:annotation>
-        <xs:restriction base="xs:string">
-            <xs:enumeration value="placeMob" />
-        </xs:restriction>
-    </xs:simpleType>
-
     <xs:simpleType name="MissionQuitCommand">
         <xs:annotation>
             <xs:documentation>

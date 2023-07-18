@@ -1480,21 +1480,6 @@
         </xs:restriction>
     </xs:simpleType>
 
-    <xs:simpleType name="ControlMobCommand">
-        <xs:annotation>
-            <xs:documentation>
-                create controllable mob:
-
-                "{{{craft carpet PINK}}}"
-
-                etc.
-            </xs:documentation>
-        </xs:annotation>
-        <xs:restriction base="xs:string">
-            <xs:enumeration value="craft" />
-        </xs:restriction>
-    </xs:simpleType>
-
     <xs:simpleType name="ObservationFromRecipe">
         <xs:annotation>
             <xs:documentation>

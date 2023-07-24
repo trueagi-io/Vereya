@@ -296,6 +296,8 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
     }
 
     protected void findMob(String uuid){
+        LOGGER.debug("looking for mob on client world " + uuid);
+        boolean found = false;
         ClientWorldMixinAccess world = (ClientWorldMixinAccess)MinecraftClient.getInstance().world;
         if (world != null) {
             EntityLookup<Entity> lookup = world.getEntityManager().getLookup();
@@ -304,8 +306,11 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
                 LOGGER.debug("storing controlled mob on client: " + uuid);
                 controllableEntities.put(uuid, entity);
                 removeUuid(uuid);
+                found = true;
             }
         }
+        if (!found)
+            LOGGER.info("didn't find controlled mob on client " + uuid);
     }
 
     private void removeUuid(String uuid) {

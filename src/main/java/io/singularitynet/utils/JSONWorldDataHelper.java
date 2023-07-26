@@ -129,6 +129,7 @@ public class JSONWorldDataHelper {
         json.addProperty("Pitch",  entity.getPitch());
         json.addProperty("Yaw", entity.getYaw());
         json.addProperty("bodyYaw", entity.getBodyYaw());
+        json.addProperty("onGround", entity.isOnGround());
     }
 
     public static void buildEnvironmentStats(JsonObject json, PlayerEntity player)

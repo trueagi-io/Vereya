@@ -51,6 +51,7 @@ import net.minecraft.network.PacketByteBuf;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.profiler.Profiler;
 import net.minecraft.world.World;
 import net.minecraft.world.entity.EntityLookup;
@@ -1294,15 +1295,32 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
         }
 
         private boolean isChunkReady()
-        {/*
+        {
+            LOGGER.debug("isChunkReady");
             // First, find the starting position we ought to have:
             List<AgentSection> agents = currentMissionInit().getMission().getAgentSection();
-            if (agents == null || agents.size() <= currentMissionInit().getClientRole())
+            if (agents == null || agents.size() <= currentMissionInit().getClientRole()) {
+                LOGGER.error("Unexpected number of agents in the mission: " + agents.size() + " " + currentMissionInit().getClientRole());
                 return true;    // This should never happen.
+            }
             AgentSection as = agents.get(currentMissionInit().getClientRole());
-            if (as.getAgentStart() != null && as.getAgentStart().getPlacement() != null)
-            {
+            if (as.getAgentStart() != null && as.getAgentStart().getPlacement() != null) {
                 PosAndDirection pos = as.getAgentStart().getPlacement();
+                PlayerEntity player = MinecraftClient.getInstance().player;
+                Vec3d pos_current = player.getPos();
+                double x_delta = Math.abs(pos.getX().floatValue() - pos_current.getX());
+                double z_delta = Math.abs(pos.getZ().floatValue() - pos_current.getZ());
+                double y_delta = Math.abs(pos.getY().floatValue() - pos_current.getY());
+                MinecraftClient.getInstance().player.isFallFlying();
+                if (x_delta < 0.5 && z_delta < 0.5) {
+                    if (y_delta < 0.5 || !player.isOnGround())
+                        return true;
+                }
+                setClientPos();
+                LOGGER.debug("Waiting for correct agent position x_delta: " + x_delta + " y_delta: " + y_delta + " z_delta: " + z_delta);
+                return false;
+            }
+                /*
                 int x = MathHelper.floor(pos.getX().doubleValue()) >> 4;
                 int z = MathHelper.floor(pos.getZ().doubleValue()) >> 4;
 
@@ -1336,8 +1354,8 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
             AgentSection as = agents.get(currentMissionInit().getClientRole());
             PosAndDirection pos = as.getAgentStart().getPlacement();
             if (pos != null) {
-                LOGGER.info("Setting agent pos to: x(" + pos.getX() + ") z(" + pos.getZ() + ") y(" + pos.getY() + ")");
-                MinecraftClient.getInstance().player.setPos(
+                LOGGER.info("Setting agent pos on client to: x(" + pos.getX() + ") z(" + pos.getZ() + ") y(" + pos.getY() + ")");
+                MinecraftClient.getInstance().player.setPosition(
                         pos.getX().doubleValue(),
                         pos.getY().doubleValue(),
                         pos.getZ().doubleValue());

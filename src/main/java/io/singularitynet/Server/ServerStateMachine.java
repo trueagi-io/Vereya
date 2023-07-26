@@ -760,6 +760,7 @@ public class ServerStateMachine extends StateMachine implements IVereyaMessageLi
             else if (messageType == VereyaMessageType.CLIENT_AGENTRUNNING)
             {
                 LOGGER.debug("SERVER: got AGENTRUNNING message");
+                LOGGER.debug("player position: " + player.getPos());
                 // A client has entered the running state (only happens once all CLIENT_AGENTREADY messages have arrived).
                 String username = data.get("username");
                 String agentname = this.usernameToAgentnameMap.get(username);
@@ -776,10 +777,15 @@ public class ServerStateMachine extends StateMachine implements IVereyaMessageLi
                             PosAndDirection pos = as.getAgentStart().getPlacement();
 
                             if (pos != null) {
-                                LOGGER.info("Setting agent pos to: x(" + pos.getX() + ") z(" + pos.getZ()  + ") y(" + pos.getY() + ")");
-                                player.setPos(pos.getX().doubleValue(),
+                                LOGGER.info("Setting agent pos on server: x(" + pos.getX() + ") z(" + pos.getZ()  + ") y(" + pos.getY() + ")");
+                                player.teleport(pos.getX().doubleValue(),
                                         pos.getY().doubleValue(),
                                         pos.getZ().doubleValue());
+                                /*
+                                player.setPosition(pos.getX().doubleValue(),
+                                        pos.getY().doubleValue(),
+                                        pos.getZ().doubleValue());
+                                 */
                             }
                             // And set their game type back now:
                             this.setGameType((ServerPlayerEntity) player, GameMode.byName(as.getMode().name().toLowerCase()));
@@ -845,7 +851,7 @@ public class ServerStateMachine extends StateMachine implements IVereyaMessageLi
                 if (pos != null) {
                     player.setYaw(pos.getYaw().floatValue());
                     player.setPitch(pos.getPitch().floatValue());
-                    LOGGER.info("Setting agent pos to: x(" + pos.getX() + ") z(" + pos.getZ()  + ") y(" + pos.getY() + ")");
+                    LOGGER.info("initialisePlayer setting agent pos on server to: x(" + pos.getX() + ") z(" + pos.getZ()  + ") y(" + pos.getY() + ")");
                     player.setPosition(pos.getX().doubleValue(),pos.getY().doubleValue(),pos.getZ().doubleValue());
                 }
                 player.setVelocity(0, 0, 0);	// Minimise chance of drift!

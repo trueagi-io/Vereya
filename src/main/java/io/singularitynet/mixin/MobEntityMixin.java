@@ -36,7 +36,6 @@ public abstract class MobEntityMixin extends LivingEntity {
         cir.setReturnValue(!this.getWorld().isClient);
     }
 
-
     @Inject(method="tickNewAi", at = @At("HEAD"), cancellable = true)
     protected void tickNewAi(CallbackInfo ci){
         if (this.isAiDisabled()){

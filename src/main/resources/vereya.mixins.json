@@ -9,7 +9,7 @@
     "KeyBindingMixin", "MouseMixin", "MouseAccessorMixin", "InGameHudMixin", "ServerWorldEntityLoaderMixin",
     "ServerEntityManagerMixin", "ServerWorldMixin", "LevelStorageMixin",
     "MinecraftClientEventsMixin", "LootTableProviderMixin", "MobEntityMixin", "MobEntityAccessorMixin",
-    "ClientWorldMixinAccess"
+    "ClientWorldMixinAccess", "EntityMixin"
   ],
   "server": [],
   "injectors": {

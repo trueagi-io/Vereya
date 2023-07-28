@@ -155,6 +155,7 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
     }
 
     protected InputType inputType = InputType.HUMAN;
+    protected InputType inputTypeAbs = InputType.HUMAN;
 
     private ClientStateMachine stateMachine;
     private static final String INFO_MOUSE_CONTROL = "mouse_control";
@@ -189,6 +190,24 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
     }
 
     private void onKey(long window, int key, int scancode, int action, int modifiers) {
+        if (inputTypeAbs==InputType.AI) {
+            if (((key == GLFW.GLFW_KEY_W) || (key == GLFW.GLFW_KEY_S) || (key == GLFW.GLFW_KEY_A) ||
+                    (key == GLFW.GLFW_KEY_D) || (key == GLFW.GLFW_KEY_SPACE)) && (action == GLFW.GLFW_PRESS)) {
+                if (inputType == InputType.AI) {
+                    setInputType(InputType.HUMAN);
+                } else {
+                    return;
+                }
+            } else if (((key == GLFW.GLFW_KEY_W) || (key == GLFW.GLFW_KEY_S) || (key == GLFW.GLFW_KEY_A) ||
+                    (key == GLFW.GLFW_KEY_D) || (key == GLFW.GLFW_KEY_SPACE)) && (action == GLFW.GLFW_RELEASE)) {
+                if (inputType == InputType.HUMAN) {
+                    setInputType(InputType.AI);
+                } else {
+                    return;
+                }
+            }
+        }
+
         if (key != GLFW.GLFW_KEY_ENTER)
             return;
         if (action != GLFW.GLFW_PRESS) return;
@@ -202,8 +221,10 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
         }
         if (inputType == InputType.AI) {
             setInputType(InputType.HUMAN);
+            inputTypeAbs = InputType.HUMAN;
         } else {
             setInputType(InputType.AI);
+            inputTypeAbs = InputType.AI;
         }
     }
 }

@@ -640,6 +640,7 @@ public class ClientStateMachine extends StateMachine implements IMalmoMessageLis
             public void run() {
                 MinecraftClient.getInstance().getServer().stop(true);
                 MinecraftClient.getInstance().stop();
+                MinecraftClient.getInstance().stop();
                 for (int i = 10; i > 0; i--) {
                     try {
                         Thread.sleep(1000);

@@ -99,7 +99,7 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
     private MissionDiagnostics missionEndedData = new MissionDiagnostics();
     private IScreenHelper screenHelper = new ScreenHelper();
     protected IMalmoModClient inputController;
-    private static String mod_version_xml = "0.1.0";
+    private static final String mod_version_xml = "0.1.0";
     private static String mod_version = "- 21";
     private Set<String> mobQueue = new HashSet<>();
     private Lock mobLock = new ReentrantLock();
@@ -216,7 +216,7 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
 
         // Register ourself on the event busses, so we can harness the client tick:
         ClientTickEvents.END_CLIENT_TICK.register(client -> this.onClientTick(client));
-        ClientEntityEvents.ENTITY_UNLOAD.register(this::onEntityUnoad);
+        ClientEntityEvents.ENTITY_UNLOAD.register(this::onEntityUnload);
         ClientEntityEvents.ENTITY_UNLOAD.register(this::onEntityLoad);
         SidesMessageHandler.server2client.registerForMessage(this, VereyaMessageType.SERVER_TEXT);
         SidesMessageHandler.server2client.registerForMessage(this, VereyaMessageType.SERVER_CONTROLLED_MOB);
@@ -239,7 +239,7 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
         }
     }
 
-    private void onEntityUnoad(Entity entity, ClientWorld clientWorld) {
+    private void onEntityUnload(Entity entity, ClientWorld clientWorld) {
         if (entity instanceof MobEntity) {
             String uuid = entity.getUuidAsString();
             if (controllableEntities.containsKey(uuid)) {
@@ -2009,15 +2009,19 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
                 // TCPUtils.Log(Level.INFO, "Act on " + command);
                 // Pass the command to our various control overrides:
                 // Minecraft.getMinecraft().mcProfiler.startSection("malmoCommandAct");
+                if (command != null) LOGGER.debug("Command " + command);
                 boolean handled = handleCommand(command);
+                if ((command != null) && !handled){
+                    LOGGER.warn("Command " + command + " not handled");
+                }
                 // Get the next command:
                 command = ClientStateMachine.this.controlInputPoller.getCommand();
-
                 // If there *is* another command (commands came in faster than one per client tick),
                 // then we should check our quit producer before deciding whether to execute it.
                 // Minecraft.getMinecraft().mcProfiler.endStartSection("malmoCommandRecheckQuitHandlers");
                 if (command != null && command.length() > 0 && handled)
                     quitHandlerFired = (quitHandler != null && quitHandler.doIWantToQuit(currentMissionInit()));
+
                 // Minecraft.getMinecraft().mcProfiler.endSection();
             }
         }

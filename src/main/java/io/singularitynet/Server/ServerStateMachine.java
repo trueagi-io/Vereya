@@ -27,14 +27,12 @@ import io.singularitynet.utils.ScreenHelper;
 import jakarta.xml.bind.JAXBElement;
 import jakarta.xml.bind.JAXBException;
 
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
-import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.mob.MobEntity;
 import net.minecraft.entity.player.PlayerEntity;
 
@@ -93,18 +91,18 @@ public class ServerStateMachine extends StateMachine implements IVereyaMessageLi
         LOGGER.debug("ServerStateMachine: Initialising with state " + initialState);
         LOGGER.debug("ServerStateMachine: " + this + " server " + server);
 
-        this.server = new WeakReference(server);
+        this.server = new WeakReference<MinecraftServer>(server);
         // Register ourself on the event busses, so we can harness the server tick:
         ServerTickEvents.END_SERVER_TICK.register(this::onServerTick);
         ServerLifecycleEvents.SERVER_STOPPING.register(this::onServerStopping);
         ServerLifecycleEvents.SERVER_STOPPED.register(this::onServerStopped);
         ServerLifecycleEvents.SERVER_STARTED.register(this::onServerStarted);
         ServerEntityEventsVereya.BEFORE_ENTITY_ADD.register(this::onGetPotentialSpawns);
-        ServerEntityEvents.ENTITY_UNLOAD.register(this::onEntityUnoad);
+        ServerEntityEvents.ENTITY_UNLOAD.register(this::onEntityUnload);
         ServerEntityEvents.ENTITY_LOAD.register(this::onEntityLoad);
     }
 
-    private void onEntityUnoad(Entity entity, ServerWorld serverWorld) {
+    private void onEntityUnload(Entity entity, ServerWorld serverWorld) {
         if (entity instanceof MobEntity) {
             MobEntity mobEntity = (MobEntity) entity;
             String uuid = mobEntity.getUuidAsString();

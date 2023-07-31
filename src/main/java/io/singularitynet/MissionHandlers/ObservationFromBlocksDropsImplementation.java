@@ -4,13 +4,13 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import com.google.gson.*;
-import com.mojang.logging.LogUtils;
 import org.jetbrains.annotations.Nullable;
-import net.minecraft.data.server.loottable.LootTableGenerator;
 import net.minecraft.loot.LootDataKey;
 import net.minecraft.loot.LootDataLookup;
 import net.minecraft.loot.LootDataType;
 import net.minecraft.loot.LootTable;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import io.singularitynet.MissionHandlerInterfaces.ICommandHandler;
 import io.singularitynet.MissionHandlerInterfaces.IObservationProducer;
@@ -23,8 +23,6 @@ import net.minecraft.data.DataWriter;
 import net.minecraft.data.server.loottable.LootTableProvider;
 import net.minecraft.data.server.loottable.vanilla.VanillaLootTableProviders;
 import net.minecraft.item.Item;
-import net.minecraft.loot.LootManager;
-import net.minecraft.loot.LootTable;
 import net.minecraft.loot.LootTableReporter;
 import net.minecraft.loot.context.LootContextType;
 import net.minecraft.loot.context.LootContextTypes;
@@ -32,7 +30,6 @@ import net.minecraft.registry.Registry;
 import net.minecraft.registry.tag.TagKey;
 import net.minecraft.util.Identifier;
 import io.singularitynet.mixin.LootTableProviderMixin;
-import org.slf4j.Logger;
 
 import java.nio.file.Path;
 import java.util.*;
@@ -41,8 +38,9 @@ import java.util.function.Function;
 import static net.minecraft.registry.Registries.ITEM;
 
 public class ObservationFromBlocksDropsImplementation extends HandlerBase implements IObservationProducer, ICommandHandler {
+
     private boolean sendRec;
-    private static final Logger LOGGER = LogUtils.getLogger();
+    private static final Logger LOGGER = LogManager.getLogger(ObservationFromBlocksDropsImplementation.class);
 
     @Override
     public boolean isOverriding() {
@@ -69,7 +67,7 @@ public class ObservationFromBlocksDropsImplementation extends HandlerBase implem
         String comm[] = command.split(" ", 2);
         if (comm.length == 2 && comm[0].equalsIgnoreCase(ObservationFromBlocksDrop.BLOCKDROPS.value())) {
             if (!comm[1].equalsIgnoreCase("off")) {
-                LOGGER.debug("setting sendRec = false in ObservationFromBlocksDrops");
+                LOGGER.debug("setting sendRec = true in ObservationFromBlocksDrops");
                 this.sendRec = true;
                 return true;
             }

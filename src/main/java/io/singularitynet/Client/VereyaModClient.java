@@ -11,6 +11,7 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.Keyboard;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.Mouse;
+import net.minecraft.client.gui.hud.ChatHud;
 import net.minecraft.client.gui.screen.*;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -193,7 +194,7 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
         if (inputTypeAbs==InputType.AI) {
             if (((key == GLFW.GLFW_KEY_W) || (key == GLFW.GLFW_KEY_S) || (key == GLFW.GLFW_KEY_A) ||
                     (key == GLFW.GLFW_KEY_D) || (key == GLFW.GLFW_KEY_SPACE)) && (action == GLFW.GLFW_PRESS)) {
-                if (inputType == InputType.AI) {
+                if ((inputType == InputType.AI) & !(MinecraftClient.getInstance().currentScreen instanceof ChatScreen)) {
                     setInputType(InputType.HUMAN);
                 } else {
                     return;

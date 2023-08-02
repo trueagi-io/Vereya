@@ -3,19 +3,24 @@ package io.singularitynet.MissionHandlers;
 import io.singularitynet.projectmalmo.BlockPlaceCommand;
 import io.singularitynet.projectmalmo.MissionInit;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.text.Text;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 public class BlockPlaceCommandsImplementation extends CommandBase {
 
+    private static final Logger LOGGER = LogManager.getLogger(BlockPlaceCommandsImplementation.class.getName());
+
+
     /*
-        place block at x,y,z
-        placement is replace, destroy, keep
-        blockType is block name like minecraft:stone
-    */
+            place block at x,y,z
+            placement is replace, destroy, keep
+            blockType is block name like minecraft:stone
+        */
     private void placeBlock(int x, int y, int z, String blockType, String placement){
         // use SetBlock command
         // https://minecraft.gamepedia.com/Commands/setblock
         MinecraftClient client = MinecraftClient.getInstance();
+        LOGGER.debug("setting block at " + x + " " + y + " " + z + " " + placement);
         client.player.networkHandler.sendCommand("setblock " + x + " " + y + " " + z + " " + blockType + " " + placement);
     }
 
@@ -45,6 +50,7 @@ public class BlockPlaceCommandsImplementation extends CommandBase {
         {
             return false;
         }
+        LOGGER.debug("block place command " + parameter);
         // parse parameters
         String[] params = parameter.split(" ");
         if (params.length != 5)

@@ -208,7 +208,8 @@ public class CommandForWheeledRobotNavigationImplementation extends CommandBase
         {
             return false;
         }
-        
+        String parameters[] = parameter.split(" ");
+        if (parameters.length != 1) return false;
         // Now parse the command:
         if (verb.equalsIgnoreCase(ContinuousMovementCommand.MOVE.value()))
         {

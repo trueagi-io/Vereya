@@ -8,15 +8,16 @@ import io.singularitynet.projectmalmo.MissionInit;
 import io.singularitynet.projectmalmo.ObservationFromSolid;
 import net.minecraft.block.Block;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.item.Item;
 import net.minecraft.registry.Registry;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.util.List;
 
 import static net.minecraft.registry.Registries.BLOCK;
 
 public class ObservationFromSolidnessImplementation extends HandlerBase implements IObservationProducer, ICommandHandler {
-
+    private static final Logger LOGGER = LogManager.getLogger(ObservationFromSolidnessImplementation.class);
     private boolean sendRec;
 
     @Override
@@ -37,6 +38,7 @@ public class ObservationFromSolidnessImplementation extends HandlerBase implemen
         if (comm.length == 2 && comm[0].equalsIgnoreCase(ObservationFromSolid.SOLID.value()) &&
                 !comm[1].equalsIgnoreCase("off")) {
             this.sendRec = true;
+            LOGGER.debug("ObservationFromSolidnessImplementation set Flag");
             return true;
         }
         return false;
@@ -53,6 +55,7 @@ public class ObservationFromSolidnessImplementation extends HandlerBase implemen
         if (!this.sendRec){
             return;
         }
+        LOGGER.debug("ObservationFromSolidnessImplementation writing observation");
         this.sendRec = false;
         Registry<Block> blocks = MinecraftClient.getInstance().world.getRegistryManager().get(BLOCK.getKey());
         List<Block> list_blocks = blocks.stream().toList();

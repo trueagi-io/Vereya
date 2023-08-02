@@ -20,6 +20,7 @@
 package io.singularitynet.MissionHandlers;
 
 import com.google.gson.JsonObject;
+import io.singularitynet.Client.VereyaModClient;
 import io.singularitynet.MissionHandlerInterfaces.IObservationProducer;
 import io.singularitynet.projectmalmo.GridDefinition;
 import io.singularitynet.projectmalmo.MissionInit;
@@ -27,6 +28,7 @@ import io.singularitynet.projectmalmo.ObservationFromGrid;
 import io.singularitynet.utils.JSONWorldDataHelper;
 import io.singularitynet.utils.JSONWorldDataHelper.GridDimensions;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.entity.mob.MobEntity;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -56,6 +58,18 @@ public class ObservationFromGridImplementation extends HandlerBase implements IO
             for (SimpleGridDef sgd : environs)
             {
                 JSONWorldDataHelper.buildGridData(json, sgd.getEnvirons(), MinecraftClient.getInstance().player, sgd.name);
+                JsonObject controllableEnities = json.getAsJsonObject(VereyaModClient.CONTROLLABLE);
+                if (controllableEnities != null) {
+                    for(MobEntity entity: VereyaModClient.getControllableEntities().values()){
+                        String uuid = entity.getUuidAsString();
+                        JsonObject entityJson = controllableEnities.getAsJsonObject(uuid);
+                        if (entityJson == null){
+                            entityJson = new JsonObject();
+                            controllableEnities.add(uuid, entityJson);
+                        }
+                        JSONWorldDataHelper.buildGridData(entityJson, sgd.getEnvirons(), entity, sgd.name);
+                    }
+                }
             }
         }
     }

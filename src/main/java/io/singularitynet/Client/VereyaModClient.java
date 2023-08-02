@@ -11,7 +11,8 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.Keyboard;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.Mouse;
-import net.minecraft.client.gui.hud.ChatHud;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.mob.MobEntity;
 import net.minecraft.client.gui.screen.*;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -19,10 +20,12 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.lwjgl.glfw.GLFW;
 
-import java.util.Objects;
+import java.util.HashMap;
+import java.util.Map;
 
 public class VereyaModClient implements ClientModInitializer, IMalmoModClient, ScreenEvents
 {
+    public static final String CONTROLLABLE = "ControlledMobs";
     private InputType prevInputType = null;
 
     public static final String AGENT_DEAD_QUIT_CODE = "MALMO_AGENT_DIED";
@@ -128,9 +131,6 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
 
     @Override
     public void onInitializeClient() {
-        // Register for various events:
-        // MinecraftForge.EVENT_BUS.register(this);
-        // TCPUtils.setLogging(TCPUtils.SeverityLevel.LOG_DETAILED);
         this.prevInputType = InputType.AI;
         this.stateMachine = new ClientStateMachine(ClientState.WAITING_FOR_MOD_READY, (IMalmoModClient) this);
         // subscribe to setScreen event
@@ -163,7 +163,13 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
     protected InputType inputType = InputType.HUMAN;
     protected InputType inputTypeAbs = InputType.HUMAN;
 
-    private ClientStateMachine stateMachine;
+    private static ClientStateMachine stateMachine;
+    public static Map<String, MobEntity> getControllableEntities(){
+        if (stateMachine == null)
+            return new HashMap<>();
+        return stateMachine.controllableEntities;
+    }
+    
     private static final String INFO_MOUSE_CONTROL = "mouse_control";
 
     /** Switch the input type between Human and AI.<br>

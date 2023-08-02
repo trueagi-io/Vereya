@@ -14,6 +14,8 @@ import net.minecraft.client.Mouse;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.mob.MobEntity;
 import net.minecraft.client.gui.screen.*;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.mob.MobEntity;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
@@ -164,12 +166,13 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
     protected InputType inputTypeAbs = InputType.HUMAN;
 
     private static ClientStateMachine stateMachine;
+
     public static Map<String, MobEntity> getControllableEntities(){
         if (stateMachine == null)
             return new HashMap<>();
         return stateMachine.controllableEntities;
     }
-    
+
     private static final String INFO_MOUSE_CONTROL = "mouse_control";
 
     /** Switch the input type between Human and AI.<br>

@@ -27,17 +27,13 @@ import io.singularitynet.utils.ScreenHelper;
 import jakarta.xml.bind.JAXBElement;
 import jakarta.xml.bind.JAXBException;
 
-import net.fabricmc.api.EnvType;
-import net.fabricmc.api.Environment;
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientChunkEvents;
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
+import net.minecraft.entity.mob.MobEntity;
 import net.minecraft.entity.player.PlayerEntity;
 
 import net.minecraft.item.ItemStack;
@@ -51,7 +47,6 @@ import net.minecraft.world.GameRules;
 import net.minecraft.world.World;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.apache.logging.log4j.core.jmx.Server;
 import org.xml.sax.SAXException;
 
 
@@ -59,7 +54,7 @@ import javax.xml.stream.XMLStreamException;
 import java.lang.ref.WeakReference;
 import java.util.*;
 
-import static io.singularitynet.MalmoMessageType.CLIENT_BAILED;
+import static io.singularitynet.VereyaMessageType.CLIENT_BAILED;
 
 /**
  * Class designed to track and control the state of the mod, especially regarding mission launching/running.<br>
@@ -68,18 +63,19 @@ import static io.singularitynet.MalmoMessageType.CLIENT_BAILED;
  * subclasses to react to certain state changes.<br>
  * The ProjectMalmo mod app class inherits from this and uses these hooks to run missions.
  */
-public class ServerStateMachine extends StateMachine implements IMalmoMessageListener {
+public class ServerStateMachine extends StateMachine implements IVereyaMessageListener {
     private MissionInit currentMissionInit = null;   	// The MissionInit object for the mission currently being loaded/run.
     private MissionInit queuedMissionInit = null;		// The MissionInit requested from elsewhere - dormant episode will check for its presence.
     private MissionBehaviour missionHandlers = null;	// The Mission handlers for the mission currently being loaded/run.
     protected String quitCode = "";						// Code detailing the reason for quitting this mission.
     private WeakReference<MinecraftServer> server;
-    private static final Logger LOGGER = LogManager.getLogger();
+    private static final Logger LOGGER = LogManager.getLogger(ServerStateMachine.class);
 
     // agentConnectionWatchList is used to keep track of the clients in a multi-agent mission. If, at any point, a username appears in
     // this list, but can't be found in the MinecraftServer.getServer().getAllUsernames(), that constitutes an error, and the mission will exit.
     private ArrayList<String> userConnectionWatchList = new ArrayList<String>();
     private ArrayList<String> userTurnSchedule = new ArrayList<String>();
+    public Map<String, MobEntity> controllableEntities = new HashMap();
 
     /** Called to initialise a state machine for a specific Mission request.<br>
      * Most likely caused by the client creating an integrated server.
@@ -95,14 +91,41 @@ public class ServerStateMachine extends StateMachine implements IMalmoMessageLis
         LOGGER.debug("ServerStateMachine: Initialising with state " + initialState);
         LOGGER.debug("ServerStateMachine: " + this + " server " + server);
 
-        this.server = new WeakReference(server);
+        this.server = new WeakReference<MinecraftServer>(server);
         // Register ourself on the event busses, so we can harness the server tick:
         ServerTickEvents.END_SERVER_TICK.register(this::onServerTick);
         ServerLifecycleEvents.SERVER_STOPPING.register(this::onServerStopping);
         ServerLifecycleEvents.SERVER_STOPPED.register(this::onServerStopped);
         ServerLifecycleEvents.SERVER_STARTED.register(this::onServerStarted);
         ServerEntityEventsVereya.BEFORE_ENTITY_ADD.register(this::onGetPotentialSpawns);
+        ServerEntityEvents.ENTITY_UNLOAD.register(this::onEntityUnload);
+        ServerEntityEvents.ENTITY_LOAD.register(this::onEntityLoad);
     }
+
+    private void onEntityUnload(Entity entity, ServerWorld serverWorld) {
+        if (entity instanceof MobEntity) {
+            MobEntity mobEntity = (MobEntity) entity;
+            String uuid = mobEntity.getUuidAsString();
+            if (controllableEntities.containsKey(uuid)) {
+                LOGGER.debug("removing controlled mob uuid: " + uuid);
+                controllableEntities.remove(uuid);
+            }
+        }
+    }
+
+    private void onEntityLoad(Entity entity, ServerWorld serverWorld) {
+        if (entity instanceof MobEntity){
+            MobEntity mobEntity = (MobEntity) entity;
+            if (mobEntity.isAiDisabled()){
+                String uuid = mobEntity.getUuidAsString();
+                controllableEntities.put(uuid, mobEntity);
+                LOGGER.debug("sending new controlled mob message to client uuid: " + uuid);
+                sendToAll(new VereyaMessage(VereyaMessageType.SERVER_CONTROLLED_MOB, uuid));
+            }
+        }
+    }
+
+
 
     /** Used to prevent spawning in our world.*/
     public ActionResult onGetPotentialSpawns(Entity entity, ServerWorld world)
@@ -128,7 +151,7 @@ public class ServerStateMachine extends StateMachine implements IMalmoMessageLis
                 boolean allowed = false;
                 for (EntityTypes mob : sic.getAllowedMobs())
                 {
-                    if (mob.value().toLowerCase().equals(mobName.toLowerCase())) { allowed = true; }
+                    if (mob.value().equalsIgnoreCase(mobName.toLowerCase())) { allowed = true; }
                 }
                 if (!allowed) {
                     if (entity.isPlayer()) return ActionResult.PASS;
@@ -155,7 +178,7 @@ public class ServerStateMachine extends StateMachine implements IMalmoMessageLis
 
     private void onServerStopping(MinecraftServer s) {
         LOGGER.info("informing client that we are stopping");
-        sendToAll(new MalmoMessage(MalmoMessageType.SERVER_STOPPED, 0, new HashMap<>()));
+        sendToAll(new VereyaMessage(VereyaMessageType.SERVER_STOPPED, 0, new HashMap<>()));
     }
 
     private void onServerStopped(MinecraftServer s){
@@ -237,8 +260,8 @@ public class ServerStateMachine extends StateMachine implements IMalmoMessageLis
 
     protected void initialiseHandlers(MissionInit init) throws Exception
     {
-        LOGGER.info("initialising handlers on Server");
         this.missionHandlers = MissionBehaviour.createServerHandlersFromMissionInit(init);
+        LOGGER.info("initialised handlers on Server" + this.server);
     }
 
     @Override
@@ -248,10 +271,10 @@ public class ServerStateMachine extends StateMachine implements IMalmoMessageLis
         Map<String, String> data = new HashMap<String, String>();
         data.put("text", text);
         data.put("category", ScreenHelper.TextCategory.TXT_SERVER_STATE.name());
-        sendToAll(new MalmoMessage(MalmoMessageType.SERVER_TEXT, 0, data));
+        sendToAll(new VereyaMessage(VereyaMessageType.SERVER_TEXT, 0, data));
     }
 
-    private void sendToAll(MalmoMessage msg){
+    private void sendToAll(VereyaMessage msg){
         MinecraftServer server = this.server.get();
         if (server == null){
             LOGGER.error("server is null, msg type " + msg.getMessageType().toString());
@@ -362,12 +385,12 @@ public class ServerStateMachine extends StateMachine implements IMalmoMessageLis
     }
 
     @Override
-    public void onMessage(MalmoMessageType messageType, Map<String, String> data) {
+    public void onMessage(VereyaMessageType messageType, Map<String, String> data) {
          throw new RuntimeException("ServerStateMachine.onMessage() should never be called on server!");
     }
 
     @Override
-    public void onMessage(MalmoMessageType messageType, Map<String, String> data, ServerPlayerEntity player) {
+    public void onMessage(VereyaMessageType messageType, Map<String, String> data, ServerPlayerEntity player) {
 
     }
 
@@ -398,7 +421,7 @@ public class ServerStateMachine extends StateMachine implements IMalmoMessageLis
     //---------------------------------------------------------------------------------------------------------
     // Episode helpers - each extends a MissionStateEpisode to encapsulate a certain state
     //---------------------------------------------------------------------------------------------------------
-    public abstract class ErrorAwareEpisode extends StateEpisode implements IMalmoMessageListener
+    public abstract class ErrorAwareEpisode extends StateEpisode implements IVereyaMessageListener
     {
         protected Boolean errorFlag = false;
         protected Map<String, String> errorData = null;
@@ -406,12 +429,12 @@ public class ServerStateMachine extends StateMachine implements IMalmoMessageLis
         public ErrorAwareEpisode(ServerStateMachine machine)
         {
             super(machine);
-            // MalmoMod.MalmoMessageHandler.registerForMessage(this, MalmoMessageType.CLIENT_BAILED);
+            // MalmoMod.MalmoMessageHandler.registerForMessage(this, VereyaMessageType.CLIENT_BAILED);
             SidesMessageHandler.client2server.registerForMessage(this, CLIENT_BAILED);
         }
 
         @Override
-        public void onMessage(MalmoMessageType messageType, Map<String, String> data, ServerPlayerEntity player)
+        public void onMessage(VereyaMessageType messageType, Map<String, String> data, ServerPlayerEntity player)
         {
             LOGGER.debug("Got message: " + messageType.name());
             LOGGER.debug(data.toString());
@@ -428,7 +451,7 @@ public class ServerStateMachine extends StateMachine implements IMalmoMessageLis
         }
 
         @Override
-        public void onMessage(MalmoMessageType messageType, Map<String, String> data){
+        public void onMessage(VereyaMessageType messageType, Map<String, String> data){
             throw new RuntimeException("Got client message in Server side");
         }
 
@@ -469,7 +492,7 @@ public class ServerStateMachine extends StateMachine implements IMalmoMessageLis
         {
             super(machine);
             this.ssmachine = machine;
-            SidesMessageHandler.client2server.registerForMessage(this, MalmoMessageType.CLIENT_MISSION_INIT);
+            SidesMessageHandler.client2server.registerForMessage(this, VereyaMessageType.CLIENT_MISSION_INIT);
             if (machine.hasQueuedMissionInit())
             {
                 // This is highly suspicious - the queued mission init is a mechanism whereby the client state machine can pass its mission init
@@ -542,7 +565,9 @@ public class ServerStateMachine extends StateMachine implements IMalmoMessageLis
             }
             catch (Exception e)
             {
-                // TODO: What?
+                LOGGER.error("Failed to initialize server state machine", e);
+                // exit
+                System.exit(1);
             }
             // Move on to next state:
             ServerSection ss = currentMissionInit().getMission().getServerSection();
@@ -554,9 +579,9 @@ public class ServerStateMachine extends StateMachine implements IMalmoMessageLis
 
 
         @Override
-        public void onMessage(MalmoMessageType messageType, Map<String, String> data, ServerPlayerEntity player) {
+        public void onMessage(VereyaMessageType messageType, Map<String, String> data, ServerPlayerEntity player) {
             LOGGER.debug("ServerStateMachine.onMessage() received message of type " + messageType.toString() + " from " + player.getName().getString());
-            if (messageType == MalmoMessageType.CLIENT_MISSION_INIT) {
+            if (messageType == VereyaMessageType.CLIENT_MISSION_INIT) {
                 // deserialize the mission init
                 try {
                     MissionInit init = (MissionInit) SchemaHelper.deserialiseObject(data.get("MissionInit"), MissionInit.class);
@@ -574,7 +599,7 @@ public class ServerStateMachine extends StateMachine implements IMalmoMessageLis
         @Override
         public void cleanup()
         {
-            SidesMessageHandler.client2server.deregisterForMessage(this, MalmoMessageType.CLIENT_MISSION_INIT);
+            SidesMessageHandler.client2server.deregisterForMessage(this, VereyaMessageType.CLIENT_MISSION_INIT);
         }
     }
 
@@ -620,7 +645,7 @@ public class ServerStateMachine extends StateMachine implements IMalmoMessageLis
 
     //---------------------------------------------------------------------------------------------------------
     /** Wait for all participants to join the game.*/
-    public class WaitingForAgentsEpisode extends ErrorAwareEpisode implements IMalmoMessageListener
+    public class WaitingForAgentsEpisode extends ErrorAwareEpisode implements IVereyaMessageListener
     {
         // pendingReadyAgents starts full - agent is removed when it joins the server. When list is empty, moves to next phase (waiting for running).
         private ArrayList<String> pendingReadyAgents = new ArrayList<String>();
@@ -637,8 +662,8 @@ public class ServerStateMachine extends StateMachine implements IMalmoMessageLis
         protected WaitingForAgentsEpisode(ServerStateMachine machine)
         {
             super(machine);
-            SidesMessageHandler.client2server.registerForMessage(this, MalmoMessageType.CLIENT_AGENTREADY);
-            SidesMessageHandler.client2server.registerForMessage(this, MalmoMessageType.CLIENT_AGENTRUNNING);
+            SidesMessageHandler.client2server.registerForMessage(this, VereyaMessageType.CLIENT_AGENTREADY);
+            SidesMessageHandler.client2server.registerForMessage(this, VereyaMessageType.CLIENT_AGENTRUNNING);
 
             ServerStateMachine.this.clearUserConnectionWatchList(); // We will build this up as agents join us.
             ServerStateMachine.this.clearUserTurnSchedule();        // We will build this up too, if needed.
@@ -649,8 +674,8 @@ public class ServerStateMachine extends StateMachine implements IMalmoMessageLis
         public void cleanup()
         {
             super.cleanup();
-            SidesMessageHandler.client2server.deregisterForMessage(this, MalmoMessageType.CLIENT_AGENTREADY);
-            SidesMessageHandler.client2server.deregisterForMessage(this, MalmoMessageType.CLIENT_AGENTRUNNING);
+            SidesMessageHandler.client2server.deregisterForMessage(this, VereyaMessageType.CLIENT_AGENTREADY);
+            SidesMessageHandler.client2server.deregisterForMessage(this, VereyaMessageType.CLIENT_AGENTRUNNING);
         }
 
         private void addUsernameToTurnSchedule(String username, Integer requestedPosition)
@@ -692,21 +717,23 @@ public class ServerStateMachine extends StateMachine implements IMalmoMessageLis
         }
 
         @Override
-        public void onMessage(MalmoMessageType messageType, Map<String, String> data) {
+        public void onMessage(VereyaMessageType messageType, Map<String, String> data) {
             throw new RuntimeException("Unexpected message to client: " + messageType.name());
         }
 
         @Override
-        public void onMessage(MalmoMessageType messageType, Map<String, String> data, ServerPlayerEntity player)
+        public void onMessage(VereyaMessageType messageType, Map<String, String> data, ServerPlayerEntity player)
         {
             super.onMessage(messageType, data, player);
-            if (messageType == MalmoMessageType.CLIENT_AGENTREADY)
+            if (messageType == VereyaMessageType.CLIENT_AGENTREADY)
             {
                 LOGGER.debug("SERVER: got AGENTREADY message");
                 // A client has joined and is waiting for us to tell us it can proceed.
                 // Initialise the player, and store a record mapping from the username to the agentname.
                 String username = data.get("username");
                 String agentname = data.get("agentname");
+                LOGGER.debug("username: " + username + ", agentname: " + agentname);
+                LOGGER.debug("pendingReadyAgents now contains " + this.pendingReadyAgents);
                 if (username != null && agentname != null && this.pendingReadyAgents.contains(agentname))
                 {
                     initialisePlayer(username, agentname);
@@ -728,9 +755,10 @@ public class ServerStateMachine extends StateMachine implements IMalmoMessageLis
                         onCastAssembled();
                 }
             }
-            else if (messageType == MalmoMessageType.CLIENT_AGENTRUNNING)
+            else if (messageType == VereyaMessageType.CLIENT_AGENTRUNNING)
             {
                 LOGGER.debug("SERVER: got AGENTRUNNING message");
+                LOGGER.debug("player position: " + player.getPos());
                 // A client has entered the running state (only happens once all CLIENT_AGENTREADY messages have arrived).
                 String username = data.get("username");
                 String agentname = this.usernameToAgentnameMap.get(username);
@@ -747,10 +775,15 @@ public class ServerStateMachine extends StateMachine implements IMalmoMessageLis
                             PosAndDirection pos = as.getAgentStart().getPlacement();
 
                             if (pos != null) {
-                                LOGGER.info("Setting agent pos to: x(" + pos.getX() + ") z(" + pos.getZ()  + ") y(" + pos.getY() + ")");
-                                player.setPos(pos.getX().doubleValue(),
+                                LOGGER.info("Setting agent pos on server: x(" + pos.getX() + ") z(" + pos.getZ()  + ") y(" + pos.getY() + ")");
+                                player.teleport(pos.getX().doubleValue(),
                                         pos.getY().doubleValue(),
                                         pos.getZ().doubleValue());
+                                /*
+                                player.setPosition(pos.getX().doubleValue(),
+                                        pos.getY().doubleValue(),
+                                        pos.getZ().doubleValue());
+                                 */
                             }
                             // And set their game type back now:
                             this.setGameType((ServerPlayerEntity) player, GameMode.byName(as.getMode().name().toLowerCase()));
@@ -816,7 +849,7 @@ public class ServerStateMachine extends StateMachine implements IMalmoMessageLis
                 if (pos != null) {
                     player.setYaw(pos.getYaw().floatValue());
                     player.setPitch(pos.getPitch().floatValue());
-                    LOGGER.info("Setting agent pos to: x(" + pos.getX() + ") z(" + pos.getZ()  + ") y(" + pos.getY() + ")");
+                    LOGGER.info("initialisePlayer setting agent pos on server to: x(" + pos.getX() + ") z(" + pos.getZ()  + ") y(" + pos.getY() + ")");
                     player.setPosition(pos.getX().doubleValue(),pos.getY().doubleValue(),pos.getZ().doubleValue());
                 }
                 player.setVelocity(0, 0, 0);	// Minimise chance of drift!
@@ -911,7 +944,7 @@ public class ServerStateMachine extends StateMachine implements IMalmoMessageLis
 
             // And tell them all they can proceed:
             LOGGER.debug("Sending SERVER_ALLPLAYERSJOINED to all clients.");
-            sendToAll(new MalmoMessage(MalmoMessageType.SERVER_ALLPLAYERSJOINED, 0, data));
+            sendToAll(new VereyaMessage(VereyaMessageType.SERVER_ALLPLAYERSJOINED, 0, data));
         }
 
         @Override
@@ -922,7 +955,7 @@ public class ServerStateMachine extends StateMachine implements IMalmoMessageLis
             // Do some tidying:
             resetPlayerGameTypes();
             // And tell all the clients to abort:
-            sendToAll(new MalmoMessage(MalmoMessageType.SERVER_ABORT, 0, errorData));
+            sendToAll(new VereyaMessage(VereyaMessageType.SERVER_ABORT, 0, errorData));
             // And abort ourselves:
             episodeHasCompleted(ServerState.ERROR);
         }
@@ -1010,25 +1043,25 @@ public class ServerStateMachine extends StateMachine implements IMalmoMessageLis
                 }
             }
             // And register for the agent-finished message:
-            SidesMessageHandler.client2server.registerForMessage(this, MalmoMessageType.CLIENT_AGENTFINISHEDMISSION);
-            SidesMessageHandler.client2server.registerForMessage(this, MalmoMessageType.CLIENT_SHARE_REWARD);
-            SidesMessageHandler.client2server.registerForMessage(this, MalmoMessageType.CLIENT_TURN_TAKEN);
+            SidesMessageHandler.client2server.registerForMessage(this, VereyaMessageType.CLIENT_AGENTFINISHEDMISSION);
+            SidesMessageHandler.client2server.registerForMessage(this, VereyaMessageType.CLIENT_SHARE_REWARD);
+            SidesMessageHandler.client2server.registerForMessage(this, VereyaMessageType.CLIENT_TURN_TAKEN);
         }
 
         @Override
         public void cleanup()
         {
             super.cleanup();
-            SidesMessageHandler.client2server.deregisterForMessage(this, MalmoMessageType.CLIENT_AGENTFINISHEDMISSION);
-            SidesMessageHandler.client2server.deregisterForMessage(this, MalmoMessageType.CLIENT_SHARE_REWARD);
-            SidesMessageHandler.client2server.deregisterForMessage(this, MalmoMessageType.CLIENT_TURN_TAKEN);
+            SidesMessageHandler.client2server.deregisterForMessage(this, VereyaMessageType.CLIENT_AGENTFINISHEDMISSION);
+            SidesMessageHandler.client2server.deregisterForMessage(this, VereyaMessageType.CLIENT_SHARE_REWARD);
+            SidesMessageHandler.client2server.deregisterForMessage(this, VereyaMessageType.CLIENT_TURN_TAKEN);
         }
 
         @Override
-        public void onMessage(MalmoMessageType messageType, Map<String, String> data, ServerPlayerEntity player)
+        public void onMessage(VereyaMessageType messageType, Map<String, String> data, ServerPlayerEntity player)
         {
             super.onMessage(messageType, data, player);
-            if (messageType == MalmoMessageType.CLIENT_AGENTFINISHEDMISSION)
+            if (messageType == VereyaMessageType.CLIENT_AGENTFINISHEDMISSION)
             {
                 // this agentname is legacy from old malmo code
                 // we can use player object passed from messaging code
@@ -1044,11 +1077,11 @@ public class ServerStateMachine extends StateMachine implements IMalmoMessageLis
                     ServerStateMachine.this.removeFromTurnSchedule(agentName);
                 }
             }
-            else if (messageType == MalmoMessageType.CLIENT_SHARE_REWARD)
+            else if (messageType == VereyaMessageType.CLIENT_SHARE_REWARD)
             {
-                ServerStateMachine.this.sendToAll(new MalmoMessage(MalmoMessageType.SERVER_SHARE_REWARD, 0, data));
+                ServerStateMachine.this.sendToAll(new VereyaMessage(VereyaMessageType.SERVER_SHARE_REWARD, 0, data));
             }
-            else if (messageType == MalmoMessageType.CLIENT_TURN_TAKEN)
+            else if (messageType == VereyaMessageType.CLIENT_TURN_TAKEN)
             {
                 String agentName = data.get("agentname");
                 //String userName = data.get("username");
@@ -1059,7 +1092,7 @@ public class ServerStateMachine extends StateMachine implements IMalmoMessageLis
                     String error = "ERROR IN TURN SCHEDULER - cannot find the successor to " +  agentName;
                     saveErrorDetails(error);
                     System.out.println(error);
-                    ServerStateMachine.this.sendToAll(new MalmoMessage(MalmoMessageType.SERVER_ABORT, 0, data));
+                    ServerStateMachine.this.sendToAll(new VereyaMessage(VereyaMessageType.SERVER_ABORT, 0, data));
                     episodeHasCompleted(ServerState.ERROR);
                 }
                 else
@@ -1067,7 +1100,7 @@ public class ServerStateMachine extends StateMachine implements IMalmoMessageLis
                     // Find the relevant agent; send a message to it.
                     if (player != null)
                     {
-                        MalmoMessage msg = new MalmoMessage(MalmoMessageType.SERVER_YOUR_TURN, 0, null);
+                        VereyaMessage msg = new VereyaMessage(VereyaMessageType.SERVER_YOUR_TURN, 0, null);
                         ServerPlayNetworking.send(player, NetworkConstants.SERVER2CLIENT, msg.toBytes());
                     }
                     else if (getHandlers().worldDecorator != null)
@@ -1080,7 +1113,7 @@ public class ServerStateMachine extends StateMachine implements IMalmoMessageLis
                             String error = "ERROR IN TURN SCHEDULER - could not find client for user " + nextAgentName;
                             saveErrorDetails(error);
                             LOGGER.error(error);
-                            ServerStateMachine.this.sendToAll(new MalmoMessage(MalmoMessageType.SERVER_ABORT,
+                            ServerStateMachine.this.sendToAll(new VereyaMessage(VereyaMessageType.SERVER_ABORT,
                                     0, null));
                             episodeHasCompleted(ServerState.ERROR);
                         }
@@ -1118,7 +1151,7 @@ public class ServerStateMachine extends StateMachine implements IMalmoMessageLis
                 getHandlers().worldDecorator.prepare(currentMissionInit());
 
             // Fire the starting pistol:
-            ServerStateMachine.this.sendToAll(new MalmoMessage(MalmoMessageType.SERVER_GO, 0, null));
+            ServerStateMachine.this.sendToAll(new VereyaMessage(VereyaMessageType.SERVER_GO, 0, null));
             // And start the turn schedule turning, if there is one:
             if (!ServerStateMachine.this.userTurnSchedule.isEmpty())
             {
@@ -1127,7 +1160,7 @@ public class ServerStateMachine extends StateMachine implements IMalmoMessageLis
                 if (player != null)
                 {
                     ServerPlayNetworking.send(player, NetworkConstants.SERVER2CLIENT,
-                            new MalmoMessage(MalmoMessageType.SERVER_YOUR_TURN, 0, null).toBytes());
+                            new VereyaMessage(VereyaMessageType.SERVER_YOUR_TURN, 0, null).toBytes());
                 }
                 else if (getHandlers().worldDecorator != null)
                 {
@@ -1232,7 +1265,7 @@ public class ServerStateMachine extends StateMachine implements IMalmoMessageLis
             // Do some tidying:
             onMissionEnded(false);
             // Tell all the clients to abort:
-            ServerStateMachine.this.sendToAll(new MalmoMessage(MalmoMessageType.SERVER_ABORT, 0, null));
+            ServerStateMachine.this.sendToAll(new VereyaMessage(VereyaMessageType.SERVER_ABORT, 0, null));
             // And abort ourselves:
             episodeHasCompleted(ServerState.ERROR);
         }
@@ -1247,14 +1280,14 @@ public class ServerStateMachine extends StateMachine implements IMalmoMessageLis
 
     //---------------------------------------------------------------------------------------------------------
     /** Wait for all agents to stop running and get themselves into a ready state.*/
-    public class WaitingForAgentsToQuitEpisode extends ErrorAwareEpisode implements IMalmoMessageListener
+    public class WaitingForAgentsToQuitEpisode extends ErrorAwareEpisode implements IVereyaMessageListener
     {
         private HashMap<String, Boolean> agentsStopped = new HashMap<String, Boolean>();
 
         protected WaitingForAgentsToQuitEpisode(ServerStateMachine machine)
         {
             super(machine);
-            SidesMessageHandler.client2server.registerForMessage(this, MalmoMessageType.CLIENT_AGENTSTOPPED);
+            SidesMessageHandler.client2server.registerForMessage(this, VereyaMessageType.CLIENT_AGENTSTOPPED);
         }
 
         @Override
@@ -1268,26 +1301,26 @@ public class ServerStateMachine extends StateMachine implements IMalmoMessageLis
             // Now tell all the agents to stop what they are doing:
             Map<String, String>data = new HashMap<String, String>();
             data.put("QuitCode", ServerStateMachine.this.quitCode);
-            ServerStateMachine.this.sendToAll(new MalmoMessage(MalmoMessageType.SERVER_STOPAGENTS, 0, data));
+            ServerStateMachine.this.sendToAll(new VereyaMessage(VereyaMessageType.SERVER_STOPAGENTS, 0, data));
         }
 
         @Override
-        public void onMessage(MalmoMessageType messageType, Map<String, String> data) {
+        public void onMessage(VereyaMessageType messageType, Map<String, String> data) {
             throw new RuntimeException("Unexpected message to client");
         }
 
         @Override
-        public void onMessage(MalmoMessageType messageType, Map<String, String> data, ServerPlayerEntity player)
+        public void onMessage(VereyaMessageType messageType, Map<String, String> data, ServerPlayerEntity player)
         {
             super.onMessage(messageType, data, player);
-            if (messageType == MalmoMessageType.CLIENT_AGENTSTOPPED)
+            if (messageType == VereyaMessageType.CLIENT_AGENTSTOPPED)
             {
                 String name = data.get("agentname");
                 this.agentsStopped.put(name, true);
                 if (!this.agentsStopped.containsValue(false))
                 {
                     // Agents are all finished and awaiting our message.
-                    ServerStateMachine.this.sendToAll(new MalmoMessage(MalmoMessageType.SERVER_MISSIONOVER, 0, null));
+                    ServerStateMachine.this.sendToAll(new VereyaMessage(VereyaMessageType.SERVER_MISSIONOVER, 0, null));
                     episodeHasCompleted(ServerState.CLEAN_UP);
                 }
             }
@@ -1297,7 +1330,7 @@ public class ServerStateMachine extends StateMachine implements IMalmoMessageLis
         public void cleanup()
         {
             super.cleanup();
-            SidesMessageHandler.client2server.deregisterForMessage(this, MalmoMessageType.CLIENT_AGENTSTOPPED);
+            SidesMessageHandler.client2server.deregisterForMessage(this, VereyaMessageType.CLIENT_AGENTSTOPPED);
         }
 
         @Override
@@ -1308,7 +1341,7 @@ public class ServerStateMachine extends StateMachine implements IMalmoMessageLis
                 // Something has gone wrong - we've lost a connection.
                 // Need to respond to this, otherwise we'll sit here forever waiting for a client that no longer exists
                 // to tell us it's finished its mission.
-                ServerStateMachine.this.sendToAll(new MalmoMessage(MalmoMessageType.SERVER_ABORT, 0, null));
+                ServerStateMachine.this.sendToAll(new VereyaMessage(VereyaMessageType.SERVER_ABORT, 0, null));
                 LOGGER.warn("WaitingForAgentsToQuitEpisode.onServerTick Lost connection to client(s) - aborting mission.");
                 episodeHasCompleted(ServerState.ERROR);
             }

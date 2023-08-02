@@ -1,6 +1,6 @@
 package io.singularitynet;
 
-public enum MalmoMessageType
+public enum VereyaMessageType
 {
     SERVER_NULLMESSASGE,
     SERVER_ALLPLAYERSJOINED,
@@ -17,6 +17,7 @@ public enum MalmoMessageType
     SERVER_SHARE_REWARD,        // Server has received a reward from a client and is distributing it to the other agents
     SERVER_YOUR_TURN,           // Server turn scheduler is telling client that it is their go next
     SERVER_SOMEOTHERMESSAGE,
+    SERVER_CONTROLLED_MOB,
     CLIENT_AGENTREADY,			// Client response to server's ready request
     CLIENT_AGENTRUNNING,		// Client has just started running
     CLIENT_AGENTSTOPPED,		// Client response to server's stop request
@@ -27,5 +28,6 @@ public enum MalmoMessageType
     CLIENT_SOMEOTHERMESSAGE,
     CLIENT_CRAFT, // Client telling the server what to craft
     CLIENT_INVENTORY_CHANGE, // Client tells server to modify inventory
-    CLIENT_MISSION_INIT // Client tells server to start a new mission
+    CLIENT_MISSION_INIT, // Client tells server to start a new mission
+    CLIENT_MOVE  // move command for controlled mob
 }

@@ -11,11 +11,8 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.Keyboard;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.Mouse;
-import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.mob.MobEntity;
 import net.minecraft.client.gui.screen.*;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.mob.MobEntity;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
@@ -220,15 +217,15 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
             }
         }
         if (inputTypeAbs==InputType.HYBRID) {
-            if (((key == GLFW.GLFW_KEY_W) || (key == GLFW.GLFW_KEY_S) || (key == GLFW.GLFW_KEY_A) ||
-                    (key == GLFW.GLFW_KEY_D) || (key == GLFW.GLFW_KEY_SPACE)) && (action == GLFW.GLFW_PRESS)) {
+            boolean bKey = (key == GLFW.GLFW_KEY_W) || (key == GLFW.GLFW_KEY_S) || (key == GLFW.GLFW_KEY_A) ||
+                    (key == GLFW.GLFW_KEY_D) || (key == GLFW.GLFW_KEY_SPACE);
+            if (bKey && (action == GLFW.GLFW_PRESS)) {
                 if ((inputType == InputType.AI) & !(MinecraftClient.getInstance().currentScreen instanceof ChatScreen)) {
                     setInputType(InputType.HUMAN);
                 } else {
                     return;
                 }
-            } else if (((key == GLFW.GLFW_KEY_W) || (key == GLFW.GLFW_KEY_S) || (key == GLFW.GLFW_KEY_A) ||
-                    (key == GLFW.GLFW_KEY_D) || (key == GLFW.GLFW_KEY_SPACE)) && (action == GLFW.GLFW_RELEASE)) {
+            } else if (bKey && (action == GLFW.GLFW_RELEASE)) {
                 if (inputType == InputType.HUMAN) {
                     setInputType(InputType.AI);
                 } else {

@@ -11,9 +11,8 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.Keyboard;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.Mouse;
-import net.minecraft.client.gui.screen.*;
-import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.mob.MobEntity;
+import net.minecraft.client.gui.screen.*;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
@@ -26,6 +25,8 @@ import java.util.Map;
 public class VereyaModClient implements ClientModInitializer, IMalmoModClient, ScreenEvents
 {
     public static final String CONTROLLABLE = "ControlledMobs";
+    private InputType prevInputType = null;
+
     public static final String AGENT_DEAD_QUIT_CODE = "MALMO_AGENT_DIED";
     public static final String AGENT_UNRESPONSIVE_CODE = "MALMO_AGENT_NOT_RESPONDING";
     public static final String VIDEO_UNRESPONSIVE_CODE = "MALMO_VIDEO_NOT_RESPONDING";
@@ -129,6 +130,7 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
 
     @Override
     public void onInitializeClient() {
+        this.prevInputType = InputType.AI;
         this.stateMachine = new ClientStateMachine(ClientState.WAITING_FOR_MOD_READY, (IMalmoModClient) this);
         // subscribe to setScreen event
         ScreenEvents.SET_SCREEN.register(this);
@@ -154,10 +156,11 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
     // Control overriding:
     enum InputType
     {
-        HUMAN, AI
+        HUMAN, AI, HYBRID
     }
 
     protected InputType inputType = InputType.HUMAN;
+    protected InputType inputTypeAbs = InputType.HUMAN;
 
     private static ClientStateMachine stateMachine;
 
@@ -199,6 +202,38 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
     }
 
     private void onKey(long window, int key, int scancode, int action, int modifiers) {
+        if ((key == GLFW.GLFW_KEY_F6) && (action == GLFW.GLFW_PRESS))
+        {
+            if (inputTypeAbs == InputType.HYBRID)
+            {
+                inputTypeAbs = this.prevInputType;
+                setInputType(this.prevInputType);
+            }
+            else
+            {
+                this.prevInputType = inputTypeAbs;
+                inputTypeAbs = InputType.HYBRID;
+                setInputType(InputType.AI);
+            }
+        }
+        if (inputTypeAbs==InputType.HYBRID) {
+            boolean bKey = (key == GLFW.GLFW_KEY_W) || (key == GLFW.GLFW_KEY_S) || (key == GLFW.GLFW_KEY_A) ||
+                    (key == GLFW.GLFW_KEY_D) || (key == GLFW.GLFW_KEY_SPACE);
+            if (bKey && (action == GLFW.GLFW_PRESS)) {
+                if ((inputType == InputType.AI) & !(MinecraftClient.getInstance().currentScreen instanceof ChatScreen)) {
+                    setInputType(InputType.HUMAN);
+                } else {
+                    return;
+                }
+            } else if (bKey && (action == GLFW.GLFW_RELEASE)) {
+                if (inputType == InputType.HUMAN) {
+                    setInputType(InputType.AI);
+                } else {
+                    return;
+                }
+            }
+        }
+
         if (key != GLFW.GLFW_KEY_ENTER)
             return;
         if (action != GLFW.GLFW_PRESS) return;
@@ -212,8 +247,10 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
         }
         if (inputType == InputType.AI) {
             setInputType(InputType.HUMAN);
+            inputTypeAbs = InputType.HUMAN;
         } else {
             setInputType(InputType.AI);
+            inputTypeAbs = InputType.AI;
         }
     }
 }

@@ -12,14 +12,20 @@ import net.minecraft.client.Keyboard;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.Mouse;
 import net.minecraft.client.gui.screen.*;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.mob.MobEntity;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.lwjgl.glfw.GLFW;
 
+import java.util.HashMap;
+import java.util.Map;
+
 public class VereyaModClient implements ClientModInitializer, IMalmoModClient, ScreenEvents
 {
+    public static final String CONTROLLABLE = "ControlledMobs";
     public static final String AGENT_DEAD_QUIT_CODE = "MALMO_AGENT_DIED";
     public static final String AGENT_UNRESPONSIVE_CODE = "MALMO_AGENT_NOT_RESPONDING";
     public static final String VIDEO_UNRESPONSIVE_CODE = "MALMO_VIDEO_NOT_RESPONDING";
@@ -123,9 +129,6 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
 
     @Override
     public void onInitializeClient() {
-        // Register for various events:
-        // MinecraftForge.EVENT_BUS.register(this);
-        // TCPUtils.setLogging(TCPUtils.SeverityLevel.LOG_DETAILED);
         this.stateMachine = new ClientStateMachine(ClientState.WAITING_FOR_MOD_READY, (IMalmoModClient) this);
         // subscribe to setScreen event
         ScreenEvents.SET_SCREEN.register(this);
@@ -156,7 +159,14 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
 
     protected InputType inputType = InputType.HUMAN;
 
-    private ClientStateMachine stateMachine;
+    private static ClientStateMachine stateMachine;
+
+    public static Map<String, MobEntity> getControllableEntities(){
+        if (stateMachine == null)
+            return new HashMap<>();
+        return stateMachine.controllableEntities;
+    }
+
     private static final String INFO_MOUSE_CONTROL = "mouse_control";
 
     /** Switch the input type between Human and AI.<br>

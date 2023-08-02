@@ -1,9 +1,8 @@
 package io.singularitynet.MissionHandlers;
 
-import io.singularitynet.IMalmoMessageListener;
-import io.singularitynet.MalmoMessage;
-import io.singularitynet.MalmoMessageType;
-import io.singularitynet.MissionHandlerInterfaces.ICommandHandler;
+import io.singularitynet.IVereyaMessageListener;
+import io.singularitynet.VereyaMessage;
+import io.singularitynet.VereyaMessageType;
 import io.singularitynet.SidesMessageHandler;
 import io.singularitynet.projectmalmo.MissionInit;
 import net.minecraft.entity.player.PlayerInventory;
@@ -24,17 +23,17 @@ import java.util.Map;
  * in slots 0 and 10.<br>
  * The hotbar slots are 0-8, so this mechanism allows an agent to move items in to/out of the hotbar.
  */
-public class InventoryCommandsImplementationServer extends CommandBase implements IMalmoMessageListener
+public class InventoryCommandsImplementationServer extends CommandBase implements IVereyaMessageListener
 {
     private static final Logger LOGGER = LogManager.getLogger(InventoryCommandsImplementationServer.class.getName());
 
     @Override
-    public void onMessage(MalmoMessageType messageType, Map<String, String> data) {
+    public void onMessage(VereyaMessageType messageType, Map<String, String> data) {
         throw new RuntimeException("calling client-side message handler on server " + messageType.toString());
     }
 
     @Override
-    public void onMessage(MalmoMessageType messageType, Map<String, String> data, ServerPlayerEntity player) {
+    public void onMessage(VereyaMessageType messageType, Map<String, String> data, ServerPlayerEntity player) {
         InventoryMessage msg = new InventoryMessage(data);
         LOGGER.debug("InventoryCommandsImplementationServer.onMessage: " + msg);
         runCommand(msg, player);
@@ -54,13 +53,13 @@ public class InventoryCommandsImplementationServer extends CommandBase implement
     public void install(MissionInit missionInit)
     {
         LOGGER.info("Installing InventoryCommandsImplementationServer");
-        SidesMessageHandler.client2server.registerForMessage(this, MalmoMessageType.CLIENT_INVENTORY_CHANGE);
+        SidesMessageHandler.client2server.registerForMessage(this, VereyaMessageType.CLIENT_INVENTORY_CHANGE);
     }
 
     @Override
     public void deinstall(MissionInit missionInit) {
         LOGGER.info("Deinstalling InventoryCommandsImplementationServer");
-        SidesMessageHandler.client2server.deregisterForMessage(this, MalmoMessageType.CLIENT_INVENTORY_CHANGE);
+        SidesMessageHandler.client2server.deregisterForMessage(this, VereyaMessageType.CLIENT_INVENTORY_CHANGE);
     }
 
     static ItemStack[] swapSlots(ServerPlayerEntity player, String lhsInv, int lhs, String rhsInv, int rhs, BlockPos containerPos)
@@ -222,7 +221,7 @@ public class InventoryCommandsImplementationServer extends CommandBase implement
         throw new RuntimeException("InventoryCommandsImplementationServer.onExecute() should never be called!");
     }
 
-    public static class InventoryMessage extends MalmoMessage {
+    public static class InventoryMessage extends VereyaMessage {
         String invA;
         String invB;
         int slotA;
@@ -231,7 +230,7 @@ public class InventoryCommandsImplementationServer extends CommandBase implement
         BlockPos containerPos;
 
         public InventoryMessage(Map<String, String> data) {
-            super(MalmoMessageType.CLIENT_INVENTORY_CHANGE, "inventory");
+            super(VereyaMessageType.CLIENT_INVENTORY_CHANGE, "inventory");
             this.getData().putAll(data);
             this.invA = data.get("invA");
             this.invB = data.get("invB");
@@ -244,7 +243,7 @@ public class InventoryCommandsImplementationServer extends CommandBase implement
         }
 
         public InventoryMessage(List<Object> params, boolean combine) {
-            super(MalmoMessageType.CLIENT_INVENTORY_CHANGE, "inventory");
+            super(VereyaMessageType.CLIENT_INVENTORY_CHANGE, "inventory");
             this.invA = (String) params.get(0);
             this.slotA = (Integer) params.get(1);
             this.invB = (String) params.get(2);

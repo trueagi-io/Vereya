@@ -20,6 +20,7 @@ package io.singularitynet.MissionHandlers;
 
 
 import com.google.gson.JsonObject;
+import io.singularitynet.Client.VereyaModClient;
 import io.singularitynet.MissionHandlerInterfaces.IObservationProducer;
 import io.singularitynet.projectmalmo.MissionInit;
 import io.singularitynet.utils.JSONWorldDataHelper;
@@ -48,6 +49,7 @@ public class ObservationFromFullStatsImplementation  extends HandlerBase impleme
         JSONWorldDataHelper.buildLifeStats(json, player);
         JSONWorldDataHelper.buildPositionStats(json, player);
         JSONWorldDataHelper.buildEnvironmentStats(json, player);
+        JSONWorldDataHelper.buildControllableMobsData(json, VereyaModClient.getControllableEntities());
     }
 
 }

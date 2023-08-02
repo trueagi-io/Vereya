@@ -19,8 +19,12 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.lwjgl.glfw.GLFW;
 
+import java.util.Objects;
+
 public class VereyaModClient implements ClientModInitializer, IMalmoModClient, ScreenEvents
 {
+    private InputType prevInputType = null;
+
     public static final String AGENT_DEAD_QUIT_CODE = "MALMO_AGENT_DIED";
     public static final String AGENT_UNRESPONSIVE_CODE = "MALMO_AGENT_NOT_RESPONDING";
     public static final String VIDEO_UNRESPONSIVE_CODE = "MALMO_VIDEO_NOT_RESPONDING";
@@ -127,6 +131,7 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
         // Register for various events:
         // MinecraftForge.EVENT_BUS.register(this);
         // TCPUtils.setLogging(TCPUtils.SeverityLevel.LOG_DETAILED);
+        this.prevInputType = InputType.AI;
         this.stateMachine = new ClientStateMachine(ClientState.WAITING_FOR_MOD_READY, (IMalmoModClient) this);
         // subscribe to setScreen event
         ScreenEvents.SET_SCREEN.register(this);
@@ -152,7 +157,7 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
     // Control overriding:
     enum InputType
     {
-        HUMAN, AI
+        HUMAN, AI, HYBRID
     }
 
     protected InputType inputType = InputType.HUMAN;
@@ -191,7 +196,21 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
     }
 
     private void onKey(long window, int key, int scancode, int action, int modifiers) {
-        if (inputTypeAbs==InputType.AI) {
+        if ((key == GLFW.GLFW_KEY_F6) && (action == GLFW.GLFW_PRESS))
+        {
+            if (inputTypeAbs == InputType.HYBRID)
+            {
+                inputTypeAbs = this.prevInputType;
+                setInputType(this.prevInputType);
+            }
+            else
+            {
+                this.prevInputType = inputTypeAbs;
+                inputTypeAbs = InputType.HYBRID;
+                setInputType(InputType.AI);
+            }
+        }
+        if (inputTypeAbs==InputType.HYBRID) {
             if (((key == GLFW.GLFW_KEY_W) || (key == GLFW.GLFW_KEY_S) || (key == GLFW.GLFW_KEY_A) ||
                     (key == GLFW.GLFW_KEY_D) || (key == GLFW.GLFW_KEY_SPACE)) && (action == GLFW.GLFW_PRESS)) {
                 if ((inputType == InputType.AI) & !(MinecraftClient.getInstance().currentScreen instanceof ChatScreen)) {

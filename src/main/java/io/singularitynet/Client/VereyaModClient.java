@@ -25,7 +25,6 @@ import java.util.Map;
 public class VereyaModClient implements ClientModInitializer, IMalmoModClient, ScreenEvents
 {
     public static final String CONTROLLABLE = "ControlledMobs";
-    private InputType prevInputType = null;
 
     boolean hybridMode = false;
 
@@ -132,7 +131,6 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
 
     @Override
     public void onInitializeClient() {
-        this.prevInputType = InputType.AI;
         this.stateMachine = new ClientStateMachine(ClientState.WAITING_FOR_MOD_READY, (IMalmoModClient) this);
         // subscribe to setScreen event
         ScreenEvents.SET_SCREEN.register(this);
@@ -206,12 +204,9 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
         if ((key == GLFW.GLFW_KEY_F6) && (action == GLFW.GLFW_PRESS))
         {
             if (hybridMode)
-                setInputType(this.prevInputType);
+                setInputType(inputType);
             else
-            {
-                this.prevInputType = inputType;
                 setInputType(InputType.AI);
-            }
             hybridMode = ! hybridMode;
         }
         if (hybridMode) {

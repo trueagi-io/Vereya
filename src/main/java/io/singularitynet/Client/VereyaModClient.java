@@ -27,6 +27,8 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
     public static final String CONTROLLABLE = "ControlledMobs";
     private InputType prevInputType = null;
 
+    boolean hybridMode = false;
+
     public static final String AGENT_DEAD_QUIT_CODE = "MALMO_AGENT_DIED";
     public static final String AGENT_UNRESPONSIVE_CODE = "MALMO_AGENT_NOT_RESPONDING";
     public static final String VIDEO_UNRESPONSIVE_CODE = "MALMO_VIDEO_NOT_RESPONDING";
@@ -156,11 +158,10 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
     // Control overriding:
     enum InputType
     {
-        HUMAN, AI, HYBRID
+        HUMAN, AI
     }
 
     protected InputType inputType = InputType.HUMAN;
-    protected InputType inputTypeAbs = InputType.HUMAN;
 
     private static ClientStateMachine stateMachine;
 
@@ -204,19 +205,16 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
     private void onKey(long window, int key, int scancode, int action, int modifiers) {
         if ((key == GLFW.GLFW_KEY_F6) && (action == GLFW.GLFW_PRESS))
         {
-            if (inputTypeAbs == InputType.HYBRID)
-            {
-                inputTypeAbs = this.prevInputType;
+            if (hybridMode)
                 setInputType(this.prevInputType);
-            }
             else
             {
-                this.prevInputType = inputTypeAbs;
-                inputTypeAbs = InputType.HYBRID;
+                this.prevInputType = inputType;
                 setInputType(InputType.AI);
             }
+            hybridMode = ! hybridMode;
         }
-        if (inputTypeAbs==InputType.HYBRID) {
+        if (hybridMode) {
             boolean bKey = (key == GLFW.GLFW_KEY_W) || (key == GLFW.GLFW_KEY_S) || (key == GLFW.GLFW_KEY_A) ||
                     (key == GLFW.GLFW_KEY_D) || (key == GLFW.GLFW_KEY_SPACE);
             if (bKey && (action == GLFW.GLFW_PRESS)) {
@@ -234,23 +232,22 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
             }
         }
 
-        if (key != GLFW.GLFW_KEY_ENTER)
+        if ((key != GLFW.GLFW_KEY_ENTER) || (action != GLFW.GLFW_PRESS))
             return;
-        if (action != GLFW.GLFW_PRESS) return;
 
         Screen screen = MinecraftClient.getInstance().currentScreen;
         if (screen != null) {
             if (screen instanceof ChatScreen) {
-                // if chat is open, do nothing
                 return;
             }
         }
         if (inputType == InputType.AI) {
             setInputType(InputType.HUMAN);
-            inputTypeAbs = InputType.HUMAN;
-        } else {
+            hybridMode = false;
+        }
+        else {
             setInputType(InputType.AI);
-            inputTypeAbs = InputType.AI;
+            hybridMode = false;
         }
     }
 }

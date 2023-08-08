@@ -156,7 +156,12 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
     // Control overriding:
     enum InputType
     {
-        HUMAN, AI
+        HUMAN, AI;
+        private static final InputType[] vals = values();
+
+        public InputType next() {
+            return vals[(this.ordinal() + 1) % vals.length];
+        }
     }
 
     protected InputType inputType = InputType.HUMAN;
@@ -223,15 +228,7 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
             }
         }
 
-        if ((key != GLFW.GLFW_KEY_ENTER) || (action != GLFW.GLFW_PRESS))
-            return;
-
-
-        if (inputType == InputType.AI) {
-            setInputType(InputType.HUMAN);
-        }
-        else {
-            setInputType(InputType.AI);
-        }
+        if ((key == GLFW.GLFW_KEY_ENTER) && (action != GLFW.GLFW_RELEASE))
+            setInputType(inputType.next());
     }
 }

@@ -201,34 +201,6 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
     }
 
     private void onKey(long window, int key, int scancode, int action, int modifiers) {
-        if ((key == GLFW.GLFW_KEY_F6) && (action == GLFW.GLFW_PRESS))
-        {
-            if (hybridMode)
-                setInputType(inputType);
-            else
-                setInputType(InputType.AI);
-            hybridMode = ! hybridMode;
-        }
-        if (hybridMode) {
-            boolean bKey = (key == GLFW.GLFW_KEY_W) || (key == GLFW.GLFW_KEY_S) || (key == GLFW.GLFW_KEY_A) ||
-                    (key == GLFW.GLFW_KEY_D) || (key == GLFW.GLFW_KEY_SPACE);
-            if (bKey && (action == GLFW.GLFW_PRESS)) {
-                if ((inputType == InputType.AI) & !(MinecraftClient.getInstance().currentScreen instanceof ChatScreen)) {
-                    setInputType(InputType.HUMAN);
-                } else {
-                    return;
-                }
-            } else if (bKey && (action == GLFW.GLFW_RELEASE)) {
-                if (inputType == InputType.HUMAN) {
-                    setInputType(InputType.AI);
-                } else {
-                    return;
-                }
-            }
-        }
-
-        if ((key != GLFW.GLFW_KEY_ENTER) || (action != GLFW.GLFW_PRESS))
-            return;
 
         Screen screen = MinecraftClient.getInstance().currentScreen;
         if (screen != null) {
@@ -236,13 +208,30 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
                 return;
             }
         }
+
+        if ((key == GLFW.GLFW_KEY_F6) && (action == GLFW.GLFW_PRESS))
+        {
+            hybridMode = ! hybridMode;
+        }
+        if ((hybridMode) && (inputType == InputType.AI)) {
+            if ((action == GLFW.GLFW_PRESS)) {
+                MinecraftClient.getInstance().mouse.lockCursor();
+                this.stateMachine.currentMissionBehaviour().commandHandler.setOverriding(false);
+            } else if ((action == GLFW.GLFW_RELEASE)) {
+                MinecraftClient.getInstance().mouse.unlockCursor();
+                this.stateMachine.currentMissionBehaviour().commandHandler.setOverriding(true);
+            }
+        }
+
+        if ((key != GLFW.GLFW_KEY_ENTER) || (action != GLFW.GLFW_PRESS))
+            return;
+
+
         if (inputType == InputType.AI) {
             setInputType(InputType.HUMAN);
-            hybridMode = false;
         }
         else {
             setInputType(InputType.AI);
-            hybridMode = false;
         }
     }
 }

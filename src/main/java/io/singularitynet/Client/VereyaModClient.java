@@ -101,7 +101,7 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
         }
 
         public void onMouseUsed(){
-            if (VereyaModClient.this.inputType == InputType.HYBRID){
+            if (VereyaModClient.this.inputType == InputType.HYBRIDMOUSE){
                 setOverrideHybrid(false);
             }
         }
@@ -164,7 +164,7 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
     }
 
     private void checkHybrideOverrides() {
-        if (this.getInputType() == InputType.HYBRID) {
+        if (this.getInputType() == InputType.HYBRIDMOUSE) {
             MissionBehaviour behaviour = this.stateMachine.currentMissionBehaviour();
             if (behaviour != null && !behaviour.commandHandler.isOverriding()) {
                 long currentTime = System.currentTimeMillis();
@@ -182,11 +182,16 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
     // Control overriding:
     enum InputType
     {
-        HUMAN, AI, HYBRID;
-        private static final InputType[] vals = values();
+        HUMAN, AI, HYBRIDREG, HYBRIDMOUSE;
+        private static final InputType[] rVals = {HUMAN, AI};
+        private static final InputType[] hVals = {HYBRIDREG, HYBRIDMOUSE};
 
         public InputType next() {
-            return vals[(this.ordinal() + 1) % vals.length];
+            return rVals[(this.ordinal() + 1) % rVals.length];
+        }
+
+        public InputType hNext() {
+            return hVals[(this.ordinal() + 1) % hVals.length];
         }
     }
 
@@ -219,12 +224,12 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
             return;
         }
 
-        this.stateMachine.currentMissionBehaviour().commandHandler.setOverriding(input == InputType.AI || input == InputType.HYBRID);
+        this.stateMachine.currentMissionBehaviour().commandHandler.setOverriding(input == InputType.AI || input == InputType.HYBRIDMOUSE);
 
         this.inputType = input;
         // send chat message
         MinecraftClient.getInstance().player.sendMessage(Text.of("input type set to: " + input.name()), true);
-        if (input == InputType.HUMAN || input == InputType.HYBRID)
+        if (input == InputType.HUMAN || input == InputType.HYBRIDMOUSE)
         {
             MinecraftClient.getInstance().mouse.lockCursor();
         }
@@ -243,7 +248,22 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
             }
         }
 
-        if (inputType == InputType.HYBRID && action == GLFW.GLFW_PRESS) {
+        if ((key == GLFW.GLFW_KEY_F6) && (action == GLFW.GLFW_PRESS))
+        {
+            setInputType(inputType.hNext());
+        }
+        
+        if (((inputType == InputType.HYBRIDREG))) {
+            if ((action == GLFW.GLFW_PRESS)) {
+                MinecraftClient.getInstance().mouse.lockCursor();
+                this.stateMachine.currentMissionBehaviour().commandHandler.setOverriding(false);
+            } else if ((action == GLFW.GLFW_RELEASE)) {
+                MinecraftClient.getInstance().mouse.unlockCursor();
+                this.stateMachine.currentMissionBehaviour().commandHandler.setOverriding(true);
+            }
+        }
+
+        if (inputType == InputType.HYBRIDMOUSE && action == GLFW.GLFW_PRESS) {
             // human controls the inputs
             setOverrideHybrid(false);
         }

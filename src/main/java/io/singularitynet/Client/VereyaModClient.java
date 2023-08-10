@@ -9,7 +9,6 @@ import io.singularitynet.mixin.MouseAccessorMixin;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 import net.minecraft.client.Keyboard;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.Mouse;
@@ -101,7 +100,7 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
         }
 
         public void onMouseUsed(){
-            if (VereyaModClient.this.inputType == InputType.HYBRIDMOUSE){
+            if (VereyaModClient.this.inputType == InputType.HYBRID_MOUSE_KEYBOARD){
                 setOverrideHybrid(false);
             }
         }
@@ -164,7 +163,7 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
     }
 
     private void checkHybrideOverrides() {
-        if (this.getInputType() == InputType.HYBRIDMOUSE) {
+        if (this.getInputType() == InputType.HYBRID_MOUSE_KEYBOARD) {
             MissionBehaviour behaviour = this.stateMachine.currentMissionBehaviour();
             if (behaviour != null && !behaviour.commandHandler.isOverriding()) {
                 long currentTime = System.currentTimeMillis();
@@ -182,9 +181,9 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
     // Control overriding:
     enum InputType
     {
-        HUMAN, AI, HYBRIDREG, HYBRIDMOUSE;
+        HUMAN, AI, HYBRID_KEYBOARD, HYBRID_MOUSE_KEYBOARD;
         private static final InputType[] rVals = {HUMAN, AI};
-        private static final InputType[] hVals = {HYBRIDREG, HYBRIDMOUSE};
+        private static final InputType[] hVals = {HYBRID_KEYBOARD, HYBRID_MOUSE_KEYBOARD};
 
         public InputType next() {
             return rVals[(this.ordinal() + 1) % rVals.length];
@@ -224,12 +223,12 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
             return;
         }
 
-        this.stateMachine.currentMissionBehaviour().commandHandler.setOverriding(input == InputType.AI || input == InputType.HYBRIDMOUSE);
+        this.stateMachine.currentMissionBehaviour().commandHandler.setOverriding(input == InputType.AI || input == InputType.HYBRID_MOUSE_KEYBOARD);
 
         this.inputType = input;
         // send chat message
         MinecraftClient.getInstance().player.sendMessage(Text.of("input type set to: " + input.name()), true);
-        if (input == InputType.HUMAN || input == InputType.HYBRIDMOUSE)
+        if (input == InputType.HUMAN || input == InputType.HYBRID_MOUSE_KEYBOARD)
         {
             MinecraftClient.getInstance().mouse.lockCursor();
         }
@@ -252,8 +251,8 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
         {
             setInputType(inputType.hNext());
         }
-        
-        if (((inputType == InputType.HYBRIDREG))) {
+
+        if (((inputType == InputType.HYBRID_KEYBOARD))) {
             if ((action == GLFW.GLFW_PRESS)) {
                 MinecraftClient.getInstance().mouse.lockCursor();
                 this.stateMachine.currentMissionBehaviour().commandHandler.setOverriding(false);
@@ -263,7 +262,7 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
             }
         }
 
-        if (inputType == InputType.HYBRIDMOUSE && action == GLFW.GLFW_PRESS) {
+        if (inputType == InputType.HYBRID_MOUSE_KEYBOARD && action == GLFW.GLFW_PRESS) {
             // human controls the inputs
             setOverrideHybrid(false);
         }

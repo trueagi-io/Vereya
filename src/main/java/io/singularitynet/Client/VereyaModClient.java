@@ -227,7 +227,8 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
 
         this.inputType = input;
         // send chat message
-        MinecraftClient.getInstance().player.sendMessage(Text.of("input type set to: " + input.name()), true);
+        if (MinecraftClient.getInstance().player != null)
+            MinecraftClient.getInstance().player.sendMessage(Text.of("input type set to: " + input.name()), true);
         if (input == InputType.HUMAN || input == InputType.HYBRID_MOUSE_KEYBOARD)
         {
             MinecraftClient.getInstance().mouse.lockCursor();

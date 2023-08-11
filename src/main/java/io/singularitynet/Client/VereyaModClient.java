@@ -255,10 +255,8 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
 
         if (((inputType == InputType.HYBRID_KEYBOARD))) {
             if ((action == GLFW.GLFW_PRESS)) {
-                MinecraftClient.getInstance().mouse.lockCursor();
                 this.stateMachine.currentMissionBehaviour().commandHandler.setOverriding(false);
             } else if ((action == GLFW.GLFW_RELEASE)) {
-                MinecraftClient.getInstance().mouse.unlockCursor();
                 this.stateMachine.currentMissionBehaviour().commandHandler.setOverriding(true);
             }
         }

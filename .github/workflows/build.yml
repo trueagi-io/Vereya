@@ -74,7 +74,12 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: PythonLog
-          path: app.log
+          path: minecraft-demo/tests/vereya/app.log
+      - name: save test observations
+        uses: actions/upload-artifact@v3
+        with:
+          name: TestObservations
+          path: minecraft-demo/tests/vereya/observations/observations.txt
       - name: remove lock
         if: always()
         run: rm -f /tmp/minecraft-test-lock

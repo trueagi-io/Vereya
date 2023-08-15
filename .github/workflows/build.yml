@@ -63,6 +63,23 @@ jobs:
           ps a|grep [j]ava &&
           conda activate py31 && cd $GITHUB_WORKSPACE/minecraft-demo/tests/vereya &&
           python run_tests.py
+      - name: save java logs
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: JavaLogs
+          path: logs/app.log
+      - name: save python logs
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: PythonLog
+          path: minecraft-demo/tests/vereya/app.log
+      - name: save test observations
+        uses: actions/upload-artifact@v3
+        with:
+          name: TestObservations
+          path: minecraft-demo/tests/vereya/observations/observations.txt
       - name: remove lock
         if: always()
         run: rm -f /tmp/minecraft-test-lock

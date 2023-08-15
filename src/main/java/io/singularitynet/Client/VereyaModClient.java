@@ -34,6 +34,8 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
     public static final String VIDEO_UNRESPONSIVE_CODE = "MALMO_VIDEO_NOT_RESPONDING";
     private static final Logger LOGGER = LogManager.getLogger(VereyaModClient.class.getName());
 
+    private boolean wasNotNull = false;
+
     public interface MouseEventListener
     {
         public void onXYChange(double deltaX, double deltaY);
@@ -227,7 +229,7 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
 
         this.inputType = input;
         // send chat message
-        if (MinecraftClient.getInstance().player != null)
+        if ((MinecraftClient.getInstance().player != null) && (!wasNotNull))
             MinecraftClient.getInstance().player.sendMessage(Text.of("input type set to: " + input.name()), true);
         if (input == InputType.HUMAN || input == InputType.HYBRID_MOUSE_KEYBOARD)
         {
@@ -243,9 +245,13 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
         // do default thing if any screen is open
         Screen screen = MinecraftClient.getInstance().currentScreen;
         if (screen != null) {
-            if (screen instanceof ChatScreen) {
-                return;
-            }
+            wasNotNull = true;
+            return;
+        }
+        if (wasNotNull)
+        {
+            setInputType(inputType);
+            wasNotNull = false;
         }
 
         if ((key == GLFW.GLFW_KEY_F6) && (action == GLFW.GLFW_PRESS))

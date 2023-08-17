@@ -33,9 +33,7 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
     public static final String AGENT_UNRESPONSIVE_CODE = "MALMO_AGENT_NOT_RESPONDING";
     public static final String VIDEO_UNRESPONSIVE_CODE = "MALMO_VIDEO_NOT_RESPONDING";
     private static final Logger LOGGER = LogManager.getLogger(VereyaModClient.class.getName());
-
-    private boolean wasNotNull = false;
-
+    
     public interface MouseEventListener
     {
         public void onXYChange(double deltaX, double deltaY);
@@ -83,12 +81,10 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
 
         @Override
         public void lockCursor(){
-            if (wasNotNull)
-            {
+            if (MinecraftClient.getInstance().attackCooldown > 1000){
                 //since our agent can spam attack and therefore after opening inventory or chat or advancements attack
                 // won't work we need to manually set attackCooldown to 0.
-                MinecraftClient.getInstance().attackCooldown=0;
-                wasNotNull = false;
+                MinecraftClient.getInstance().attackCooldown = 0;
             }
             if(VereyaModClient.this.inputType == InputType.AI) {
                 return;
@@ -253,7 +249,6 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
         // do default thing if any screen is open
         Screen screen = MinecraftClient.getInstance().currentScreen;
         if (screen != null) {
-            wasNotNull = true;
             return;
         }
 

@@ -83,6 +83,13 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
 
         @Override
         public void lockCursor(){
+            if (wasNotNull)
+            {
+                //since our agent can spam attack and therefore after opening inventory or chat or advancements attack
+                // won't work we need to manually set attackCooldown to 0.
+                MinecraftClient.getInstance().attackCooldown=0;
+                wasNotNull = false;
+            }
             if(VereyaModClient.this.inputType == InputType.AI) {
                 return;
             }
@@ -239,6 +246,7 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
             MinecraftClient.getInstance().mouse.unlockCursor();
         }
         LogManager.getLogger().info("successfully set input type to: " + input);
+        MinecraftClient.getInstance().attackCooldown=0;
     }
 
     private void onKey(long window, int key, int scancode, int action, int modifiers) {
@@ -247,13 +255,6 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
         if (screen != null) {
             wasNotNull = true;
             return;
-        }
-        if (wasNotNull)
-        {
-            //since our agent can spam attack and therefore after opening inventory or chat or advancements attack won't work
-            // we need to manually set attackCooldown to 0.
-            MinecraftClient.getInstance().attackCooldown=0;
-            wasNotNull = false;
         }
 
         if ((key == GLFW.GLFW_KEY_F6) && (action == GLFW.GLFW_PRESS))

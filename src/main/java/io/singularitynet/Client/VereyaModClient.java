@@ -250,7 +250,9 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
         }
         if (wasNotNull)
         {
-            setInputType(inputType);
+            //since our agent can spam attack and therefore after opening inventory or chat or advancements attack won't work
+            // we need to manually set attackCooldown to 0.
+            MinecraftClient.getInstance().attackCooldown=0;
             wasNotNull = false;
         }
 

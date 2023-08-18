@@ -81,6 +81,11 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
 
         @Override
         public void lockCursor(){
+            if (MinecraftClient.getInstance().attackCooldown > 1000){
+                //since our agent can spam attack and therefore after opening inventory or chat or advancements attack
+                // won't work we need to manually set attackCooldown to 0.
+                MinecraftClient.getInstance().attackCooldown = 0;
+            }
             if(VereyaModClient.this.inputType == InputType.AI) {
                 return;
             }
@@ -227,7 +232,7 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
 
         this.inputType = input;
         // send chat message
-        if (MinecraftClient.getInstance().player != null)
+        if ((MinecraftClient.getInstance().player != null))
             MinecraftClient.getInstance().player.sendMessage(Text.of("input type set to: " + input.name()), true);
         if (input == InputType.HUMAN || input == InputType.HYBRID_MOUSE_KEYBOARD)
         {
@@ -237,15 +242,14 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
             MinecraftClient.getInstance().mouse.unlockCursor();
         }
         LogManager.getLogger().info("successfully set input type to: " + input);
+        MinecraftClient.getInstance().attackCooldown=0;
     }
 
     private void onKey(long window, int key, int scancode, int action, int modifiers) {
         // do default thing if any screen is open
         Screen screen = MinecraftClient.getInstance().currentScreen;
         if (screen != null) {
-            if (screen instanceof ChatScreen) {
-                return;
-            }
+            return;
         }
 
         if ((key == GLFW.GLFW_KEY_F6) && (action == GLFW.GLFW_PRESS))

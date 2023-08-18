@@ -33,7 +33,7 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
     public static final String AGENT_UNRESPONSIVE_CODE = "MALMO_AGENT_NOT_RESPONDING";
     public static final String VIDEO_UNRESPONSIVE_CODE = "MALMO_VIDEO_NOT_RESPONDING";
     private static final Logger LOGGER = LogManager.getLogger(VereyaModClient.class.getName());
-    
+
     public interface MouseEventListener
     {
         public void onXYChange(double deltaX, double deltaY);
@@ -232,7 +232,7 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
 
         this.inputType = input;
         // send chat message
-        if ((MinecraftClient.getInstance().player != null) && (!wasNotNull))
+        if ((MinecraftClient.getInstance().player != null))
             MinecraftClient.getInstance().player.sendMessage(Text.of("input type set to: " + input.name()), true);
         if (input == InputType.HUMAN || input == InputType.HYBRID_MOUSE_KEYBOARD)
         {

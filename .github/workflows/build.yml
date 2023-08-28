@@ -80,6 +80,11 @@ jobs:
         with:
           name: TestObservations
           path: minecraft-demo/tests/vereya/observations/observations.txt
+
+      - name: cleanup
+        if: success()
+        run: rm -r `pwd`/*
+
       - name: remove lock
         if: always()
         run: rm -f /tmp/minecraft-test-lock

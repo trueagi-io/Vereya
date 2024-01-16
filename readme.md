@@ -3,7 +3,7 @@
 ## Overview
 
 Vereya provides API for controlling AI agents in Minecraft. This mod inherits some pieces of the Malmo project, but with various changes and additions. 
-Vereya should work with Minecraft 1.19.4
+Vereya should work with Minecraft 1.20.1
 
 ## building and installation
 

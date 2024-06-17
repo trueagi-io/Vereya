@@ -1,6 +1,6 @@
 package io.singularitynet.mixin;
 
-import net.minecraft.client.world.ClientEntityManager;
+import net.minecraft.world.entity.ClientEntityManager;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.entity.Entity;
 import net.minecraft.world.entity.EntityLookup;

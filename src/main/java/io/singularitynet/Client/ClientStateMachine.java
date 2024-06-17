@@ -1224,10 +1224,10 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
                         }
                     }
  */
-                    boolean isConnectedToRealm = MinecraftClient.getInstance().isConnectedToRealms();
+//                    boolean isConnectedToRealm = MinecraftClient.getInstance().isConnectedToRealms();
                     boolean isConnectedToLocal = MinecraftClient.getInstance().isConnectedToLocalServer();
                     boolean isIntegratedServerRunning = MinecraftClient.getInstance().isIntegratedServerRunning();
-                    LOGGER.debug("isConnectedToRealm: " + isConnectedToRealm);
+//                    LOGGER.debug("isConnectedToRealm: " + isConnectedToRealm);
                     LOGGER.debug("isConnectedToLocal: " + isConnectedToLocal);
                     LOGGER.debug("isIntegratedServerRunning: " + isIntegratedServerRunning);
                     if (isIntegratedServerRunning) {

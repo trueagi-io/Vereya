@@ -4,9 +4,18 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import com.google.gson.*;
+import com.mojang.serialization.Lifecycle;
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
+import net.minecraft.data.server.loottable.LootTableGenerator;
+import net.minecraft.registry.*;
+import net.minecraft.registry.entry.RegistryEntryInfo;
+import net.minecraft.util.ErrorReporter;
+import net.minecraft.util.Util;
+import net.minecraft.util.math.random.RandomSeed;
+import net.minecraft.util.math.random.RandomSequence;
 import org.jetbrains.annotations.Nullable;
-import net.minecraft.loot.LootDataKey;
-import net.minecraft.loot.LootDataLookup;
+//import net.minecraft.loot.LootDataKey;
+//import net.minecraft.loot.LootDataLookup;
 import net.minecraft.loot.LootDataType;
 import net.minecraft.loot.LootTable;
 import org.apache.logging.log4j.LogManager;
@@ -26,7 +35,6 @@ import net.minecraft.item.Item;
 import net.minecraft.loot.LootTableReporter;
 import net.minecraft.loot.context.LootContextType;
 import net.minecraft.loot.context.LootContextTypes;
-import net.minecraft.registry.Registry;
 import net.minecraft.registry.tag.TagKey;
 import net.minecraft.util.Identifier;
 import io.singularitynet.mixin.LootTableProviderMixin;
@@ -215,54 +223,59 @@ public class ObservationFromBlocksDropsImplementation extends HandlerBase implem
         return result;
     }
 
-    private Dictionary<String, List<String>> parseLottable(List<LootTableProvider.LootTypeGenerator> lootTypeGenerators, Set<Identifier> lootTableIds) {
+    private Dictionary<String, List<String>> parseLottable(List<LootTableProvider.LootTypeGenerator> lootTypeGenerators, Set<Identifier> lootTableIds, RegistryWrapper.WrapperLookup registryLookup) {
+        MutableRegistry<LootTable> mutableRegistry = new SimpleRegistry(RegistryKeys.LOOT_TABLE, Lifecycle.experimental());
+        Map<RandomSeed.XoroshiroSeed, Identifier> map = new Object2ObjectOpenHashMap();
         Dictionary<String, List<String>> result = new Hashtable<>();
-        Map<Identifier, LootTable> map = Maps.newHashMap();
-        lootTypeGenerators.forEach((lootTypeGenerator) -> lootTypeGenerator.provider().get().accept((id, builder) -> {
-            if (map.put(id, builder.type(lootTypeGenerator.paramSet()).build()) != null) {
-                throw new IllegalStateException("Duplicate loot table " + id);
-            }
-        }));
-        LootContextType var10002 = LootContextTypes.GENERIC;
-        Function var10003 = (id) -> null;
-        Objects.requireNonNull(map);
-        LootTableReporter lootTableReporter = new LootTableReporter(LootContextTypes.GENERIC, new LootDataLookup(){
 
-            @Override
-            @Nullable
-            public <T> T getElement(LootDataKey<T> lootDataKey) {
-                if (lootDataKey.type() == LootDataType.LOOT_TABLES) {
-                    return (T)map.get(lootDataKey.id());
+
+        lootTypeGenerators.forEach((lootTypeGenerator) -> {
+            ((LootTableGenerator)lootTypeGenerator.provider().apply(registryLookup)).accept((lootTable, builder) -> {
+                Identifier identifier = lootTable.getValue();
+                Identifier identifier2 = (Identifier)map.put(RandomSequence.createSeed(identifier), identifier);
+                if (identifier2 != null) {
+                    String var10000 = String.valueOf(identifier2);
+                    Util.error("Loot table random sequence seed collision on " + var10000 + " and " + String.valueOf(lootTable.getValue()));
                 }
-                return null;
-            }
-        });
-        Set<Identifier> set = Sets.difference(lootTableIds, map.keySet());
-        Iterator var5 = set.iterator();
 
-        while (var5.hasNext()) {
-            Identifier identifier = (Identifier) var5.next();
-            lootTableReporter.report("Missing built-in table: " + identifier);
+                builder.randomSequenceId(identifier);
+                LootTable lootTable2 = builder.type(lootTypeGenerator.paramSet()).build();
+                mutableRegistry.add(lootTable, lootTable2, RegistryEntryInfo.DEFAULT);
+            });
+        });
+
+        mutableRegistry.freeze();
+        ErrorReporter.Impl impl = new ErrorReporter.Impl();
+        RegistryEntryLookup.RegistryLookup registryLookup2 = (new DynamicRegistryManager.ImmutableImpl(List.of(mutableRegistry))).toImmutable().createRegistryLookup();
+        LootTableReporter lootTableReporter = new LootTableReporter(impl, LootContextTypes.GENERIC, registryLookup2);
+        Iterator var9 = Sets.difference(lootTableIds, mutableRegistry.getKeys()).iterator();
+
+        while(var9.hasNext()) {
+            RegistryKey<LootTable> registryKey = (RegistryKey)var9.next();
+            impl.report("Missing built-in table: " + String.valueOf(registryKey.getValue()));
         }
 
-        map.forEach((id, table) -> table.validate(lootTableReporter.withContextType(table.getType()).makeChild("{" + id + "}", new LootDataKey<LootTable>(LootDataType.LOOT_TABLES, (Identifier)id))));
-        Multimap<String, String> multimap = lootTableReporter.getMessages();
+        mutableRegistry.streamEntries().forEach((entry) -> {
+            ((LootTable)entry.value()).validate(lootTableReporter.withContextType(((LootTable)entry.value()).getType()).makeChild("{" + String.valueOf(entry.registryKey().getValue()) + "}", entry.registryKey()));
+        });
+        Multimap<String, String> multimap = impl.getErrors();
+
         if (!multimap.isEmpty()) {
             multimap.forEach((name, message) -> {
                 LOGGER.warn("Found validation problem in {}: {}", name, message);
             });
             throw new IllegalStateException("Failed to validate loot tables, see logs");
         } else {
-            for (Map.Entry<Identifier, LootTable> entry : map.entrySet()) {
-                Identifier identifier = entry.getKey();
+            for (Map.Entry<RandomSeed.XoroshiroSeed, Identifier> entry : map.entrySet()) {
+                RandomSeed.XoroshiroSeed identifier = entry.getKey();
                 if (!identifier.toString().contains("block"))
                     continue;
                 String block_name = identifier.toString().replace("minecraft:blocks/", "");
-                LootTable loottable = entry.getValue();
-                JsonElement jel = LootDataType.LOOT_TABLES.getGson().toJsonTree(loottable);
+                Identifier loottable = entry.getValue();
+//                JsonElement jel = LootDataType.LOOT_TABLES.getGson().toJsonTree(loottable);
                 // JsonElement jel = LootManager.toJson(loottable);
-                List<String> parsed_one_table = this.parseOneTable(jel, block_name);
-                result.put(block_name, parsed_one_table);
+//                List<String> parsed_one_table = this.parseOneTable(jel, block_name);
+//                result.put(block_name, parsed_one_table);
             }
         }
         return result;
@@ -287,83 +300,83 @@ public class ObservationFromBlocksDropsImplementation extends HandlerBase implem
         if (!this.sendRec){
             return;
         }
-        this.sendRec = false;
-        LOGGER.debug("ObservationFromBlocksDrops -- start");
-        Path pth = Path.of(System.getProperty("java.io.tmpdir"));
-        DataOutput doutput = new DataOutput(pth);
-        DataWriter writer = DataWriter.UNCACHED;
-        LootTableProvider provider = VanillaLootTableProviders.createVanillaProvider(doutput);
-        provider.run(writer);
-
-        Set<Identifier> loottables = ((LootTableProviderMixin)provider).getlootTableIds();
-        List<LootTableProvider.LootTypeGenerator> lootTypeGenerators = ((LootTableProviderMixin)provider).getlootTypeGenerators();
-        Dictionary<String, List<String>> parsed_loottable = this.parseLottable(lootTypeGenerators, loottables);
-
-        Registry<Item> str_ent =  MinecraftClient.getInstance().world.getRegistryManager().get(ITEM.getKey());
-        List<Item> list_ent = str_ent.stream().toList();
-        JsonArray triple_array = new JsonArray();
-        Map<Block, Item> from_block = list_ent.get(0).BLOCK_ITEMS;
-        for (Map.Entry<Block, Item> entry : from_block.entrySet()) {
-            Block en_block = entry.getKey();
-            Item en_item = entry.getValue();
-            String block_name = en_block.getLootTableId().toString();
-            if (Objects.equals(block_name, "minecraft:empty")) {
-                continue;
-            }
-            boolean is_tool_required = en_block.getDefaultState().isToolRequired();
-            String tool_name = "";
-            if (is_tool_required)
-            {
-                boolean wooden_required = true;
-                String tool_q = "";
-                String tool_t = "";
-                List<TagKey<Block>> block_tags = en_block.getRegistryEntry().streamTags().toList();
-                for (TagKey<Block> block_tag: block_tags)
-                {
-                    String tag_string = block_tag.id().toString();
-                    if (tag_string.contains("mineable"))
-                    {
-                        tool_t = tag_string.split("/")[1];
-                    }
-                    else if (tag_string.contains("tool"))
-                    {
-                        tool_q = tag_string.split("_")[1];
-                        wooden_required = false;
-                    }
-                }
-                if (wooden_required)
-                    tool_q = "wooden";
-                if (!tool_q.equals("") && tool_t.equals(""))
-                    tool_name = tool_q + "_" + "AnyTool";
-                else
-                    tool_name = tool_q+"_"+tool_t;
-            }
-
-            block_name = block_name.split("/")[1];
-            if (((Hashtable)parsed_loottable).containsKey(block_name))
-            {
-                List<String> p_items = parsed_loottable.get(block_name);
-                for (int i = 0 ; i < p_items.size(); i+=2)
-                {
-                    String item_name = p_items.get(i);
-                    String tool_suff = p_items.get(i+1);
-                    if (tool_suff.equals("") || tool_suff.equals("silkt_"))
-                        updateTripleArray(triple_array, block_name, item_name, tool_suff+tool_name);
-                    else if (tool_suff.equals("pickaxe") && tool_name.equals(""))
-                    {
-                        updateTripleArray(triple_array, block_name, item_name, "AnyTool");
-                    }
-                    else
-                        updateTripleArray(triple_array, block_name, item_name, tool_suff);
-                }
-            }
-            else
-            {
-                String item_name = en_item.toString();
-                updateTripleArray(triple_array, block_name, item_name, tool_name);
-            }
-        }
-        json.add("block_item_tool_triple", triple_array);
-        LOGGER.debug("ObservationFromBlocksDrops -- end");
+//        this.sendRec = false;
+//        LOGGER.debug("ObservationFromBlocksDrops -- start");
+//        Path pth = Path.of(System.getProperty("java.io.tmpdir"));
+//        DataOutput doutput = new DataOutput(pth);
+//        DataWriter writer = DataWriter.UNCACHED;
+//        LootTableProvider provider = VanillaLootTableProviders.createVanillaProvider(doutput);
+//        provider.run(writer);
+//
+//        Set<Identifier> loottables = ((LootTableProviderMixin)provider).getlootTableIds();
+//        List<LootTableProvider.LootTypeGenerator> lootTypeGenerators = ((LootTableProviderMixin)provider).getlootTypeGenerators();
+//        Dictionary<String, List<String>> parsed_loottable = this.parseLottable(lootTypeGenerators, loottables);
+//
+//        Registry<Item> str_ent =  MinecraftClient.getInstance().world.getRegistryManager().get(ITEM.getKey());
+//        List<Item> list_ent = str_ent.stream().toList();
+//        JsonArray triple_array = new JsonArray();
+//        Map<Block, Item> from_block = list_ent.get(0).BLOCK_ITEMS;
+//        for (Map.Entry<Block, Item> entry : from_block.entrySet()) {
+//            Block en_block = entry.getKey();
+//            Item en_item = entry.getValue();
+//            String block_name = en_block.getLootTableId().toString();
+//            if (Objects.equals(block_name, "minecraft:empty")) {
+//                continue;
+//            }
+//            boolean is_tool_required = en_block.getDefaultState().isToolRequired();
+//            String tool_name = "";
+//            if (is_tool_required)
+//            {
+//                boolean wooden_required = true;
+//                String tool_q = "";
+//                String tool_t = "";
+//                List<TagKey<Block>> block_tags = en_block.getRegistryEntry().streamTags().toList();
+//                for (TagKey<Block> block_tag: block_tags)
+//                {
+//                    String tag_string = block_tag.id().toString();
+//                    if (tag_string.contains("mineable"))
+//                    {
+//                        tool_t = tag_string.split("/")[1];
+//                    }
+//                    else if (tag_string.contains("tool"))
+//                    {
+//                        tool_q = tag_string.split("_")[1];
+//                        wooden_required = false;
+//                    }
+//                }
+//                if (wooden_required)
+//                    tool_q = "wooden";
+//                if (!tool_q.equals("") && tool_t.equals(""))
+//                    tool_name = tool_q + "_" + "AnyTool";
+//                else
+//                    tool_name = tool_q+"_"+tool_t;
+//            }
+//
+//            block_name = block_name.split("/")[1];
+//            if (((Hashtable)parsed_loottable).containsKey(block_name))
+//            {
+//                List<String> p_items = parsed_loottable.get(block_name);
+//                for (int i = 0 ; i < p_items.size(); i+=2)
+//                {
+//                    String item_name = p_items.get(i);
+//                    String tool_suff = p_items.get(i+1);
+//                    if (tool_suff.equals("") || tool_suff.equals("silkt_"))
+//                        updateTripleArray(triple_array, block_name, item_name, tool_suff+tool_name);
+//                    else if (tool_suff.equals("pickaxe") && tool_name.equals(""))
+//                    {
+//                        updateTripleArray(triple_array, block_name, item_name, "AnyTool");
+//                    }
+//                    else
+//                        updateTripleArray(triple_array, block_name, item_name, tool_suff);
+//                }
+//            }
+//            else
+//            {
+//                String item_name = en_item.toString();
+//                updateTripleArray(triple_array, block_name, item_name, tool_name);
+//            }
+//        }
+//        json.add("block_item_tool_triple", triple_array);
+//        LOGGER.debug("ObservationFromBlocksDrops -- end");
     }
 }

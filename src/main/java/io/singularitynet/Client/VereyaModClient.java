@@ -1,6 +1,5 @@
 package io.singularitynet.Client;
 
-import io.singularitynet.MessagePayloadC2S;
 import io.singularitynet.MessagePayloadS2C;
 import io.singularitynet.MissionHandlers.MissionBehaviour;
 import io.singularitynet.SidesMessageHandler;
@@ -10,6 +9,7 @@ import io.singularitynet.mixin.MouseAccessorMixin;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.minecraft.client.Keyboard;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.Mouse;
@@ -152,6 +152,7 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
         this.stateMachine = new ClientStateMachine(ClientState.WAITING_FOR_MOD_READY, (IMalmoModClient) this);
         // subscribe to setScreen event
         ScreenEvents.SET_SCREEN.register(this);
+        PayloadTypeRegistry.playS2C().register(MessagePayloadS2C.ID, MessagePayloadS2C.CODEC);
         // register the instance for messages from Server to the Client
         ClientPlayNetworking.registerGlobalReceiver(MessagePayloadS2C.ID,
                 (payload, context) -> { SidesMessageHandler.server2client.onMessage(payload, context) ; });

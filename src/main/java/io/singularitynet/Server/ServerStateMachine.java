@@ -101,7 +101,6 @@ public class ServerStateMachine extends StateMachine implements IVereyaMessageLi
         ServerEntityEventsVereya.BEFORE_ENTITY_ADD.register(this::onGetPotentialSpawns);
         ServerEntityEvents.ENTITY_UNLOAD.register(this::onEntityUnload);
         ServerEntityEvents.ENTITY_LOAD.register(this::onEntityLoad);
-        PayloadTypeRegistry.playC2S().register(MessagePayloadC2S.ID, MessagePayloadC2S.CODEC);
     }
 
     private void onEntityUnload(Entity entity, ServerWorld serverWorld) {

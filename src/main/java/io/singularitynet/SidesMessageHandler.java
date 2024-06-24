@@ -65,25 +65,6 @@ public class SidesMessageHandler
         }
     }
 
-//    public void onMessage(ThreadExecutor executor, PacketByteBuf buf)
-//    {
-//        final VereyaMessage message = new VereyaMessage();
-//        message.fromBytes(buf);
-//
-//        final List<IVereyaMessageListener> interestedParties = getMessageListeners(message);
-//        if (interestedParties == null) return;
-//        executor.execute(() -> {
-//            for (IVereyaMessageListener l : interestedParties)
-//            {
-//                // If the message's uid is set (ie non-zero), then use it to ensure that only the matching listener receives this message.
-//                // Otherwise, let all listeners who are interested get a look.
-//                // if (message.uid == 0 || System.identityHashCode(l) == message.uid)
-//                //    l.onMessage(message.messageType,  message.data);
-//                l.onMessage(message.getMessageType(), message.getData());
-//            }
-//        });
-//    }
-
     public static void onMessage(MessagePayloadC2S payload, ServerPlayNetworking.Context context) {
         final VereyaMessage message = payload.msg();
         final List<IVereyaMessageListener> interestedParties = getMessageListeners(message);
@@ -129,22 +110,4 @@ public class SidesMessageHandler
         }
         return interestedParties;
     }
-
-//    public void onMessage(ThreadExecutor executor, PacketByteBuf buf, ServerPlayerEntity player)
-//    {
-//        final VereyaMessage message = new VereyaMessage();
-//        message.fromBytes(buf);
-//        final List<IVereyaMessageListener> interestedParties = getMessageListeners(message);
-//        if (interestedParties == null) return;
-//        executor.execute(() -> {
-//            for (IVereyaMessageListener l : interestedParties)
-//            {
-//                // If the message's uid is set (ie non-zero), then use it to ensure that only the matching listener receives this message.
-//                // Otherwise, let all listeners who are interested get a look.
-//                // if (message.uid == 0 || System.identityHashCode(l) == message.uid)
-//                //    l.onMessage(message.messageType,  message.data);
-//                l.onMessage(message.getMessageType(), message.getData(), player);
-//            }
-//        });
-//    }
 }

@@ -19,12 +19,11 @@
 
 package io.singularitynet;
 
-import net.minecraft.network.PacketByteBuf;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 
 import java.util.*;
 
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.util.thread.ThreadExecutor;
 import org.jetbrains.annotations.Nullable;
 
 
@@ -37,7 +36,7 @@ public class SidesMessageHandler
 
     public interface IMessage {};
 
-    private Map<VereyaMessageType, List<IVereyaMessageListener>> listeners = new HashMap<VereyaMessageType, List<IVereyaMessageListener>>();
+    private static Map<VereyaMessageType, List<IVereyaMessageListener>> listeners = new HashMap<VereyaMessageType, List<IVereyaMessageListener>>();
 
     public SidesMessageHandler() {}
 
@@ -66,14 +65,46 @@ public class SidesMessageHandler
         }
     }
 
-    public void onMessage(ThreadExecutor executor, PacketByteBuf buf)
-    {
-        final VereyaMessage message = new VereyaMessage();
-        message.fromBytes(buf);
+//    public void onMessage(ThreadExecutor executor, PacketByteBuf buf)
+//    {
+//        final VereyaMessage message = new VereyaMessage();
+//        message.fromBytes(buf);
+//
+//        final List<IVereyaMessageListener> interestedParties = getMessageListeners(message);
+//        if (interestedParties == null) return;
+//        executor.execute(() -> {
+//            for (IVereyaMessageListener l : interestedParties)
+//            {
+//                // If the message's uid is set (ie non-zero), then use it to ensure that only the matching listener receives this message.
+//                // Otherwise, let all listeners who are interested get a look.
+//                // if (message.uid == 0 || System.identityHashCode(l) == message.uid)
+//                //    l.onMessage(message.messageType,  message.data);
+//                l.onMessage(message.getMessageType(), message.getData());
+//            }
+//        });
+//    }
 
+    public static void onMessage(MessagePayloadC2S payload, ServerPlayNetworking.Context context) {
+        final VereyaMessage message = payload.msg();
         final List<IVereyaMessageListener> interestedParties = getMessageListeners(message);
         if (interestedParties == null) return;
-        executor.execute(() -> {
+        context.player().server.execute(() -> {
+            for (IVereyaMessageListener l : interestedParties)
+            {
+                // If the message's uid is set (ie non-zero), then use it to ensure that only the matching listener receives this message.
+                // Otherwise, let all listeners who are interested get a look.
+                // if (message.uid == 0 || System.identityHashCode(l) == message.uid)
+                //    l.onMessage(message.messageType,  message.data);
+                l.onMessage(message.getMessageType(), message.getData());
+            }
+        });
+    }
+
+    public void onMessage(MessagePayloadC2S payload, ClientPlayNetworking.Context context) {
+        final VereyaMessage message = payload.msg();
+        final List<IVereyaMessageListener> interestedParties = getMessageListeners(message);
+        if (interestedParties == null) return;
+        context.client().execute(() -> {
             for (IVereyaMessageListener l : interestedParties)
             {
                 // If the message's uid is set (ie non-zero), then use it to ensure that only the matching listener receives this message.
@@ -86,7 +117,7 @@ public class SidesMessageHandler
     }
 
     @Nullable
-    private List<IVereyaMessageListener> getMessageListeners(VereyaMessage message) {
+    private static List<IVereyaMessageListener> getMessageListeners(VereyaMessage message) {
         List<IVereyaMessageListener> interestedParties;
         synchronized (listeners) {
             interestedParties = listeners.get(message.getMessageType());
@@ -99,21 +130,21 @@ public class SidesMessageHandler
         return interestedParties;
     }
 
-    public void onMessage(ThreadExecutor executor, PacketByteBuf buf, ServerPlayerEntity player)
-    {
-        final VereyaMessage message = new VereyaMessage();
-        message.fromBytes(buf);
-        final List<IVereyaMessageListener> interestedParties = getMessageListeners(message);
-        if (interestedParties == null) return;
-        executor.execute(() -> {
-            for (IVereyaMessageListener l : interestedParties)
-            {
-                // If the message's uid is set (ie non-zero), then use it to ensure that only the matching listener receives this message.
-                // Otherwise, let all listeners who are interested get a look.
-                // if (message.uid == 0 || System.identityHashCode(l) == message.uid)
-                //    l.onMessage(message.messageType,  message.data);
-                l.onMessage(message.getMessageType(), message.getData(), player);
-            }
-        });
-    }
+//    public void onMessage(ThreadExecutor executor, PacketByteBuf buf, ServerPlayerEntity player)
+//    {
+//        final VereyaMessage message = new VereyaMessage();
+//        message.fromBytes(buf);
+//        final List<IVereyaMessageListener> interestedParties = getMessageListeners(message);
+//        if (interestedParties == null) return;
+//        executor.execute(() -> {
+//            for (IVereyaMessageListener l : interestedParties)
+//            {
+//                // If the message's uid is set (ie non-zero), then use it to ensure that only the matching listener receives this message.
+//                // Otherwise, let all listeners who are interested get a look.
+//                // if (message.uid == 0 || System.identityHashCode(l) == message.uid)
+//                //    l.onMessage(message.messageType,  message.data);
+//                l.onMessage(message.getMessageType(), message.getData(), player);
+//            }
+//        });
+//    }
 }

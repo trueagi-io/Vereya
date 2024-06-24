@@ -200,7 +200,7 @@ public class JSONWorldDataHelper {
                 json.add("inventory", arr);
             }
             mobObj.addProperty("safeFallDistance", entity.getSafeFallDistance());
-            mobObj.addProperty("name", entity.getEntityName());
+            mobObj.addProperty("name", entity.getNameForScoreboard());
             mobObj.addProperty("type", entity.getType().getUntranslatedName());
             mobObj.addProperty("health", entity.getHealth());
             controllableEntities.add(key, mobObj);

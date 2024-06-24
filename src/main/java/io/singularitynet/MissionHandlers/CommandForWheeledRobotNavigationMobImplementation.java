@@ -1,8 +1,7 @@
 package io.singularitynet.MissionHandlers;
 
-import io.singularitynet.MissionHandlerInterfaces.ICommandHandler;
+import io.singularitynet.MessagePayloadC2S;
 import io.singularitynet.VereyaMessage;
-import io.singularitynet.NetworkConstants;
 import io.singularitynet.VereyaMessageType;
 import io.singularitynet.projectmalmo.MissionInit;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
@@ -76,7 +75,7 @@ public class CommandForWheeledRobotNavigationMobImplementation extends CommandBa
 
         VereyaMessage vereyaMessage = new MotionMessage(verb, entity_uuid, parameter);
 
-        ClientPlayNetworking.send(NetworkConstants.CLIENT2SERVER, vereyaMessage.toBytes());
+        ClientPlayNetworking.send(new MessagePayloadC2S(vereyaMessage));
         return true;
     }
 }

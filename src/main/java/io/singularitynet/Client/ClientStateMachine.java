@@ -47,7 +47,6 @@ import net.minecraft.client.world.ClientWorld;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.mob.MobEntity;
 import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.network.PacketByteBuf;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -1263,8 +1262,7 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
                             episodeHasCompletedWithErrors(ClientState.ERROR_NO_WORLD, "exception while converting mission init to xml" + e.getMessage());
                         }
                         // send mission init to server
-                        ClientPlayNetworking.send(NetworkConstants.CLIENT2SERVER,
-                                (new VereyaMessage(VereyaMessageType.CLIENT_MISSION_INIT, 0, map)).toBytes());
+                        ClientPlayNetworking.send(new MessagePayloadC2S(new VereyaMessage(VereyaMessageType.CLIENT_MISSION_INIT, 0, map)));
                         episodeHasCompleted(ClientState.WAITING_FOR_SERVER_READY);
                     }
                 } else { // not needNewWorld and no world: error
@@ -1394,8 +1392,7 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
                     map.put("username", client.player.getName().getString());
                     currentMissionBehaviour().appendExtraServerInformation(map);
                     LOGGER.info("***Telling server we are ready - " + agentName);
-                    ClientPlayNetworking.send(NetworkConstants.CLIENT2SERVER,
-                            (new VereyaMessage(VereyaMessageType.CLIENT_AGENTREADY, 0, map)).toBytes());
+                    ClientPlayNetworking.send(new MessagePayloadC2S(new VereyaMessage(VereyaMessageType.CLIENT_AGENTREADY, 0, map)));
                 }
 
                 // We also ping our agent, just to check it is still available:
@@ -1691,7 +1688,7 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
             HashMap<String, String> map = new HashMap<String, String>();
             map.put("username", MinecraftClient.getInstance().player.getName().getString());
             VereyaMessage msg = new VereyaMessage(VereyaMessageType.CLIENT_AGENTRUNNING, 0, map);
-            ClientPlayNetworking.send(NetworkConstants.CLIENT2SERVER,  msg.toBytes());
+            ClientPlayNetworking.send(new MessagePayloadC2S(msg));
 
             // Set up our mission handlers:
             if (currentMissionBehaviour().commandHandler != null)
@@ -1869,7 +1866,7 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
                 map.put("username", MinecraftClient.getInstance().player.getName().getString());
                 map.put("quitcode", this.quitCode);
                 LOGGER.info("informing server that player has quited");
-                ClientPlayNetworking.send(NetworkConstants.CLIENT2SERVER, (new VereyaMessage(VereyaMessageType.CLIENT_AGENTFINISHEDMISSION, 0, map)).toBytes());
+                ClientPlayNetworking.send(new MessagePayloadC2S(new VereyaMessage(VereyaMessageType.CLIENT_AGENTFINISHEDMISSION, 0, map)));
                 ClientStateMachine.this.cancelReservation();
                 onMissionEnded(ClientState.IDLING, null);
             }
@@ -2183,9 +2180,8 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
                 if (player != null) // Might not be a player yet.
                     map.put("username", player.getName().getString());
                 map.put("error", ClientStateMachine.this.getErrorDetails());
-                PacketByteBuf buf = new VereyaMessage(VereyaMessageType.CLIENT_BAILED, 0, map).toBytes();
                 LOGGER.debug("informing server of a failure with: " + map.toString());
-                ClientPlayNetworking.send(NetworkConstants.CLIENT2SERVER, buf);
+                ClientPlayNetworking.send(new MessagePayloadC2S(new VereyaMessage(VereyaMessageType.CLIENT_BAILED, 0, map)));
             }
 
             if (this.informAgent)
@@ -2295,8 +2291,7 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
             // Now send a message to the server saying that we are ready:
             HashMap<String, String> map = new HashMap<String, String>();
             map.put("agentname", agentName);
-            ClientPlayNetworking.send(NetworkConstants.CLIENT2SERVER,
-                    new VereyaMessage(VereyaMessageType.CLIENT_AGENTSTOPPED, 0, map).toBytes());
+            ClientPlayNetworking.send(new MessagePayloadC2S(new VereyaMessage(VereyaMessageType.CLIENT_AGENTSTOPPED, 0, map)));
         }
 
         @Override

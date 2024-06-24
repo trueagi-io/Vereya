@@ -1,7 +1,8 @@
 package io.singularitynet.Client;
 
+import io.singularitynet.MessagePayloadC2S;
+import io.singularitynet.MessagePayloadS2C;
 import io.singularitynet.MissionHandlers.MissionBehaviour;
-import io.singularitynet.NetworkConstants;
 import io.singularitynet.SidesMessageHandler;
 import io.singularitynet.events.ScreenEvents;
 import io.singularitynet.mixin.MinecraftClientMixin;
@@ -117,7 +118,7 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
         }
 
         @Override
-        public void updateMouse() {
+        public void tick() {
             if(MinecraftClient.getInstance().player == null){
                 return;
             }
@@ -126,7 +127,7 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
                 double dy = ((MouseAccessorMixin)this).getCursorDeltaY();
                 this.observer.onXYChange(dx, dy);
             }
-            super.updateMouse();
+            super.tick();
         }
 
         public void setObserver(MouseEventListener obj){
@@ -152,8 +153,8 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
         // subscribe to setScreen event
         ScreenEvents.SET_SCREEN.register(this);
         // register the instance for messages from Server to the Client
-        ClientPlayNetworking.registerGlobalReceiver(NetworkConstants.SERVER2CLIENT,
-                (client, handler, buf, responseSender) -> { SidesMessageHandler.server2client.onMessage(client, buf) ; });
+        ClientPlayNetworking.registerGlobalReceiver(MessagePayloadS2C.ID,
+                (payload, context) -> { SidesMessageHandler.server2client.onMessage(payload, context) ; });
     }
 
     public void setup(){

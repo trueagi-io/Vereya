@@ -32,7 +32,7 @@ public class WorldUtil {
                 DataConfiguration.SAFE_MODE);
         LogManager.getLogger().debug("creating world with seed " + seed);
         GeneratorOptions generatorOptions = new GeneratorOptions(seed, true, false);
-        client.createIntegratedServerLoader().createAndStart(levelName, levelInfo, generatorOptions, WorldUtil::getDefaultOverworldOptions);
+        client.createIntegratedServerLoader().createAndStart(levelName, levelInfo, generatorOptions, WorldUtil::getDefaultOverworldOptions, client.currentScreen);
     }
 
     public static DimensionOptionsRegistryHolder getDefaultOverworldOptions(DynamicRegistryManager dynamicRegistryManager) {

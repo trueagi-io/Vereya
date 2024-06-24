@@ -30,6 +30,7 @@ import jakarta.xml.bind.JAXBException;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
@@ -100,6 +101,7 @@ public class ServerStateMachine extends StateMachine implements IVereyaMessageLi
         ServerEntityEventsVereya.BEFORE_ENTITY_ADD.register(this::onGetPotentialSpawns);
         ServerEntityEvents.ENTITY_UNLOAD.register(this::onEntityUnload);
         ServerEntityEvents.ENTITY_LOAD.register(this::onEntityLoad);
+        PayloadTypeRegistry.playC2S().register(MessagePayloadC2S.ID, MessagePayloadC2S.CODEC);
     }
 
     private void onEntityUnload(Entity entity, ServerWorld serverWorld) {
@@ -284,8 +286,7 @@ public class ServerStateMachine extends StateMachine implements IVereyaMessageLi
             return;
         }
         for(ServerPlayerEntity player: server.getPlayerManager().getPlayerList()){
-            ServerPlayNetworking.send(player, NetworkConstants.SERVER2CLIENT,
-                    msg.toBytes());
+            ServerPlayNetworking.send(player, new MessagePayloadS2C(msg));
         }
     }
 
@@ -778,7 +779,8 @@ public class ServerStateMachine extends StateMachine implements IVereyaMessageLi
                                 LOGGER.info("Setting agent pos on server: x(" + pos.getX() + ") z(" + pos.getZ()  + ") y(" + pos.getY() + ")");
                                 player.teleport(pos.getX().doubleValue(),
                                         pos.getY().doubleValue(),
-                                        pos.getZ().doubleValue());
+                                        pos.getZ().doubleValue(),
+                                        false);
                                 /*
                                 player.setPosition(pos.getX().doubleValue(),
                                         pos.getY().doubleValue(),
@@ -868,7 +870,7 @@ public class ServerStateMachine extends StateMachine implements IVereyaMessageLi
         private void setGameType(ServerPlayerEntity player, GameMode mode){
             NbtCompound ntb = new NbtCompound();
             ntb.putInt("playerGameType", mode.ordinal());
-            player.setGameMode(ntb);
+            player.readGameModeNbt(ntb);
         }
 
         @Override
@@ -1101,7 +1103,7 @@ public class ServerStateMachine extends StateMachine implements IVereyaMessageLi
                     if (player != null)
                     {
                         VereyaMessage msg = new VereyaMessage(VereyaMessageType.SERVER_YOUR_TURN, 0, null);
-                        ServerPlayNetworking.send(player, NetworkConstants.SERVER2CLIENT, msg.toBytes());
+                        ServerPlayNetworking.send(player, new MessagePayloadS2C(msg));
                     }
                     else if (getHandlers().worldDecorator != null)
                     {
@@ -1159,8 +1161,8 @@ public class ServerStateMachine extends StateMachine implements IVereyaMessageLi
                 ServerPlayerEntity player = ServerStateMachine.this.server.get().getPlayerManager().getPlayer(agentName);
                 if (player != null)
                 {
-                    ServerPlayNetworking.send(player, NetworkConstants.SERVER2CLIENT,
-                            new VereyaMessage(VereyaMessageType.SERVER_YOUR_TURN, 0, null).toBytes());
+                    ServerPlayNetworking.send(player,
+                            new MessagePayloadS2C(new VereyaMessage(VereyaMessageType.SERVER_YOUR_TURN, 0, null)));
                 }
                 else if (getHandlers().worldDecorator != null)
                 {

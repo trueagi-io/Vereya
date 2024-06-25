@@ -69,19 +69,19 @@ public class SidesMessageHandler
         final VereyaMessage message = payload.msg();
         final List<IVereyaMessageListener> interestedParties = getMessageListeners(message);
         if (interestedParties == null) return;
-        context.player().server.execute(() -> {
+        context.server().execute(() -> {
             for (IVereyaMessageListener l : interestedParties)
             {
                 // If the message's uid is set (ie non-zero), then use it to ensure that only the matching listener receives this message.
                 // Otherwise, let all listeners who are interested get a look.
                 // if (message.uid == 0 || System.identityHashCode(l) == message.uid)
                 //    l.onMessage(message.messageType,  message.data);
-                l.onMessage(message.getMessageType(), message.getData());
+                l.onMessage(message.getMessageType(), message.getData(), context.player());
             }
         });
     }
 
-    public void onMessage(MessagePayloadC2S payload, ClientPlayNetworking.Context context) {
+    public void onMessage(MessagePayloadS2C payload, ClientPlayNetworking.Context context) {
         final VereyaMessage message = payload.msg();
         final List<IVereyaMessageListener> interestedParties = getMessageListeners(message);
         if (interestedParties == null) return;

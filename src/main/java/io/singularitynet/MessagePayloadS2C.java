@@ -19,11 +19,11 @@ public record MessagePayloadS2C(VereyaMessage msg) implements CustomPayload {
         }
     };
 
-    public static final Id<MessagePayloadC2S> ID = new Id<>(NetworkConstants.SERVER2CLIENT);
+    public static final CustomPayload.Id<MessagePayloadC2S> ID = new CustomPayload.Id<>(NetworkConstants.SERVER2CLIENT);
     public static final PacketCodec<RegistryByteBuf, MessagePayloadC2S> CODEC = PacketCodec.tuple(PACKET_CODEC, MessagePayloadC2S::msg, MessagePayloadC2S::new);
 
     @Override
-    public Id<? extends CustomPayload> getId() {
+    public CustomPayload.Id<? extends CustomPayload> getId() {
         return ID;
     }
 }

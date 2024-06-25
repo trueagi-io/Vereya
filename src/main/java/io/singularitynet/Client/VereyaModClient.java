@@ -1,5 +1,6 @@
 package io.singularitynet.Client;
 
+import io.singularitynet.MessagePayloadC2S;
 import io.singularitynet.MessagePayloadS2C;
 import io.singularitynet.MissionHandlers.MissionBehaviour;
 import io.singularitynet.SidesMessageHandler;

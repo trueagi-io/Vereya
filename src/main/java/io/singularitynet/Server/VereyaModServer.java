@@ -32,6 +32,7 @@ import net.minecraft.entity.mob.MobEntity;
 import net.minecraft.server.MinecraftServer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.core.jmx.Server;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -59,8 +60,8 @@ public class VereyaModServer implements ModInitializer {
         instance = this;
         PayloadTypeRegistry.playC2S().register(MessagePayloadC2S.ID, MessagePayloadC2S.CODEC);
         // register the instance for messages from Client to the Server
-        ServerPlayNetworking.registerGlobalReceiver(MessagePayloadS2C.ID, (payload, context) -> {
-            SidesMessageHandler.onMessage(payload, context);
+        ServerPlayNetworking.registerGlobalReceiver(MessagePayloadC2S.ID, (payload, context) -> {
+            SidesMessageHandler.client2server.onMessage(payload, context);
         });
         ServerLifecycleEvents.SERVER_STARTED.register((MinecraftServer server) -> {
             Logger LOGGER = LogManager.getLogger();

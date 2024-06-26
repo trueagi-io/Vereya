@@ -285,7 +285,7 @@ public class ServerStateMachine extends StateMachine implements IVereyaMessageLi
             return;
         }
         for(ServerPlayerEntity player: server.getPlayerManager().getPlayerList()){
-            ServerPlayNetworking.send(player, new MessagePayloadS2C(msg));
+            ServerPlayNetworking.send(player, new MessagePayload(msg));
         }
     }
 
@@ -1102,7 +1102,7 @@ public class ServerStateMachine extends StateMachine implements IVereyaMessageLi
                     if (player != null)
                     {
                         VereyaMessage msg = new VereyaMessage(VereyaMessageType.SERVER_YOUR_TURN, 0, null);
-                        ServerPlayNetworking.send(player, new MessagePayloadS2C(msg));
+                        ServerPlayNetworking.send(player, new MessagePayload(msg));
                     }
                     else if (getHandlers().worldDecorator != null)
                     {
@@ -1161,7 +1161,7 @@ public class ServerStateMachine extends StateMachine implements IVereyaMessageLi
                 if (player != null)
                 {
                     ServerPlayNetworking.send(player,
-                            new MessagePayloadS2C(new VereyaMessage(VereyaMessageType.SERVER_YOUR_TURN, 0, null)));
+                            new MessagePayload(new VereyaMessage(VereyaMessageType.SERVER_YOUR_TURN, 0, null)));
                 }
                 else if (getHandlers().worldDecorator != null)
                 {

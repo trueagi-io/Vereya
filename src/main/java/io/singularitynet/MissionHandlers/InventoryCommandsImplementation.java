@@ -70,7 +70,7 @@ public class InventoryCommandsImplementation extends CommandGroup implements IVe
                     // All okay, so create a swap message for the server:
                     // InventoryChangeMessage msg = runCommand(new InventoryMessage(params, false));
                     LOGGER.debug("Sending SWAP_INVENTORY_ITEMS message to server");
-                    ClientPlayNetworking.send(new MessagePayloadC2S(new InventoryCommandsImplementationServer.InventoryMessage(params, false)));
+                    ClientPlayNetworking.send(new MessagePayload(new InventoryCommandsImplementationServer.InventoryMessage(params, false)));
                     return true;
                 }
                 else
@@ -87,7 +87,7 @@ public class InventoryCommandsImplementation extends CommandGroup implements IVe
                     // All okay, so create a combine message for the server:
                     // runCommand(new InventoryMessage(params, false));
                     LOGGER.debug("Sending COMBINE_INVENTORY_ITEMS message to server");
-                    ClientPlayNetworking.send(new MessagePayloadC2S(new InventoryCommandsImplementationServer.InventoryMessage(params, false)));
+                    ClientPlayNetworking.send(new MessagePayload(new InventoryCommandsImplementationServer.InventoryMessage(params, false)));
                     return true;
                 }
                 else

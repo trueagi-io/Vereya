@@ -1,7 +1,6 @@
 package io.singularitynet.Client;
 
-import io.singularitynet.MessagePayloadC2S;
-import io.singularitynet.MessagePayloadS2C;
+import io.singularitynet.MessagePayload;
 import io.singularitynet.MissionHandlers.MissionBehaviour;
 import io.singularitynet.SidesMessageHandler;
 import io.singularitynet.events.ScreenEvents;
@@ -153,9 +152,9 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
         this.stateMachine = new ClientStateMachine(ClientState.WAITING_FOR_MOD_READY, (IMalmoModClient) this);
         // subscribe to setScreen event
         ScreenEvents.SET_SCREEN.register(this);
-        PayloadTypeRegistry.playS2C().register(MessagePayloadS2C.ID, MessagePayloadS2C.CODEC);
+        PayloadTypeRegistry.playS2C().register(MessagePayload.ID, MessagePayload.CODEC);
         // register the instance for messages from Server to the Client
-        ClientPlayNetworking.registerGlobalReceiver(MessagePayloadS2C.ID,
+        ClientPlayNetworking.registerGlobalReceiver(MessagePayload.ID,
                 (payload, context) -> { SidesMessageHandler.server2client.onMessage(payload, context) ; });
     }
 

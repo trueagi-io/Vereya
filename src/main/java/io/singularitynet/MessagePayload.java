@@ -5,7 +5,7 @@ import net.minecraft.network.RegistryByteBuf;
 import net.minecraft.network.codec.PacketCodec;
 import net.minecraft.network.packet.CustomPayload;
 
-public record MessagePayloadS2C(VereyaMessage msg) implements CustomPayload {
+public record MessagePayload(VereyaMessage msg) implements CustomPayload {
     public static final PacketCodec<PacketByteBuf, VereyaMessage> PACKET_CODEC = new PacketCodec<PacketByteBuf, VereyaMessage>() {
 
         public VereyaMessage decode(PacketByteBuf byteBuf) {
@@ -19,11 +19,12 @@ public record MessagePayloadS2C(VereyaMessage msg) implements CustomPayload {
         }
     };
 
-    public static final CustomPayload.Id<MessagePayloadC2S> ID = new CustomPayload.Id<>(NetworkConstants.SERVER2CLIENT);
-    public static final PacketCodec<RegistryByteBuf, MessagePayloadC2S> CODEC = PacketCodec.tuple(PACKET_CODEC, MessagePayloadC2S::msg, MessagePayloadC2S::new);
+    public static final CustomPayload.Id<MessagePayload> ID = new CustomPayload.Id<>(NetworkConstants.CLIENT2SERVER);
+    public static final PacketCodec<RegistryByteBuf, MessagePayload> CODEC = PacketCodec.tuple(PACKET_CODEC, MessagePayload::msg, MessagePayload::new);
 
     @Override
     public CustomPayload.Id<? extends CustomPayload> getId() {
         return ID;
     }
 }
+

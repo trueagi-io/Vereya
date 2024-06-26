@@ -65,7 +65,7 @@ public class SidesMessageHandler
         }
     }
 
-    public static void onMessage(MessagePayloadC2S payload, ServerPlayNetworking.Context context) {
+    public static void onMessage(MessagePayload payload, ServerPlayNetworking.Context context) {
         final VereyaMessage message = payload.msg();
         final List<IVereyaMessageListener> interestedParties = getMessageListeners(message);
         if (interestedParties == null) return;
@@ -81,7 +81,7 @@ public class SidesMessageHandler
         });
     }
 
-    public void onMessage(MessagePayloadS2C payload, ClientPlayNetworking.Context context) {
+    public void onMessage(MessagePayload payload, ClientPlayNetworking.Context context) {
         final VereyaMessage message = payload.msg();
         final List<IVereyaMessageListener> interestedParties = getMessageListeners(message);
         if (interestedParties == null) return;

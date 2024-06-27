@@ -61,7 +61,7 @@ public class ObservationFromItemsImplementation extends HandlerBase implements I
         JsonArray items = new JsonArray();
         for (Item ent: list_ent)
         {
-            String item_name = ent.toString();
+            String item_name = ent.toString().replace("minecraft:", "");
             items.add(item_name);
         }
         json.add("item_list", items);

@@ -257,7 +257,7 @@ public class ObservationFromBlocksDropsImplementation extends HandlerBase implem
         RegistryEntryLookup.RegistryLookup registryLookup2 = (new DynamicRegistryManager.ImmutableImpl(List.of(mutableRegistry))).toImmutable().createRegistryLookup();
         LootTableReporter lootTableReporter = new LootTableReporter(impl, LootContextTypes.GENERIC, registryLookup2);
         Iterator var9 = Sets.difference(lootTableIds, mutableRegistry.getKeys()).iterator();
-
+// todo: add a comment indicating where this decompiled code was adapted from
         while(var9.hasNext()) {
             RegistryKey<LootTable> registryKey = (RegistryKey)var9.next();
             impl.report("Missing built-in table: " + registryKey.getValue());

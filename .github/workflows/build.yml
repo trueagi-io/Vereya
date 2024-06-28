@@ -16,7 +16,7 @@ jobs:
     strategy:
       matrix:
         # Use these Java versions
-        java: [ 17, ]  # Current Java LTS & minimum supported by Minecraft
+        java: [ 21, ]  # Current Java LTS & minimum supported by Minecraft
     steps:
       - name: lock file
         run: lockfile /tmp/minecraft-test-lock

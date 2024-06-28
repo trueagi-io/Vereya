@@ -16,7 +16,6 @@ import net.minecraft.util.Util;
 import net.minecraft.util.math.random.RandomSeed;
 import net.minecraft.util.math.random.RandomSequence;
 import org.jetbrains.annotations.Nullable;
-//import net.minecraft.loot.LootDataKey;
 import net.minecraft.loot.LootDataType;
 import net.minecraft.loot.LootTable;
 import org.apache.logging.log4j.LogManager;

@@ -54,7 +54,7 @@ jobs:
       - name: checkout tagilmo
         uses: actions/checkout@v3
         with:
-          repository: trueagi-io/minecraft-demo
+          repository: noSkill/minecraft-demo
           path: minecraft-demo
       - name: install tagilmo
         run: conda activate py31 && cd $GITHUB_WORKSPACE/minecraft-demo && pip install .

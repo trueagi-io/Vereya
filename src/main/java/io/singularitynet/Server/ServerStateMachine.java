@@ -775,16 +775,8 @@ public class ServerStateMachine extends StateMachine implements IVereyaMessageLi
                             PosAndDirection pos = as.getAgentStart().getPlacement();
 
                             if (pos != null) {
-                                LOGGER.info("Setting agent pos on server: x(" + pos.getX() + ") z(" + pos.getZ()  + ") y(" + pos.getY() + ")");
-                                player.teleport(pos.getX().doubleValue(),
-                                        pos.getY().doubleValue(),
-                                        pos.getZ().doubleValue(),
-                                        false);
-                                /*
-                                player.setPosition(pos.getX().doubleValue(),
-                                        pos.getY().doubleValue(),
-                                        pos.getZ().doubleValue());
-                                 */
+
+                                LOGGER.info("agent ready pos on server: x(" + player.getX() + ") z(" + player.getZ()  + ") y(" + player.getY() + ")");
                             }
                             // And set their game type back now:
                             this.setGameType((ServerPlayerEntity) player, GameMode.byName(as.getMode().name().toLowerCase()));
@@ -851,7 +843,7 @@ public class ServerStateMachine extends StateMachine implements IVereyaMessageLi
                     player.setYaw(pos.getYaw().floatValue());
                     player.setPitch(pos.getPitch().floatValue());
                     LOGGER.info("initialisePlayer setting agent pos on server to: x(" + pos.getX() + ") z(" + pos.getZ()  + ") y(" + pos.getY() + ")");
-                    player.setPosition(pos.getX().doubleValue(),pos.getY().doubleValue(),pos.getZ().doubleValue());
+                    player.teleport(pos.getX().doubleValue(),pos.getY().doubleValue(),pos.getZ().doubleValue(), false);
                 }
                 player.setVelocity(0, 0, 0);	// Minimise chance of drift!
 

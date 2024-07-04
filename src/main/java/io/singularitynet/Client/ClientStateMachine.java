@@ -69,6 +69,8 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 
+import static io.singularitynet.VereyaMessageType.SERVER_CHUNK_READY;
+
 /**
  * Class designed to track and control the state of the mod, especially regarding mission launching/running.<br>
  * States are defined by the MissionState enum, and control is handled by
@@ -1285,11 +1287,13 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
         int totalTicks = 0;
         boolean waitingForChunk = false;
         boolean waitingForPlayer = true;
+        private boolean chunkReady = false;
 
         protected WaitingForServerEpisode(ClientStateMachine machine)
         {
             super(machine);
             SidesMessageHandler.server2client.registerForMessage(this, VereyaMessageType.SERVER_ALLPLAYERSJOINED);
+            SidesMessageHandler.server2client.registerForMessage(this, VereyaMessageType.SERVER_CHUNK_READY);
         }
 
         private boolean isChunkReady()
@@ -1302,6 +1306,8 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
                 return true;    // This should never happen.
             }
             AgentSection as = agents.get(currentMissionInit().getClientRole());
+            if (!this.chunkReady)
+                return false;
             if (as.getAgentStart() != null && as.getAgentStart().getPlacement() != null) {
                 PosAndDirection pos = as.getAgentStart().getPlacement();
                 PlayerEntity player = MinecraftClient.getInstance().player;
@@ -1314,50 +1320,10 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
                     if (y_delta < 0.5 || !player.isOnGround())
                         return true;
                 }
-                setClientPos();
                 LOGGER.debug("Waiting for correct agent position x_delta: " + x_delta + " y_delta: " + y_delta + " z_delta: " + z_delta);
                 return false;
             }
-                /*
-                int x = MathHelper.floor(pos.getX().doubleValue()) >> 4;
-                int z = MathHelper.floor(pos.getZ().doubleValue()) >> 4;
-
-                // Now get the chunk we should be starting in:
-                IChunkProvider chunkprov = Minecraft.getMinecraft().world.getChunkProvider();
-                MinecraftClient.getInstance().player.setPos();
-                EntityPlayerSP player = Minecraft.getMinecraft().player;
-                if (player.addedToChunk)
-                {
-                    // Our player is already added to a chunk - is it the right one?
-                    Chunk actualChunk = chunkprov.provideChunk(player.chunkCoordX, player.chunkCoordZ);
-                    Chunk requestedChunk = chunkprov.provideChunk(x,  z);
-                    if (actualChunk == requestedChunk && actualChunk != null && !actualChunk.isEmpty())
-                    {
-                        // We're in the right chunk, and it's not an empty chunk.
-                        // We're ready to proceed, but first set our client positions to where we ought to be.
-                        // The server should be doing this too, but there's no harm (probably) in doing it ourselves.
-                        player.posX = pos.getX().doubleValue();
-                        player.posY = pos.getY().doubleValue();
-                        player.posZ = pos.getZ().doubleValue();
-                        return true;
-                    }
-                }
-                return false;   // Our starting position has been specified, but it's not yet ready.
-            }*/
             return true;    // No starting position specified, so doesn't matter where we start.
-        }
-
-        private void setClientPos(){
-            List<AgentSection> agents = currentMissionInit().getMission().getAgentSection();
-            AgentSection as = agents.get(currentMissionInit().getClientRole());
-            PosAndDirection pos = as.getAgentStart().getPlacement();
-            if (pos != null) {
-                LOGGER.info("Setting agent pos on client to: x(" + pos.getX() + ") z(" + pos.getZ() + ") y(" + pos.getY() + ")");
-                MinecraftClient.getInstance().player.setPosition(
-                        pos.getX().doubleValue(),
-                        pos.getY().doubleValue(),
-                        pos.getZ().doubleValue());
-            }
         }
 
         @Override
@@ -1371,7 +1337,6 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
             {
                 if (client.player != null)
                 {
-                    setClientPos();
                     this.waitingForPlayer = false;
                     handleLan();
                 }
@@ -1507,6 +1472,11 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
         {
             LOGGER.debug("ClientStateMachine:onMessage: " + messageType);
             super.onMessage(messageType, data);
+            if (messageType == SERVER_CHUNK_READY){
+                // MinecraftClient.getInstance().world.isChunkLoaded() is full of lies
+                // we have to check it on the server
+                this.chunkReady = true;
+            }
 
             if (messageType != VereyaMessageType.SERVER_ALLPLAYERSJOINED)
                 return;

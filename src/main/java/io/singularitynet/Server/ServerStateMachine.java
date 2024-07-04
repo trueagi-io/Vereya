@@ -43,6 +43,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.ActionResult;
+import net.minecraft.util.math.ChunkSectionPos;
 import net.minecraft.world.GameMode;
 import net.minecraft.world.GameRules;
 import net.minecraft.world.World;
@@ -56,6 +57,7 @@ import java.lang.ref.WeakReference;
 import java.util.*;
 
 import static io.singularitynet.VereyaMessageType.CLIENT_BAILED;
+import static io.singularitynet.VereyaMessageType.SERVER_CHUNK_READY;
 
 /**
  * Class designed to track and control the state of the mod, especially regarding mission launching/running.<br>
@@ -287,6 +289,10 @@ public class ServerStateMachine extends StateMachine implements IVereyaMessageLi
         for(ServerPlayerEntity player: server.getPlayerManager().getPlayerList()){
             ServerPlayNetworking.send(player, new MessagePayload(msg));
         }
+    }
+
+    private void sendToPlayer(VereyaMessage msg, ServerPlayerEntity player){
+        ServerPlayNetworking.send(player, new MessagePayload(msg));
     }
 
     protected void setMissionWeather(MissionInit minit, ServerWorld world){
@@ -659,6 +665,8 @@ public class ServerStateMachine extends StateMachine implements IVereyaMessageLi
         // Map used to build turn schedule for turn-based agents.
         private Map<Integer, String> userTurnScheduleMap = new HashMap<Integer, String>();
 
+        private boolean ready = false;
+
         protected WaitingForAgentsEpisode(ServerStateMachine machine)
         {
             super(machine);
@@ -764,31 +772,12 @@ public class ServerStateMachine extends StateMachine implements IVereyaMessageLi
                 String agentname = this.usernameToAgentnameMap.get(username);
                 if (username != null && this.pendingRunningAgents.contains(username))
                 {
-                    // Reset their position once more. We need to do this because the player can easily sink into
-                    // a chunk if it takes too long to load.
-                    if (agentname != null && !agentname.isEmpty())
-                    {
-                        AgentSection as = getAgentSectionFromAgentName(agentname);
-                        if (player != null && as != null)
-                        {
-                            // Set their initial position and speed:
-                            PosAndDirection pos = as.getAgentStart().getPlacement();
-
-                            if (pos != null) {
-
-                                LOGGER.info("agent ready pos on server: x(" + player.getX() + ") z(" + player.getZ()  + ") y(" + player.getY() + ")");
-                            }
-                            // And set their game type back now:
-                            this.setGameType((ServerPlayerEntity) player, GameMode.byName(as.getMode().name().toLowerCase()));
-                            // Also make sure we haven't accidentally left the player flying:
-                            player.getAbilities().flying = false;
-                            player.sendAbilitiesUpdate();
-                        }
-                    }
                     this.pendingRunningAgents.remove(username);
                     // If all clients are now running, we can finally enter the running state ourselves.
-                    if (this.pendingRunningAgents.isEmpty())
+                    if (this.pendingRunningAgents.isEmpty()) {
+                        LOGGER.info("all agents are ready");
                         episodeHasCompleted(ServerState.RUNNING);
+                    }
                 }
             }
         }
@@ -840,10 +829,18 @@ public class ServerStateMachine extends StateMachine implements IVereyaMessageLi
                 // Set their initial position and speed:
                 PosAndDirection pos = as.getAgentStart().getPlacement();
                 if (pos != null) {
+                    this.setGameType(player, GameMode.SPECTATOR);
+                    player.getAbilities().flying = true;
+                    player.sendAbilitiesUpdate();
                     player.setYaw(pos.getYaw().floatValue());
                     player.setPitch(pos.getPitch().floatValue());
+                    LOGGER.info("game mode " + player.getServer().getForcedGameMode());
                     LOGGER.info("initialisePlayer setting agent pos on server to: x(" + pos.getX() + ") z(" + pos.getZ()  + ") y(" + pos.getY() + ")");
-                    player.teleport(pos.getX().doubleValue(),pos.getY().doubleValue(),pos.getZ().doubleValue(), false);
+                    player.setPosition(pos.getX().doubleValue(), pos.getY().doubleValue(),
+                    pos.getZ().doubleValue());
+                    player.teleport(pos.getX().doubleValue(),
+                            pos.getY().doubleValue(),
+                            pos.getZ().doubleValue(), false);
                 }
                 player.setVelocity(0, 0, 0);	// Minimise chance of drift!
 
@@ -853,15 +850,17 @@ public class ServerStateMachine extends StateMachine implements IVereyaMessageLi
                 // And their Ender inventory:
                 if (as.getAgentStart().getEnderBoxInventory() != null)
                     initialiseEnderInventory(player, as.getAgentStart().getEnderBoxInventory());
-                this.setGameType(player, GameMode.SPECTATOR);
                 // Set their game mode to spectator for now, to protect them while we wait for the rest of the cast to assemble:
             }
         }
 
         private void setGameType(ServerPlayerEntity player, GameMode mode){
-            NbtCompound ntb = new NbtCompound();
-            ntb.putInt("playerGameType", mode.ordinal());
-            player.readGameModeNbt(ntb);
+            LOGGER.info("setting game mode " + mode);
+            boolean result = player.changeGameMode(mode);
+            if (!result){
+                LOGGER.error("Failed to change game mode for " + player.getName());
+            }
+            LOGGER.info("new game mode is {}", player.getServer().getForcedGameMode());
         }
 
         @Override
@@ -881,6 +880,7 @@ public class ServerStateMachine extends StateMachine implements IVereyaMessageLi
 
         private void resetPlayerGameTypes()
         {
+            LOGGER.info("resetPlayerGameTypes");
             // Go through and set all the players to their correct game type:
             for (Map.Entry<String, String> entry : this.usernameToAgentnameMap.entrySet())
             {
@@ -938,6 +938,7 @@ public class ServerStateMachine extends StateMachine implements IVereyaMessageLi
             // And tell them all they can proceed:
             LOGGER.debug("Sending SERVER_ALLPLAYERSJOINED to all clients.");
             sendToAll(new VereyaMessage(VereyaMessageType.SERVER_ALLPLAYERSJOINED, 0, data));
+            this.ready = true;
         }
 
         @Override
@@ -959,6 +960,28 @@ public class ServerStateMachine extends StateMachine implements IVereyaMessageLi
             if (!ServerStateMachine.this.checkWatchList()) {
                 LOGGER.warn("WaitingForAgentsEpisode: Watch list check failed, perhaps lost connection to client?");
                 onError(null);  // We've lost a connection - abort the mission.
+            }
+            if (this.ready){
+                boolean loaded = true;
+                // check that chunk is loaded
+                for(Map.Entry<String, String> item: this.usernameToAgentnameMap.entrySet()){
+                    // check that chunk is loaded for all players
+                    String username = item.getKey();
+                    String agentname = item.getValue();
+                    ServerPlayerEntity player = getPlayerFromUsername(username);
+                    boolean l = player.getServerWorld().isChunkLoaded(ChunkSectionPos.getSectionCoord(player.getX()), ChunkSectionPos.getSectionCoord(player.getZ()));
+                    loaded &= l;
+                    if (!l){
+                        LOGGER.debug("waiting chunk loaded on server");
+                    }
+                }
+                if (loaded){
+                    ready = false;
+                    this.resetPlayerGameTypes();
+                    // we wait for all players to load their chunks before starting the mission.
+                    sendToAll(new VereyaMessage(SERVER_CHUNK_READY, 0, errorData));
+                }
+
             }
         }
 /*

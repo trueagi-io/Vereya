@@ -29,5 +29,6 @@ public enum VereyaMessageType
     CLIENT_CRAFT, // Client telling the server what to craft
     CLIENT_INVENTORY_CHANGE, // Client tells server to modify inventory
     CLIENT_MISSION_INIT, // Client tells server to start a new mission
-    CLIENT_MOVE  // move command for controlled mob
+    CLIENT_MOVE,  // move command for controlled mob
+    SERVER_CHUNK_READY // chunk around the player was loaded
 }

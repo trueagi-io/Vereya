@@ -3,7 +3,6 @@ package io.singularitynet.utils;
 import org.lwjgl.BufferUtils;
 
 import java.io.IOException;
-import java.lang.ref.Cleaner;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;

@@ -1,22 +1,17 @@
 package io.singularitynet.MissionHandlers;
 
-import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import com.google.gson.*;
 import com.mojang.serialization.JsonOps;
 import com.mojang.serialization.Lifecycle;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
-import net.minecraft.data.DataProvider;
-import net.minecraft.data.server.loottable.LootTableGenerator;
 import net.minecraft.registry.*;
 import net.minecraft.registry.entry.RegistryEntryInfo;
 import net.minecraft.util.ErrorReporter;
 import net.minecraft.util.Util;
 import net.minecraft.util.math.random.RandomSeed;
 import net.minecraft.util.math.random.RandomSequence;
-import org.jetbrains.annotations.Nullable;
-import net.minecraft.loot.LootDataType;
 import net.minecraft.loot.LootTable;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -33,7 +28,6 @@ import net.minecraft.data.server.loottable.LootTableProvider;
 import net.minecraft.data.server.loottable.vanilla.VanillaLootTableProviders;
 import net.minecraft.item.Item;
 import net.minecraft.loot.LootTableReporter;
-import net.minecraft.loot.context.LootContextType;
 import net.minecraft.loot.context.LootContextTypes;
 import net.minecraft.registry.tag.TagKey;
 import net.minecraft.util.Identifier;
@@ -43,7 +37,6 @@ import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.function.Function;
 
 import static net.minecraft.registry.Registries.ITEM;
 

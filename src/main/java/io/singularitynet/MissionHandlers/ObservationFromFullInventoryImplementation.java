@@ -20,7 +20,6 @@
 package io.singularitynet.MissionHandlers;
 
 import io.singularitynet.MissionHandlerInterfaces.IObservationProducer;
-import io.singularitynet.projectmalmo.DrawItem;
 import io.singularitynet.projectmalmo.MissionInit;
 import io.singularitynet.projectmalmo.ObservationFromFullInventory;
 import io.singularitynet.utils.JSONWorldDataHelper;
@@ -28,16 +27,10 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.inventory.Inventory;
-import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.math.Vec3d;
 import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
-
-import java.util.List;
-import java.util.Map;
 
 /** Simple IObservationProducer class that returns a list of the full inventory, including the armour.
  */

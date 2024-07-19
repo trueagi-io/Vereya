@@ -24,7 +24,6 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.option.GameOptions;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
-import org.apache.commons.logging.Log;
 import org.apache.logging.log4j.LogManager;
 import io.singularitynet.mixin.GameOptionsMixin;
 

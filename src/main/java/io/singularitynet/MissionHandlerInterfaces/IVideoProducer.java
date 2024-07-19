@@ -22,7 +22,6 @@ package io.singularitynet.MissionHandlerInterfaces;
 import io.singularitynet.projectmalmo.MissionInit;
 
 import java.nio.ByteBuffer;
-import java.util.Map;
 
 /** Interface for objects which are responsible for providing Minecraft video data.
  */

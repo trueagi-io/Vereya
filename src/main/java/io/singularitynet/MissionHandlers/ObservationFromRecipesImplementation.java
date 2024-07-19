@@ -10,7 +10,6 @@ import io.singularitynet.projectmalmo.ObservationFromRecipe;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.item.ItemStack;
 import net.minecraft.recipe.Ingredient;
-import net.minecraft.recipe.Recipe;
 import net.minecraft.recipe.RecipeEntry;
 import net.minecraft.util.collection.DefaultedList;
 

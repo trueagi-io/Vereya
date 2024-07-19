@@ -21,7 +21,6 @@ package io.singularitynet.utils;
 
 import com.google.gson.JsonSyntaxException;
 import net.minecraft.block.entity.AbstractFurnaceBlockEntity;
-import net.minecraft.client.MinecraftClient;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.inventory.Inventories;
 import net.minecraft.inventory.Inventory;

@@ -20,7 +20,6 @@ package io.singularitynet.MissionHandlers;
 
 import io.singularitynet.MissionHandlerInterfaces.ICommandHandler;
 import io.singularitynet.projectmalmo.ContinuousMovementCommands;
-import io.singularitynet.projectmalmo.MissionInit;
 
 
 public class ContinuousMovementCommandsImplementation extends CommandGroup implements ICommandHandler {

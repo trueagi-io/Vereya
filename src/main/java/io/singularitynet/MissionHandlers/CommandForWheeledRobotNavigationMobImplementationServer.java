@@ -3,17 +3,13 @@ package io.singularitynet.MissionHandlers;
 
 import io.singularitynet.IVereyaMessageListener;
 import io.singularitynet.Server.VereyaModServer;
-import io.singularitynet.VereyaMessage;
 import io.singularitynet.VereyaMessageType;
 import io.singularitynet.SidesMessageHandler;
 import io.singularitynet.mixin.MobEntityAccessorMixin;
 import io.singularitynet.projectmalmo.ContinuousMovementCommand;
 import io.singularitynet.projectmalmo.ContinuousMovementCommands;
 import io.singularitynet.projectmalmo.MissionInit;
-import net.fabricmc.api.EnvType;
-import net.fabricmc.api.Environment;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents;
-import net.minecraft.client.texture.NativeImage;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.ai.control.JumpControl;
 import net.minecraft.entity.ai.control.MoveControl;

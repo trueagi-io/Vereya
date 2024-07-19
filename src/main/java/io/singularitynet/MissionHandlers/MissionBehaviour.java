@@ -26,7 +26,6 @@ import io.singularitynet.projectmalmo.MissionInit;
 import io.singularitynet.projectmalmo.ServerHandlers;
 import org.apache.logging.log4j.LogManager;
 
-import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.HashMap;

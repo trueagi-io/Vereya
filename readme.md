@@ -3,9 +3,11 @@
 ## Overview
 
 Vereya provides API for controlling AI agents in Minecraft. This mod inherits some pieces of the Malmo project, but with various changes and additions. 
-Vereya should work with Minecraft 1.20.1
+Vereya should work with Minecraft 1.21
 
 ## building and installation
+
+*set pauseOnLostFocus:false* in options.txt
 
 run in project directory
 

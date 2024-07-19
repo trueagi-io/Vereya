@@ -20,13 +20,12 @@
 package io.singularitynet.Server;
 
 
-import io.singularitynet.NetworkConstants;
+import io.singularitynet.MessagePayload;
 import io.singularitynet.SidesMessageHandler;
 import io.singularitynet.projectmalmo.MissionInit;
-import net.fabricmc.api.EnvType;
-import net.fabricmc.api.Environment;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
+import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.entity.mob.MobEntity;
 import net.minecraft.server.MinecraftServer;
@@ -57,9 +56,11 @@ public class VereyaModServer implements ModInitializer {
     @Override
     public void onInitialize() {
         instance = this;
+        PayloadTypeRegistry.playC2S().register(MessagePayload.ID, MessagePayload.CODEC);
         // register the instance for messages from Client to the Server
-        ServerPlayNetworking.registerGlobalReceiver(NetworkConstants.CLIENT2SERVER,
-                (server, player, handler, buf, responseSender) -> { SidesMessageHandler.client2server.onMessage(server, buf, player); });
+        ServerPlayNetworking.registerGlobalReceiver(MessagePayload.ID, (payload, context) -> {
+            SidesMessageHandler.client2server.onMessage(payload, context);
+        });
         ServerLifecycleEvents.SERVER_STARTED.register((MinecraftServer server) -> {
             Logger LOGGER = LogManager.getLogger();
             LOGGER.info("Server started");

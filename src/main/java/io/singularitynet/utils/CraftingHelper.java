@@ -30,6 +30,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.recipe.Ingredient;
 import net.minecraft.recipe.Recipe;
+import net.minecraft.recipe.RecipeEntry;
 import net.minecraft.recipe.RecipeType;
 import net.minecraft.registry.Registries;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -52,20 +53,20 @@ public class CraftingHelper {
      * @return a list of IRecipe objects that result in this item.
      */
     public static List<Recipe> getRecipesForRequestedOutput(String output, boolean variant, ServerPlayerEntity player) {
-        Item item = Registries.ITEM.getOrEmpty(new Identifier(output)).orElseThrow(() -> new RuntimeException("Unknown item '" + output + "'"));
+        Item item = Registries.ITEM.getOrEmpty(Identifier.ofVanilla(output)).orElseThrow(() -> new RuntimeException("Unknown item '" + output + "'"));
         if (item == Items.AIR) {
             throw new JsonSyntaxException("Invalid item: " + output);
         }
         ItemStack stack = new ItemStack(item);
-        List<Recipe<?>> result = player.getWorld().getRecipeManager().values().stream().filter(recipe -> {
-            ItemStack is = recipe.getOutput(player.getWorld().getRegistryManager());
+        List<RecipeEntry<?>> result = player.getWorld().getRecipeManager().values().stream().filter(recipe -> {
+            ItemStack is = recipe.value().getResult(player.getWorld().getRegistryManager());
             if(ItemStack.areItemsEqual(is, stack)) return true;
             return false;
         }).toList();
 
         List<Recipe> result1 = new ArrayList<>();
-        for(Recipe recipe:result){
-            result1.add(recipe);
+        for(RecipeEntry<?> recipe:result){
+            result1.add(recipe.value());
         }
         return result1;
     }
@@ -96,7 +97,7 @@ public class CraftingHelper {
             // First, remove the ingredients:
             removeIngredientsFromPlayer(player, requiredCount);
             // Now add the output of the recipe:
-            ItemStack resultForInventory = recipe.getOutput(player.getWorld().getRegistryManager()).copy();
+            ItemStack resultForInventory = recipe.getResult(player.getWorld().getRegistryManager()).copy();
             player.getInventory().offerOrDrop(resultForInventory);
             return true;
         } else {
@@ -263,7 +264,7 @@ public class CraftingHelper {
             return false;
         }
 
-        Item fuel_item = Registries.ITEM.get(new Identifier(fuel_name));
+        Item fuel_item = Registries.ITEM.get(Identifier.ofVanilla(fuel_name));
         if(fuel_item == null){
             return false;
         }
@@ -281,7 +282,7 @@ public class CraftingHelper {
             removeIngredientsFromPlayer(player, requiredCount);
             burnInventory(player, fuelItemStack);
 
-            ItemStack resultForInventory = recipe.getOutput(player.getWorld().getRegistryManager()).copy();
+            ItemStack resultForInventory = recipe.getResult(player.getWorld().getRegistryManager()).copy();
             LogManager.getLogger().info("adding to inventory " + resultForInventory.toString());
             player.getInventory().offerOrDrop(resultForInventory);
             return true;

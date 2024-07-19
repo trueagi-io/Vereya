@@ -1,7 +1,7 @@
 package io.singularitynet.Client;
 
+import io.singularitynet.MessagePayload;
 import io.singularitynet.MissionHandlers.MissionBehaviour;
-import io.singularitynet.NetworkConstants;
 import io.singularitynet.SidesMessageHandler;
 import io.singularitynet.events.ScreenEvents;
 import io.singularitynet.mixin.MinecraftClientMixin;
@@ -9,6 +9,7 @@ import io.singularitynet.mixin.MouseAccessorMixin;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.minecraft.client.Keyboard;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.Mouse;
@@ -117,7 +118,7 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
         }
 
         @Override
-        public void updateMouse() {
+        public void tick() {
             if(MinecraftClient.getInstance().player == null){
                 return;
             }
@@ -126,7 +127,7 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
                 double dy = ((MouseAccessorMixin)this).getCursorDeltaY();
                 this.observer.onXYChange(dx, dy);
             }
-            super.updateMouse();
+            super.tick();
         }
 
         public void setObserver(MouseEventListener obj){
@@ -151,9 +152,10 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
         this.stateMachine = new ClientStateMachine(ClientState.WAITING_FOR_MOD_READY, (IMalmoModClient) this);
         // subscribe to setScreen event
         ScreenEvents.SET_SCREEN.register(this);
+        PayloadTypeRegistry.playS2C().register(MessagePayload.ID, MessagePayload.CODEC);
         // register the instance for messages from Server to the Client
-        ClientPlayNetworking.registerGlobalReceiver(NetworkConstants.SERVER2CLIENT,
-                (client, handler, buf, responseSender) -> { SidesMessageHandler.server2client.onMessage(client, buf) ; });
+        ClientPlayNetworking.registerGlobalReceiver(MessagePayload.ID,
+                (payload, context) -> { SidesMessageHandler.server2client.onMessage(payload, context) ; });
     }
 
     public void setup(){

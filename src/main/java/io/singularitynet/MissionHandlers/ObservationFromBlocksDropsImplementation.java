@@ -4,9 +4,18 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import com.google.gson.*;
+import com.mojang.serialization.JsonOps;
+import com.mojang.serialization.Lifecycle;
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
+import net.minecraft.data.DataProvider;
+import net.minecraft.data.server.loottable.LootTableGenerator;
+import net.minecraft.registry.*;
+import net.minecraft.registry.entry.RegistryEntryInfo;
+import net.minecraft.util.ErrorReporter;
+import net.minecraft.util.Util;
+import net.minecraft.util.math.random.RandomSeed;
+import net.minecraft.util.math.random.RandomSequence;
 import org.jetbrains.annotations.Nullable;
-import net.minecraft.loot.LootDataKey;
-import net.minecraft.loot.LootDataLookup;
 import net.minecraft.loot.LootDataType;
 import net.minecraft.loot.LootTable;
 import org.apache.logging.log4j.LogManager;
@@ -26,13 +35,14 @@ import net.minecraft.item.Item;
 import net.minecraft.loot.LootTableReporter;
 import net.minecraft.loot.context.LootContextType;
 import net.minecraft.loot.context.LootContextTypes;
-import net.minecraft.registry.Registry;
 import net.minecraft.registry.tag.TagKey;
 import net.minecraft.util.Identifier;
 import io.singularitynet.mixin.LootTableProviderMixin;
 
 import java.nio.file.Path;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 
 import static net.minecraft.registry.Registries.ITEM;
@@ -109,6 +119,10 @@ public class ObservationFromBlocksDropsImplementation extends HandlerBase implem
             return result;
         }
         JsonArray jelarray = ((JsonObject) jel).getAsJsonArray("pools");
+        if (jelarray == null || jelarray.size() == 0) {
+            addEntitiesToList(result, block_name, "");
+            return result;
+        }
         JsonObject pools = (JsonObject) jelarray.get(0);
         JsonArray entries = pools.getAsJsonArray("entries");
         JsonElement one_entry = entries.get(0);
@@ -139,12 +153,12 @@ public class ObservationFromBlocksDropsImplementation extends HandlerBase implem
                 String stool = "";
                 if (regular_drop_var_fchild.toString().contains("tool")) // cluster_max_harvestables = all pickaxes
                 {
-                    ftool = ((JsonObject) regular_drop_var_fchild).getAsJsonArray("conditions").get(0).getAsJsonObject().getAsJsonObject("predicate").get("tag").toString().replaceAll("minecraft:|\"", "");
+                    ftool = ((JsonObject) regular_drop_var_fchild).getAsJsonArray("conditions").get(0).getAsJsonObject().getAsJsonObject("predicate").get("items").toString().replaceAll("minecraft:|\"|#", "");
                     if (ftool.equals("cluster_max_harvestables"))
                         ftool = "pickaxe";
                 }
                 if (regular_drop_var_schild.toString().contains("tool")) {
-                    stool = ((JsonObject) regular_drop_var_schild).getAsJsonArray("conditions").get(0).getAsJsonObject().getAsJsonObject("predicate").get("tag").toString().replaceAll("minecraft:|\"", "");
+                    stool = ((JsonObject) regular_drop_var_schild).getAsJsonArray("conditions").get(0).getAsJsonObject().getAsJsonObject("predicate").get("items").toString().replaceAll("minecraft:|\"|#", "");
                     if (stool.equals("cluster_max_harvestables"))
                         stool = "pickaxe";
                 }
@@ -215,52 +229,57 @@ public class ObservationFromBlocksDropsImplementation extends HandlerBase implem
         return result;
     }
 
-    private Dictionary<String, List<String>> parseLottable(List<LootTableProvider.LootTypeGenerator> lootTypeGenerators, Set<Identifier> lootTableIds) {
+    private Dictionary<String, List<String>> parseLottable(List<LootTableProvider.LootTypeGenerator> lootTypeGenerators, Set<Identifier> lootTableIds, RegistryWrapper.WrapperLookup registryLookup) {
+        MutableRegistry<LootTable> mutableRegistry = new SimpleRegistry(RegistryKeys.LOOT_TABLE, Lifecycle.experimental());
+        Map<RandomSeed.XoroshiroSeed, Identifier> map = new Object2ObjectOpenHashMap();
         Dictionary<String, List<String>> result = new Hashtable<>();
-        Map<Identifier, LootTable> map = Maps.newHashMap();
-        lootTypeGenerators.forEach((lootTypeGenerator) -> lootTypeGenerator.provider().get().accept((id, builder) -> {
-            if (map.put(id, builder.type(lootTypeGenerator.paramSet()).build()) != null) {
-                throw new IllegalStateException("Duplicate loot table " + id);
-            }
-        }));
-        LootContextType var10002 = LootContextTypes.GENERIC;
-        Function var10003 = (id) -> null;
-        Objects.requireNonNull(map);
-        LootTableReporter lootTableReporter = new LootTableReporter(LootContextTypes.GENERIC, new LootDataLookup(){
 
-            @Override
-            @Nullable
-            public <T> T getElement(LootDataKey<T> lootDataKey) {
-                if (lootDataKey.type() == LootDataType.LOOT_TABLES) {
-                    return (T)map.get(lootDataKey.id());
+
+        lootTypeGenerators.forEach((lootTypeGenerator) -> {
+            (lootTypeGenerator.provider().apply(registryLookup)).accept((lootTable, builder) -> {
+                Identifier identifier = lootTable.getValue();
+                Identifier identifier2 = map.put(RandomSequence.createSeed(identifier), identifier);
+                if (identifier2 != null) {
+                    String var10000 = String.valueOf(identifier2);
+                    Util.error("Loot table random sequence seed collision on " + var10000 + " and " + lootTable.getValue());
                 }
-                return null;
-            }
-        });
-        Set<Identifier> set = Sets.difference(lootTableIds, map.keySet());
-        Iterator var5 = set.iterator();
 
-        while (var5.hasNext()) {
-            Identifier identifier = (Identifier) var5.next();
-            lootTableReporter.report("Missing built-in table: " + identifier);
+                builder.randomSequenceId(identifier);
+                LootTable lootTable2 = builder.type(lootTypeGenerator.paramSet()).build();
+                mutableRegistry.add(lootTable, lootTable2, RegistryEntryInfo.DEFAULT);
+            });
+        });
+
+        mutableRegistry.freeze();
+        ErrorReporter.Impl impl = new ErrorReporter.Impl();
+        RegistryEntryLookup.RegistryLookup registryLookup2 = (new DynamicRegistryManager.ImmutableImpl(List.of(mutableRegistry))).toImmutable().createRegistryLookup();
+        LootTableReporter lootTableReporter = new LootTableReporter(impl, LootContextTypes.GENERIC, registryLookup2);
+        Iterator var9 = Sets.difference(lootTableIds, mutableRegistry.getKeys()).iterator();
+// todo: add a comment indicating where this decompiled code was adapted from
+        while(var9.hasNext()) {
+            RegistryKey<LootTable> registryKey = (RegistryKey)var9.next();
+            impl.report("Missing built-in table: " + registryKey.getValue());
         }
 
-        map.forEach((id, table) -> table.validate(lootTableReporter.withContextType(table.getType()).makeChild("{" + id + "}", new LootDataKey<LootTable>(LootDataType.LOOT_TABLES, (Identifier)id))));
-        Multimap<String, String> multimap = lootTableReporter.getMessages();
+        mutableRegistry.streamEntries().forEach((entry) -> {
+            (entry.value()).validate(lootTableReporter.withContextType((entry.value()).getType()).makeChild("{" + String.valueOf(entry.registryKey().getValue()) + "}", entry.registryKey()));
+        });
+        Multimap<String, String> multimap = impl.getErrors();
+
         if (!multimap.isEmpty()) {
             multimap.forEach((name, message) -> {
                 LOGGER.warn("Found validation problem in {}: {}", name, message);
             });
             throw new IllegalStateException("Failed to validate loot tables, see logs");
         } else {
-            for (Map.Entry<Identifier, LootTable> entry : map.entrySet()) {
-                Identifier identifier = entry.getKey();
-                if (!identifier.toString().contains("block"))
+            for (Map.Entry<RegistryKey<LootTable>, LootTable> entry: mutableRegistry.getEntrySet()) {
+                RegistryKey<LootTable> registryKey = entry.getKey();
+                LootTable lootTable = entry.getValue();
+                if (!registryKey.getValue().toString().contains("block"))
                     continue;
-                String block_name = identifier.toString().replace("minecraft:blocks/", "");
-                LootTable loottable = entry.getValue();
-                JsonElement jel = LootDataType.LOOT_TABLES.getGson().toJsonTree(loottable);
-                // JsonElement jel = LootManager.toJson(loottable);
+                String block_name = registryKey.getValue().toString().replace("minecraft:blocks/", "");
+                RegistryOps<JsonElement> registryOps = registryLookup.getOps(JsonOps.INSTANCE);
+                JsonElement jel = LootTable.CODEC.encodeStart(registryOps, lootTable).getOrThrow();
                 List<String> parsed_one_table = this.parseOneTable(jel, block_name);
                 result.put(block_name, parsed_one_table);
             }
@@ -292,12 +311,20 @@ public class ObservationFromBlocksDropsImplementation extends HandlerBase implem
         Path pth = Path.of(System.getProperty("java.io.tmpdir"));
         DataOutput doutput = new DataOutput(pth);
         DataWriter writer = DataWriter.UNCACHED;
-        LootTableProvider provider = VanillaLootTableProviders.createVanillaProvider(doutput);
+        CompletableFuture<RegistryWrapper.WrapperLookup> completableFuture = CompletableFuture.supplyAsync(BuiltinRegistries::createWrapperLookup, Util.getMainWorkerExecutor());
+        LootTableProvider provider = VanillaLootTableProviders.createVanillaProvider(doutput, completableFuture);
         provider.run(writer);
 
         Set<Identifier> loottables = ((LootTableProviderMixin)provider).getlootTableIds();
         List<LootTableProvider.LootTypeGenerator> lootTypeGenerators = ((LootTableProviderMixin)provider).getlootTypeGenerators();
-        Dictionary<String, List<String>> parsed_loottable = this.parseLottable(lootTypeGenerators, loottables);
+        Dictionary<String, List<String>> parsed_loottable = null;
+        try {
+            parsed_loottable = this.parseLottable(lootTypeGenerators, loottables, completableFuture.get());
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        } catch (ExecutionException e) {
+            throw new RuntimeException(e);
+        }
 
         Registry<Item> str_ent =  MinecraftClient.getInstance().world.getRegistryManager().get(ITEM.getKey());
         List<Item> list_ent = str_ent.stream().toList();
@@ -306,8 +333,8 @@ public class ObservationFromBlocksDropsImplementation extends HandlerBase implem
         for (Map.Entry<Block, Item> entry : from_block.entrySet()) {
             Block en_block = entry.getKey();
             Item en_item = entry.getValue();
-            String block_name = en_block.getLootTableId().toString();
-            if (Objects.equals(block_name, "minecraft:empty")) {
+            String block_name = en_block.getTranslationKey().replace("block.", "");
+            if (Objects.equals(block_name, "minecraft.empty")) {
                 continue;
             }
             boolean is_tool_required = en_block.getDefaultState().isToolRequired();
@@ -325,7 +352,7 @@ public class ObservationFromBlocksDropsImplementation extends HandlerBase implem
                     {
                         tool_t = tag_string.split("/")[1];
                     }
-                    else if (tag_string.contains("tool"))
+                    else if ((tag_string.contains("tool") && (tag_string.contains("needs"))))
                     {
                         tool_q = tag_string.split("_")[1];
                         wooden_required = false;
@@ -339,7 +366,7 @@ public class ObservationFromBlocksDropsImplementation extends HandlerBase implem
                     tool_name = tool_q+"_"+tool_t;
             }
 
-            block_name = block_name.split("/")[1];
+            block_name = block_name.replace("minecraft.","");
             if (((Hashtable)parsed_loottable).containsKey(block_name))
             {
                 List<String> p_items = parsed_loottable.get(block_name);

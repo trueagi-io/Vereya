@@ -200,7 +200,7 @@ public class JSONWorldDataHelper {
                 json.add("inventory", arr);
             }
             mobObj.addProperty("safeFallDistance", entity.getSafeFallDistance());
-            mobObj.addProperty("name", entity.getEntityName());
+            mobObj.addProperty("name", entity.getNameForScoreboard());
             mobObj.addProperty("type", entity.getType().getUntranslatedName());
             mobObj.addProperty("health", entity.getHealth());
             controllableEntities.add(key, mobObj);
@@ -227,7 +227,7 @@ public class JSONWorldDataHelper {
             {
                 Item item = is.getItem();
                 JsonObject jobj = new JsonObject();
-                String name = item.toString();
+                String name = item.toString().replaceAll("minecraft:|\"", "");
                 jobj.add("type", new JsonPrimitive(name));
                 jobj.add("index", new JsonPrimitive(i));
                 jobj.add("quantity", new JsonPrimitive(is.getCount()));

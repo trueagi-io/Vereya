@@ -43,7 +43,7 @@ public class SimpleCraftCommandsImplementation extends CommandBase  implements I
         if (verb.equalsIgnoreCase(SimpleCraftCommand.CRAFT.value()))
         {
             LOGGER.info("Sending crafting message " + verb);
-            ClientPlayNetworking.send(NetworkConstants.CLIENT2SERVER, (new SimpleCraftCommandsImplementationServer.CraftMessage(parameter).toBytes()));
+            ClientPlayNetworking.send(new MessagePayload(new SimpleCraftCommandsImplementationServer.CraftMessage(parameter)));
             return true;
         }
         return false;

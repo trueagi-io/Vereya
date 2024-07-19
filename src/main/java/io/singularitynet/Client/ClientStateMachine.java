@@ -47,7 +47,6 @@ import net.minecraft.client.world.ClientWorld;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.mob.MobEntity;
 import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.network.PacketByteBuf;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -69,6 +68,8 @@ import java.util.*;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
+
+import static io.singularitynet.VereyaMessageType.SERVER_CHUNK_READY;
 
 /**
  * Class designed to track and control the state of the mod, especially regarding mission launching/running.<br>
@@ -1224,10 +1225,10 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
                         }
                     }
  */
-                    boolean isConnectedToRealm = MinecraftClient.getInstance().isConnectedToRealms();
+//                    boolean isConnectedToRealm = MinecraftClient.getInstance().isConnectedToRealms();
                     boolean isConnectedToLocal = MinecraftClient.getInstance().isConnectedToLocalServer();
                     boolean isIntegratedServerRunning = MinecraftClient.getInstance().isIntegratedServerRunning();
-                    LOGGER.debug("isConnectedToRealm: " + isConnectedToRealm);
+//                    LOGGER.debug("isConnectedToRealm: " + isConnectedToRealm);
                     LOGGER.debug("isConnectedToLocal: " + isConnectedToLocal);
                     LOGGER.debug("isIntegratedServerRunning: " + isIntegratedServerRunning);
                     if (isIntegratedServerRunning) {
@@ -1263,8 +1264,7 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
                             episodeHasCompletedWithErrors(ClientState.ERROR_NO_WORLD, "exception while converting mission init to xml" + e.getMessage());
                         }
                         // send mission init to server
-                        ClientPlayNetworking.send(NetworkConstants.CLIENT2SERVER,
-                                (new VereyaMessage(VereyaMessageType.CLIENT_MISSION_INIT, 0, map)).toBytes());
+                        ClientPlayNetworking.send(new MessagePayload(new VereyaMessage(VereyaMessageType.CLIENT_MISSION_INIT, 0, map)));
                         episodeHasCompleted(ClientState.WAITING_FOR_SERVER_READY);
                     }
                 } else { // not needNewWorld and no world: error
@@ -1287,11 +1287,13 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
         int totalTicks = 0;
         boolean waitingForChunk = false;
         boolean waitingForPlayer = true;
+        private boolean chunkReady = false;
 
         protected WaitingForServerEpisode(ClientStateMachine machine)
         {
             super(machine);
             SidesMessageHandler.server2client.registerForMessage(this, VereyaMessageType.SERVER_ALLPLAYERSJOINED);
+            SidesMessageHandler.server2client.registerForMessage(this, VereyaMessageType.SERVER_CHUNK_READY);
         }
 
         private boolean isChunkReady()
@@ -1304,6 +1306,8 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
                 return true;    // This should never happen.
             }
             AgentSection as = agents.get(currentMissionInit().getClientRole());
+            if (!this.chunkReady)
+                return false;
             if (as.getAgentStart() != null && as.getAgentStart().getPlacement() != null) {
                 PosAndDirection pos = as.getAgentStart().getPlacement();
                 PlayerEntity player = MinecraftClient.getInstance().player;
@@ -1316,50 +1320,10 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
                     if (y_delta < 0.5 || !player.isOnGround())
                         return true;
                 }
-                setClientPos();
                 LOGGER.debug("Waiting for correct agent position x_delta: " + x_delta + " y_delta: " + y_delta + " z_delta: " + z_delta);
                 return false;
             }
-                /*
-                int x = MathHelper.floor(pos.getX().doubleValue()) >> 4;
-                int z = MathHelper.floor(pos.getZ().doubleValue()) >> 4;
-
-                // Now get the chunk we should be starting in:
-                IChunkProvider chunkprov = Minecraft.getMinecraft().world.getChunkProvider();
-                MinecraftClient.getInstance().player.setPos();
-                EntityPlayerSP player = Minecraft.getMinecraft().player;
-                if (player.addedToChunk)
-                {
-                    // Our player is already added to a chunk - is it the right one?
-                    Chunk actualChunk = chunkprov.provideChunk(player.chunkCoordX, player.chunkCoordZ);
-                    Chunk requestedChunk = chunkprov.provideChunk(x,  z);
-                    if (actualChunk == requestedChunk && actualChunk != null && !actualChunk.isEmpty())
-                    {
-                        // We're in the right chunk, and it's not an empty chunk.
-                        // We're ready to proceed, but first set our client positions to where we ought to be.
-                        // The server should be doing this too, but there's no harm (probably) in doing it ourselves.
-                        player.posX = pos.getX().doubleValue();
-                        player.posY = pos.getY().doubleValue();
-                        player.posZ = pos.getZ().doubleValue();
-                        return true;
-                    }
-                }
-                return false;   // Our starting position has been specified, but it's not yet ready.
-            }*/
             return true;    // No starting position specified, so doesn't matter where we start.
-        }
-
-        private void setClientPos(){
-            List<AgentSection> agents = currentMissionInit().getMission().getAgentSection();
-            AgentSection as = agents.get(currentMissionInit().getClientRole());
-            PosAndDirection pos = as.getAgentStart().getPlacement();
-            if (pos != null) {
-                LOGGER.info("Setting agent pos on client to: x(" + pos.getX() + ") z(" + pos.getZ() + ") y(" + pos.getY() + ")");
-                MinecraftClient.getInstance().player.setPosition(
-                        pos.getX().doubleValue(),
-                        pos.getY().doubleValue(),
-                        pos.getZ().doubleValue());
-            }
         }
 
         @Override
@@ -1373,7 +1337,6 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
             {
                 if (client.player != null)
                 {
-                    setClientPos();
                     this.waitingForPlayer = false;
                     handleLan();
                 }
@@ -1394,8 +1357,7 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
                     map.put("username", client.player.getName().getString());
                     currentMissionBehaviour().appendExtraServerInformation(map);
                     LOGGER.info("***Telling server we are ready - " + agentName);
-                    ClientPlayNetworking.send(NetworkConstants.CLIENT2SERVER,
-                            (new VereyaMessage(VereyaMessageType.CLIENT_AGENTREADY, 0, map)).toBytes());
+                    ClientPlayNetworking.send(new MessagePayload(new VereyaMessage(VereyaMessageType.CLIENT_AGENTREADY, 0, map)));
                 }
 
                 // We also ping our agent, just to check it is still available:
@@ -1510,6 +1472,11 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
         {
             LOGGER.debug("ClientStateMachine:onMessage: " + messageType);
             super.onMessage(messageType, data);
+            if (messageType == SERVER_CHUNK_READY){
+                // MinecraftClient.getInstance().world.isChunkLoaded() is full of lies
+                // we have to check it on the server
+                this.chunkReady = true;
+            }
 
             if (messageType != VereyaMessageType.SERVER_ALLPLAYERSJOINED)
                 return;
@@ -1691,7 +1658,7 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
             HashMap<String, String> map = new HashMap<String, String>();
             map.put("username", MinecraftClient.getInstance().player.getName().getString());
             VereyaMessage msg = new VereyaMessage(VereyaMessageType.CLIENT_AGENTRUNNING, 0, map);
-            ClientPlayNetworking.send(NetworkConstants.CLIENT2SERVER,  msg.toBytes());
+            ClientPlayNetworking.send(new MessagePayload(msg));
 
             // Set up our mission handlers:
             if (currentMissionBehaviour().commandHandler != null)
@@ -1869,7 +1836,7 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
                 map.put("username", MinecraftClient.getInstance().player.getName().getString());
                 map.put("quitcode", this.quitCode);
                 LOGGER.info("informing server that player has quited");
-                ClientPlayNetworking.send(NetworkConstants.CLIENT2SERVER, (new VereyaMessage(VereyaMessageType.CLIENT_AGENTFINISHEDMISSION, 0, map)).toBytes());
+                ClientPlayNetworking.send(new MessagePayload(new VereyaMessage(VereyaMessageType.CLIENT_AGENTFINISHEDMISSION, 0, map)));
                 ClientStateMachine.this.cancelReservation();
                 onMissionEnded(ClientState.IDLING, null);
             }
@@ -2183,9 +2150,8 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
                 if (player != null) // Might not be a player yet.
                     map.put("username", player.getName().getString());
                 map.put("error", ClientStateMachine.this.getErrorDetails());
-                PacketByteBuf buf = new VereyaMessage(VereyaMessageType.CLIENT_BAILED, 0, map).toBytes();
                 LOGGER.debug("informing server of a failure with: " + map.toString());
-                ClientPlayNetworking.send(NetworkConstants.CLIENT2SERVER, buf);
+                ClientPlayNetworking.send(new MessagePayload(new VereyaMessage(VereyaMessageType.CLIENT_BAILED, 0, map)));
             }
 
             if (this.informAgent)
@@ -2295,8 +2261,7 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
             // Now send a message to the server saying that we are ready:
             HashMap<String, String> map = new HashMap<String, String>();
             map.put("agentname", agentName);
-            ClientPlayNetworking.send(NetworkConstants.CLIENT2SERVER,
-                    new VereyaMessage(VereyaMessageType.CLIENT_AGENTSTOPPED, 0, map).toBytes());
+            ClientPlayNetworking.send(new MessagePayload(new VereyaMessage(VereyaMessageType.CLIENT_AGENTSTOPPED, 0, map)));
         }
 
         @Override

@@ -11,6 +11,7 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.item.ItemStack;
 import net.minecraft.recipe.Ingredient;
 import net.minecraft.recipe.Recipe;
+import net.minecraft.recipe.RecipeEntry;
 import net.minecraft.util.collection.DefaultedList;
 
 import java.util.List;
@@ -35,14 +36,14 @@ class ObservationFromRecipesImplementation extends HandlerBase implements IObser
             return;
         }
         this.sendRec = false;
-        List<Recipe<?>> result = MinecraftClient.getInstance().world.getRecipeManager().values().stream().toList();
+        List<RecipeEntry<?>> result = MinecraftClient.getInstance().world.getRecipeManager().values().stream().toList();
         JsonArray recipes = new JsonArray();
-        for (Recipe r: result) {
+        for (RecipeEntry<?> r: result) {
             JsonObject rec = new JsonObject(); // recipe
-            ItemStack out = r.getOutput(MinecraftClient.getInstance().world.getRegistryManager());
+            ItemStack out = r.value().getResult(MinecraftClient.getInstance().world.getRegistryManager());
             rec.add("name", new JsonPrimitive(out.getItem().getTranslationKey()));
             rec.add("count", new JsonPrimitive(out.getCount()));
-            DefaultedList<Ingredient> ingredients = r.getIngredients();
+            DefaultedList<Ingredient> ingredients = r.value().getIngredients();
             JsonArray ingArray = new JsonArray(); // ingredients
             for(Ingredient ingrid: ingredients) {
                 JsonArray ingStacks = new JsonArray();
@@ -55,8 +56,8 @@ class ObservationFromRecipesImplementation extends HandlerBase implements IObser
                 ingArray.add(ingStacks);
             }
             rec.add("ingredients", ingArray);
-            rec.add("recipe_type", new JsonPrimitive(r.getType().toString()));
-            rec.add("group", new JsonPrimitive(r.getGroup()));
+            rec.add("recipe_type", new JsonPrimitive(r.value().getType().toString()));
+            rec.add("group", new JsonPrimitive(r.value().getGroup()));
             recipes.add(rec);
         }
         json.add("recipes", recipes);

@@ -102,7 +102,7 @@ public class ObservationFromRayImplementation extends HandlerBase implements IOb
             double distance = cameraEntity.getCameraPosVec(1.0f).distanceTo(hitPoint);
             jsonMop.addProperty("distance", distance);
             float reachDistance = 4.5f;
-            if (client.interactionManager.hasExtendedReach()) {
+            if (client.interactionManager.hasCreativeInventory()) {
                 reachDistance = 6.0f;//Change this to extend the reach
             }
             boolean inRange = false;

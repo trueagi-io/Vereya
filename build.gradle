@@ -1,11 +1,11 @@
 plugins {
-	id 'fabric-loom' version '1.2-SNAPSHOT'
+	id 'fabric-loom' version '1.6-SNAPSHOT'
 	id 'maven-publish'
 	id("com.github.bjornvester.xjc") version "1.6.0"
 }
 
-sourceCompatibility = JavaVersion.VERSION_17
-targetCompatibility = JavaVersion.VERSION_17
+sourceCompatibility = JavaVersion.VERSION_21
+targetCompatibility = JavaVersion.VERSION_21
 
 version = rootProject.file('VERSION').text.trim()
 archivesBaseName = project.archives_base_name + '-fabric_' + project.fabric_version
@@ -62,8 +62,8 @@ processResources {
 }
 
 tasks.withType(JavaCompile).configureEach {
-	// Minecraft 1.18 (1.18-pre2) upwards uses Java 17.
-	it.options.release = 17
+	// Minecraft 1.21-rc1 uses Java 21.
+	it.options.release = 21
 }
 
 java {

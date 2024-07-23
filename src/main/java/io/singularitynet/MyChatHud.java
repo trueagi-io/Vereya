@@ -5,7 +5,6 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.hud.ChatHud;
 import net.minecraft.client.gui.hud.MessageIndicator;
 import net.minecraft.network.message.MessageSignatureData;
-import net.minecraft.network.message.MessageType;
 import net.minecraft.text.Text;
 import org.jetbrains.annotations.Nullable;
 

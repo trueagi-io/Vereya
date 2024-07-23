@@ -3,24 +3,19 @@ package io.singularitynet.MissionHandlers;
 import io.singularitynet.MissionHandlerInterfaces.IObservationProducer;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonPrimitive;
-import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import io.singularitynet.MyChatHud;
 import io.singularitynet.mixin.InGameHudMixin;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.hud.ChatHud;
-import net.minecraft.client.gui.hud.InGameHud;
 import io.singularitynet.projectmalmo.MissionInit;
 import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.nbt.visitor.NbtTextFormatter;
-import net.minecraft.network.message.MessageType;
 import net.minecraft.text.Text;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.UUID;
 
 public class ObservationFromChatImplementation extends HandlerBase implements IObservationProducer, io.singularitynet.MissionHandlerInterfaces.ClientChatListener {
     private static final Logger LOGGER = LogManager.getLogger();

@@ -11,10 +11,8 @@ import net.minecraft.world.dimension.DimensionOptionsRegistryHolder;
 import net.minecraft.world.gen.GeneratorOptions;
 import net.minecraft.world.gen.WorldPresets;
 import net.minecraft.world.level.LevelInfo;
-import io.singularitynet.mixin.LevelStorageMixin;
 import org.apache.logging.log4j.LogManager;
 
-import java.nio.file.Path;
 import java.util.Properties;
 import java.util.UUID;
 

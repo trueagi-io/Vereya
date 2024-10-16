@@ -37,15 +37,22 @@ public class WorldUtil {
         return dynamicRegistryManager.get(RegistryKeys.WORLD_PRESET).entryOf(WorldPresets.DEFAULT).value().createDimensionsRegistryHolder();
     }
 
-    public static void createLevelFlat(boolean hardcore,
+    public static DimensionOptionsRegistryHolder getFlatOverworldOptions(DynamicRegistryManager dynamicRegistryManager) {
+        return dynamicRegistryManager.get(RegistryKeys.WORLD_PRESET).entryOf(WorldPresets.FLAT).value().createDimensionsRegistryHolder();
+    }
+
+    public static void createLevelFlat(boolean hardcore, Long seed,
                                    Difficulty difficulty, Properties properties) {
         UUID uuid = UUID.randomUUID();
         String worldName = uuid.toString().substring(0, 5);
         String levelName = "Vereya-test" + worldName;
         GameRules gameRules = new GameRules();
+        MinecraftClient client = MinecraftClient.getInstance();
         LevelInfo levelInfo = new LevelInfo(levelName.trim(), GameMode.DEFAULT,
                 hardcore, difficulty,
                 true, gameRules, DataConfiguration.SAFE_MODE);
+        GeneratorOptions generatorOptions = new GeneratorOptions(seed, true, false);
+        client.createIntegratedServerLoader().createAndStart(levelName, levelInfo, generatorOptions, WorldUtil::getFlatOverworldOptions, client.currentScreen);
         /*
         DynamicRegistryManager.Impl impl = DynamicRegistryManager.create();
 

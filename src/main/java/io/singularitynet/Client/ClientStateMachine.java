@@ -25,6 +25,7 @@ import io.singularitynet.*;
 import io.singularitynet.MissionHandlerInterfaces.IVideoProducer;
 import io.singularitynet.MissionHandlerInterfaces.IWantToQuit;
 import io.singularitynet.MissionHandlerInterfaces.IWorldGenerator;
+import io.singularitynet.MissionHandlers.DrawImplementation;
 import io.singularitynet.MissionHandlers.MissionBehaviour;
 import io.singularitynet.MissionHandlers.MultidimensionalReward;
 import io.singularitynet.Server.VereyaModServer;
@@ -1083,6 +1084,11 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
                         this.worldCreated = true;
                         if (MinecraftClient.getInstance().getServer() != null) {
                             MinecraftClient.getInstance().getServer().setOnlineMode(false);
+                        }
+                        // draw blocks and entities from DrawingDecorator section
+                        List<Object> worldDecorator = ClientStateMachine.this.currentMissionInit.getMission().getServerSection().getServerHandlers().getWorldDecorators();
+                        if (!worldDecorator.isEmpty()){
+                            DrawImplementation.draw(worldDecorator);
                         }
                     }
                     else

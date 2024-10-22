@@ -3,15 +3,11 @@ package io.singularitynet.MissionHandlers;
 import io.singularitynet.projectmalmo.*;
 import jakarta.xml.bind.JAXBElement;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.command.CommandSource;
 import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
 import org.apache.logging.log4j.LogManager;
 
-import java.lang.reflect.Type;
 import java.util.List;
-import java.util.Map;
-import java.util.function.Function;
 
 public class DrawImplementation extends DrawingDecorator {
     public static void draw(List<Object> worldDecorator) {
@@ -36,6 +32,7 @@ public class DrawImplementation extends DrawingDecorator {
                         switch (drawObject.getValue()) {
                             case DrawBlock db -> drawBlock(db, commandManager, commandSource);
                             case DrawCuboid dc -> drawCuboid(dc, commandManager, commandSource);
+                            case DrawItem di -> drawItem(di, commandManager, commandSource);
                             default -> {}
                         }
                     }
@@ -71,6 +68,19 @@ public class DrawImplementation extends DrawingDecorator {
             commandManager.executeWithPrefix(commandSource, command);
         } catch (Exception e) {
             LogManager.getLogger().error("Failed to draw the cuboid");
+            LogManager.getLogger().error(e);
+        }
+    }
+
+    public static void drawItem(DrawItem val, CommandManager commandManager, ServerCommandSource commandSource){
+        try {
+            String command = "/summon item " + val.getX() + " " +
+                    val.getY() + " " +
+                    val.getZ() + " " +
+                    "{Item:{id:" + val.getType() + ",Count:1}}";
+            commandManager.executeWithPrefix(commandSource, command);
+        } catch (Exception e) {
+            LogManager.getLogger().error("Failed to draw the item");
             LogManager.getLogger().error(e);
         }
     }

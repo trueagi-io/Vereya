@@ -34,6 +34,7 @@ public class DrawImplementation extends DrawingDecorator {
                             case DrawCuboid dc -> drawCuboid(dc, commandManager, commandSource);
                             case DrawItem di -> drawItem(di, commandManager, commandSource);
                             case DrawLine dl -> drawLine(dl, commandManager, commandSource);
+//                            case DrawSphere ds -> drawSphere(ds, commandManager, commandSource);
                             default -> LogManager.getLogger().warn("The type " + drawObject.getClass().getSimpleName() + " is not supported");
                         }
                     }
@@ -111,7 +112,7 @@ public class DrawImplementation extends DrawingDecorator {
         }
     }
 
-    public static void setBlock(int x, int y, int z, String type, CommandManager commandManager, ServerCommandSource commandSource){
+    protected static void setBlock(int x, int y, int z, String type, CommandManager commandManager, ServerCommandSource commandSource){
         try {
             String command = "/setblock " + x + " " +
                     y + " " +

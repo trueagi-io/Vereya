@@ -33,7 +33,8 @@ public class DrawImplementation extends DrawingDecorator {
                             case DrawBlock db -> drawBlock(db, commandManager, commandSource);
                             case DrawCuboid dc -> drawCuboid(dc, commandManager, commandSource);
                             case DrawItem di -> drawItem(di, commandManager, commandSource);
-                            default -> {}
+                            case DrawLine dl -> drawLine(dl, commandManager, commandSource);
+                            default -> LogManager.getLogger().warn("The type " + drawObject.getClass().getSimpleName() + " is not supported");
                         }
                     }
                 }
@@ -85,4 +86,41 @@ public class DrawImplementation extends DrawingDecorator {
         }
     }
 
+    public static void drawLine(DrawLine val, CommandManager commandManager, ServerCommandSource commandSource){
+        try {
+            int dx = val.getX2() - val.getX1();
+            int dy = val.getY2() - val.getY1();
+            int dz = val.getZ2() - val.getZ1();
+
+            int steps = Math.max(Math.abs(dx), Math.max(Math.abs(dy), Math.abs(dz)));
+
+            double xInc = (double)dx / steps;
+            double yInc = (double)dy / steps;
+            double zInc = (double)dz / steps;
+
+            for (int i = 0; i <= steps; i++){
+                int x = (int)Math.round(val.getX1() + i * xInc);
+                int y = (int)Math.round(val.getY1() + i * yInc);
+                int z = (int)Math.round(val.getZ1() + i * zInc);
+                setBlock(x, y, z, val.getType().value(), commandManager, commandSource);
+            }
+
+        } catch (Exception e) {
+            LogManager.getLogger().error("Failed to draw the line");
+            LogManager.getLogger().error(e);
+        }
+    }
+
+    public static void setBlock(int x, int y, int z, String type, CommandManager commandManager, ServerCommandSource commandSource){
+        try {
+            String command = "/setblock " + x + " " +
+                    y + " " +
+                    z + " " +
+                    type;
+            commandManager.executeWithPrefix(commandSource, command);
+        } catch (Exception e) {
+            LogManager.getLogger().error("Failed to set the block");
+            LogManager.getLogger().error(e);
+        }
+    }
 }

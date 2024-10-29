@@ -1388,8 +1388,9 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
 
             if (agents.size() > 1 && currentMissionInit().getClientRole() != 0)
             {
+                                /*
                 throw new RuntimeException("Not implemented");
-                /*
+
                 // We are waiting to join an out-of-process server. Need to pay attention to what happens -
                 // if we can't join, for any reason, we should abort the mission.
                 GuiScreen screen = Minecraft.getMinecraft().currentScreen;
@@ -1423,7 +1424,7 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
             //if (agents == null || agents.size() <= currentMissionInit().getClientRole())
             //    throw new Exception("No agent section for us!"); // TODO
             this.agentName = agents.get(currentMissionInit().getClientRole()).getName();
-
+/*
             if (agents.size() > 1 && currentMissionInit().getClientRole() != 0)
             {
                 // Multi-agent mission, we should be joining a server.
@@ -1445,7 +1446,7 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
                 }
                 this.waitingForPlayer = false;
                 LOGGER.info("player exists and names match");
-            }
+            }*/
         }
 
         protected void handleLan()

@@ -55,14 +55,17 @@ public class VereyaModServer implements ModInitializer {
 
     @Override
     public void onInitialize() {
+        Logger LOGGER = LogManager.getLogger();
+        LOGGER.info("initialising vereya mod server");
         instance = this;
         PayloadTypeRegistry.playC2S().register(MessagePayload.ID, MessagePayload.CODEC);
+        PayloadTypeRegistry.playS2C().register(MessagePayload.ID, MessagePayload.CODEC);
         // register the instance for messages from Client to the Server
         ServerPlayNetworking.registerGlobalReceiver(MessagePayload.ID, (payload, context) -> {
             SidesMessageHandler.client2server.onMessage(payload, context);
         });
         ServerLifecycleEvents.SERVER_STARTED.register((MinecraftServer server) -> {
-            Logger LOGGER = LogManager.getLogger();
+
             LOGGER.info("Server started");
             if (stateMachine == null ) {
                 this.stateMachine = new ServerStateMachine(ServerState.WAITING_FOR_MOD_READY, null, server);

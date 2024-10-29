@@ -37,6 +37,7 @@ dependencies {
 	implementation 'jakarta.annotation:jakarta.annotation-api:2.0.0'
 	implementation 'jakarta.activation:jakarta.activation-api:2.0.1'
 	implementation 'org.json:json:20230227'
+	compileOnly 'com.mojang:authlib'
 
 	xjc "org.glassfish.jaxb:jaxb-runtime:3.0.2"
 	xjc 'org.glassfish.jaxb:jaxb-xjc:3.0.1'
@@ -79,6 +80,10 @@ jar {
 	}
 }
 jar.duplicatesStrategy = 'WARN'
+
+loom {
+	accessWidenerPath = file("src/main/resources/vereya.accesswidener")
+}
 
 // configure the maven publication
 publishing {

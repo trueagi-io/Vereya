@@ -65,8 +65,11 @@ public class VereyaModServer implements ModInitializer {
             SidesMessageHandler.client2server.onMessage(payload, context);
         });
         ServerLifecycleEvents.SERVER_STARTED.register((MinecraftServer server) -> {
-
-            LOGGER.info("Server started");
+            String msg = "integrated ";
+            if (server.isDedicated()){
+                msg = "dedicated ";
+            }
+            LOGGER.info(msg + "Server started");
             if (stateMachine == null ) {
                 this.stateMachine = new ServerStateMachine(ServerState.WAITING_FOR_MOD_READY, null, server);
             } else {

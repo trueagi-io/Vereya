@@ -1276,10 +1276,8 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
                             }
                         });
                         // Skip all the map loading stuff and go straight to waiting for the server:
-                        episodeHasCompleted(ClientState.WAITING_FOR_SERVER_READY);
-                    } else {
-                        throw new RuntimeException("unexpected condition");
                     }
+                    episodeHasCompleted(ClientState.WAITING_FOR_SERVER_READY);
                 } else { // not needNewWorld and no world: error
                         // Mission has requested no new world, but there is no current world to play in - this is an error:
                         episodeHasCompletedWithErrors(ClientState.ERROR_NO_WORLD, "We have no world to play in - check that your ServerHandlers section contains a world generator");
@@ -1440,6 +1438,11 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
                 Screen parentScreen = new GameMenuScreen(true);
                 ServerInfo srvInfo = new ServerInfo("local", srv.getAddress(), ServerInfo.ServerType.LAN);
                 ConnectScreen.connect(parentScreen, MinecraftClient.getInstance(), srv, srvInfo, true, null);
+                this.sendToRemote = true;
+            }
+
+
+            if (isConnectedToRemote && currentMissionInit().getClientRole() == 0) {
                 this.sendToRemote = true;
             }
             /*

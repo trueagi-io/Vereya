@@ -1,14 +1,20 @@
 plugins {
+	id 'java'
+	id 'base'
 	id 'fabric-loom' version '1.6-SNAPSHOT'
 	id 'maven-publish'
 	id("com.github.bjornvester.xjc") version "1.6.0"
 }
 
-sourceCompatibility = JavaVersion.VERSION_21
-targetCompatibility = JavaVersion.VERSION_21
+java {
+	sourceCompatibility = JavaVersion.VERSION_21
+	targetCompatibility = JavaVersion.VERSION_21
+}
 
 version = rootProject.file('VERSION').text.trim()
-archivesBaseName = project.archives_base_name + '-fabric_' + project.fabric_version
+base {
+	archivesName = project.archives_base_name + '-fabric_' + project.fabric_version
+}
 group = project.maven_group
 
 

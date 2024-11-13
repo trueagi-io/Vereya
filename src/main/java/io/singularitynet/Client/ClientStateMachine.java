@@ -1190,6 +1190,10 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
             if (serverCon != null && serverCon.getAddress() != null && serverCon.getPort() != 0) {
                 LOGGER.debug("server connection info is provided " + serverCon.toString() +
                         " assume world already exists");
+                if (MinecraftClient.getInstance().isIntegratedServerRunning()){
+                    LOGGER.debug("stopping integrated server");
+                    MinecraftClient.getInstance().getServer().stop(true);
+                }
                 needsNewWorld = false;
                 worldCurrentlyExists = true;
                 episodeHasCompleted(ClientState.WAITING_FOR_SERVER_READY);
@@ -1434,7 +1438,7 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
             boolean isConnectedToRemote = player != null && !MinecraftClient.getInstance().isIntegratedServerRunning();
             if (!isConnectedToRemote && serverCon != null && serverCon.getAddress() != null && serverCon.getPort() != 0) {
                 ServerAddress srv = new ServerAddress(serverCon.getAddress(), serverCon.getPort());
-                LOGGER.debug("connecting to ", srv);
+                LOGGER.debug("connecting to " + srv.getAddress() + ":" + srv.getPort());
                 Screen parentScreen = new GameMenuScreen(true);
                 ServerInfo srvInfo = new ServerInfo("local", srv.getAddress(), ServerInfo.ServerType.LAN);
                 ConnectScreen.connect(parentScreen, MinecraftClient.getInstance(), srv, srvInfo, true, null);

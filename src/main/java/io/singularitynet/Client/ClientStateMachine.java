@@ -43,7 +43,12 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.screen.GameMenuScreen;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.gui.screen.multiplayer.ConnectScreen;
 import net.minecraft.client.network.ClientPlayerEntity;
+import net.minecraft.client.network.ServerAddress;
+import net.minecraft.client.network.ServerInfo;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.mob.MobEntity;
@@ -550,6 +555,7 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
             {
                 LOGGER.info("Received from " + ipFrom + ":" +
                                     command.substring(0, Math.min(command.length(), 1024)));
+
                 boolean keepProcessing = false;
 
                 // Possible commands:
@@ -849,6 +855,7 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
             {
                 missionInit.getClientAgentConnection().setAgentIPAddress(comip.ipAddress);
                 LOGGER.info("Mission received: " + missionInit.getMission().getAbout().getSummary());
+                LOGGER.debug(missionMessage);
                 csMachine.currentMissionInit = missionInit;
                 ClientStateMachine.this.createMissionControlSocket();
                 // Move on to next state:
@@ -1178,6 +1185,20 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
 
             boolean needsNewWorld = worldGenerator != null && worldGenerator.shouldCreateWorld(currentMissionInit(), genOptions);
             boolean worldCurrentlyExists = world != null;
+            MinecraftServerConnection serverCon = currentMissionInit().getMinecraftServerConnection();
+            LOGGER.debug("checking for server connection in mission init: ", serverCon);
+            if (serverCon != null && serverCon.getAddress() != null && serverCon.getPort() != 0) {
+                LOGGER.debug("server connection info is provided " + serverCon.toString() +
+                        " assume world already exists");
+                if (MinecraftClient.getInstance().isIntegratedServerRunning()){
+                    LOGGER.debug("stopping integrated server");
+                    MinecraftClient.getInstance().getServer().stop(true);
+                }
+                needsNewWorld = false;
+                worldCurrentlyExists = true;
+                episodeHasCompleted(ClientState.WAITING_FOR_SERVER_READY);
+                return;
+            }
             List<AgentSection> agents = currentMissionInit().getMission().getAgentSection();
             String agentName = agents.get(currentMissionInit().getClientRole()).getName();
             if (worldCurrentlyExists) {
@@ -1203,10 +1224,10 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
                     LOGGER.debug("needsNewWorld && worldCurrentlyExists");
                     episodeHasCompleted(ClientState.PAUSING_OLD_SERVER);
                 } else {
-                    // We want a new world, and there is currently nothing running,
-                    // so jump to world creation:
-                    LOGGER.debug("needsNewWorld && not worldCurrentlyExists");
-                    episodeHasCompleted(ClientState.CREATING_NEW_WORLD);
+                        // We want a new world, and there is currently nothing running,
+                        // so jump to world creation:
+                        LOGGER.debug("needsNewWorld && not worldCurrentlyExists");
+                        episodeHasCompleted(ClientState.CREATING_NEW_WORLD);
                 }
             } else { // not needNewWorld
                 LOGGER.debug("not need new world");
@@ -1217,7 +1238,7 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
                     as.getAgentStart().setPlacement(null);
 
                     ClientPlayerEntity player = MinecraftClient.getInstance().player;
-                    if (player.isDead()) player.requestRespawn();
+                    if (player != null && player.isDead()) player.requestRespawn();
 /*
                     if (ClientStateMachine.this.serverHandlers == null) {
                         // We need to use the server's MissionHandlers here:
@@ -1234,6 +1255,7 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
 //                    boolean isConnectedToRealm = MinecraftClient.getInstance().isConnectedToRealms();
                     boolean isConnectedToLocal = MinecraftClient.getInstance().isConnectedToLocalServer();
                     boolean isIntegratedServerRunning = MinecraftClient.getInstance().isIntegratedServerRunning();
+                    boolean isConnectedToRemote = !isIntegratedServerRunning && player != null;
 //                    LOGGER.debug("isConnectedToRealm: " + isConnectedToRealm);
                     LOGGER.debug("isConnectedToLocal: " + isConnectedToLocal);
                     LOGGER.debug("isIntegratedServerRunning: " + isIntegratedServerRunning);
@@ -1258,21 +1280,8 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
                             }
                         });
                         // Skip all the map loading stuff and go straight to waiting for the server:
-                        episodeHasCompleted(ClientState.WAITING_FOR_SERVER_READY);
-                    } else {
-                        LOGGER.debug("sending mission to remote Server");
-                        HashMap<String, String> map = new HashMap<String, String>();
-                        // convert mission init with jaxb serializer
-                        try {
-                            String xmlData = SchemaHelper.serialiseObject(currentMissionInit(), MissionInit.class);
-                            map.put("MissionInit", xmlData);
-                        } catch (JAXBException e) {
-                            episodeHasCompletedWithErrors(ClientState.ERROR_NO_WORLD, "exception while converting mission init to xml" + e.getMessage());
-                        }
-                        // send mission init to server
-                        ClientPlayNetworking.send(new MessagePayload(new VereyaMessage(VereyaMessageType.CLIENT_MISSION_INIT, 0, map)));
-                        episodeHasCompleted(ClientState.WAITING_FOR_SERVER_READY);
                     }
+                    episodeHasCompleted(ClientState.WAITING_FOR_SERVER_READY);
                 } else { // not needNewWorld and no world: error
                         // Mission has requested no new world, but there is no current world to play in - this is an error:
                         episodeHasCompletedWithErrors(ClientState.ERROR_NO_WORLD, "We have no world to play in - check that your ServerHandlers section contains a world generator");
@@ -1294,6 +1303,7 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
         boolean waitingForChunk = false;
         boolean waitingForPlayer = true;
         private boolean chunkReady = false;
+        private boolean sendToRemote = false;
 
         protected WaitingForServerEpisode(ClientStateMachine machine)
         {
@@ -1388,8 +1398,9 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
 
             if (agents.size() > 1 && currentMissionInit().getClientRole() != 0)
             {
+                                /*
                 throw new RuntimeException("Not implemented");
-                /*
+
                 // We are waiting to join an out-of-process server. Need to pay attention to what happens -
                 // if we can't join, for any reason, we should abort the mission.
                 GuiScreen screen = Minecraft.getMinecraft().currentScreen;
@@ -1413,8 +1424,7 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
         }
 
         @Override
-        protected void execute() throws Exception
-        {
+        protected void execute() throws Exception {
             totalTicks = 0;
 
             // Minecraft.getMinecraft().displayGuiScreen(null); // Clear any menu screen that might confuse things.
@@ -1423,7 +1433,23 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
             //if (agents == null || agents.size() <= currentMissionInit().getClientRole())
             //    throw new Exception("No agent section for us!"); // TODO
             this.agentName = agents.get(currentMissionInit().getClientRole()).getName();
+            MinecraftServerConnection serverCon = currentMissionInit().getMinecraftServerConnection();
+            PlayerEntity player = MinecraftClient.getInstance().player;
+            boolean isConnectedToRemote = player != null && !MinecraftClient.getInstance().isIntegratedServerRunning();
+            if (!isConnectedToRemote && serverCon != null && serverCon.getAddress() != null && serverCon.getPort() != 0) {
+                ServerAddress srv = new ServerAddress(serverCon.getAddress(), serverCon.getPort());
+                LOGGER.debug("connecting to " + srv.getAddress() + ":" + srv.getPort());
+                Screen parentScreen = new GameMenuScreen(true);
+                ServerInfo srvInfo = new ServerInfo("local", srv.getAddress(), ServerInfo.ServerType.LAN);
+                ConnectScreen.connect(parentScreen, MinecraftClient.getInstance(), srv, srvInfo, true, null);
+                this.sendToRemote = true;
+            }
 
+
+            if (isConnectedToRemote && currentMissionInit().getClientRole() == 0) {
+                this.sendToRemote = true;
+            }
+            /*
             if (agents.size() > 1 && currentMissionInit().getClientRole() != 0)
             {
                 // Multi-agent mission, we should be joining a server.
@@ -1445,11 +1471,25 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
                 }
                 this.waitingForPlayer = false;
                 LOGGER.info("player exists and names match");
-            }
+            }*/
         }
 
         protected void handleLan()
         {
+            if (this.sendToRemote) {
+                LOGGER.debug("sending mission to remote Server");
+                HashMap<String, String> map = new HashMap<String, String>();
+                // convert mission init with jaxb serializer
+                try {
+                    String xmlData = SchemaHelper.serialiseObject(currentMissionInit(), MissionInit.class);
+                    map.put("MissionInit", xmlData);
+                } catch (JAXBException e) {
+                    episodeHasCompletedWithErrors(ClientState.ERROR_NO_WORLD, "exception while converting mission init to xml" + e.getMessage());
+                }
+                // send mission init to server
+                ClientPlayNetworking.send(new MessagePayload(new VereyaMessage(VereyaMessageType.CLIENT_MISSION_INIT, 0, map)));
+                sendToRemote = false;
+            }
             // Get our name from the Mission:
             /*List<AgentSection> agents = currentMissionInit().getMission().getAgentSection();
             this.agentName = agents.get(currentMissionInit().getClientRole()).getName();

@@ -60,7 +60,7 @@ jobs:
         run: conda activate py31 && cd $GITHUB_WORKSPACE/minecraft-demo && pip install .
       - name: Check server health
         run: |
-          timeout 60s bash -c "while ! curl -s http://localhost:25565/health; do sleep 5s; done"
+          timeout 60s bash -c "while ! curl -v -s http://localhost:25565/health 2>&1 | grep -q 'Empty reply'; do sleep 5s; done"
       - name: run test
         run: |
           ps a|grep [j]ava &&

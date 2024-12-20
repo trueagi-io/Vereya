@@ -20,15 +20,19 @@
 package io.singularitynet.Server;
 
 
+import com.mojang.authlib.GameProfile;
 import io.singularitynet.MessagePayload;
 import io.singularitynet.SidesMessageHandler;
 import io.singularitynet.projectmalmo.MissionInit;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.entity.mob.MobEntity;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.OperatorEntry;
+import net.minecraft.server.network.ServerPlayerEntity;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -68,6 +72,19 @@ public class VereyaModServer implements ModInitializer {
                 this.stateMachine = new ServerStateMachine(ServerState.WAITING_FOR_MOD_READY, null, server);
             } else {
                 this.stateMachine.queueStateChange(ServerState.WAITING_FOR_MOD_READY);
+            }
+        });
+
+        ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
+            Logger LOGGER = LogManager.getLogger();
+            ServerPlayerEntity player = handler.player;
+            // Grant op status to the player so the commands will work for sure
+            MinecraftServer minecraftServer = player.getServer();
+            if (minecraftServer != null) {
+                GameProfile gameProfile = player.getGameProfile();
+                OperatorEntry operatorEntry = new OperatorEntry(gameProfile, 4, true);
+                minecraftServer.getPlayerManager().getOpList().add(operatorEntry);
+                LOGGER.info(player.getName() + " was given op permissions");
             }
         });
     }

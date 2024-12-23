@@ -82,7 +82,6 @@ public class VereyaModServer implements ModInitializer {
         });
 
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
-            Logger LOGGER = LogManager.getLogger();
             ServerPlayerEntity player = handler.player;
             // Grant op status to the player so the commands will work for sure
             MinecraftServer minecraftServer = player.getServer();

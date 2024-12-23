@@ -45,6 +45,10 @@ jobs:
         env:
           DISPLAY: :99
           GITHUB_WORKSPACE: $GITHUB_WORKSPACE
+      - name: start minecraft server
+        run: cd server && ./launch.sh &
+        env:
+          GITHUB_WORKSPACE: $GITHUB_WORKSPACE
       - name: checkout tagilmo
         uses: actions/checkout@v3
         with:

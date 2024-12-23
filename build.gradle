@@ -1,14 +1,20 @@
 plugins {
+	id 'java'
+	id 'base'
 	id 'fabric-loom' version '1.6-SNAPSHOT'
 	id 'maven-publish'
 	id("com.github.bjornvester.xjc") version "1.6.0"
 }
 
-sourceCompatibility = JavaVersion.VERSION_21
-targetCompatibility = JavaVersion.VERSION_21
+java {
+	sourceCompatibility = JavaVersion.VERSION_21
+	targetCompatibility = JavaVersion.VERSION_21
+}
 
 version = rootProject.file('VERSION').text.trim()
-archivesBaseName = project.archives_base_name + '-fabric_' + project.fabric_version
+base {
+	archivesName = project.archives_base_name + '-fabric_' + project.fabric_version
+}
 group = project.maven_group
 
 
@@ -37,6 +43,7 @@ dependencies {
 	implementation 'jakarta.annotation:jakarta.annotation-api:2.0.0'
 	implementation 'jakarta.activation:jakarta.activation-api:2.0.1'
 	implementation 'org.json:json:20230227'
+	compileOnly 'com.mojang:authlib'
 
 	xjc "org.glassfish.jaxb:jaxb-runtime:3.0.2"
 	xjc 'org.glassfish.jaxb:jaxb-xjc:3.0.1'
@@ -79,6 +86,10 @@ jar {
 	}
 }
 jar.duplicatesStrategy = 'WARN'
+
+loom {
+	accessWidenerPath = file("src/main/resources/vereya.accesswidener")
+}
 
 // configure the maven publication
 publishing {

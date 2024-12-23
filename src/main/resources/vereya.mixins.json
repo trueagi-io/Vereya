@@ -6,12 +6,11 @@
   "mixins": [],
   "client": [
     "TitleScreenMixin", "SessionMixin", "MinecraftClientMixin", "GameOptionsMixin",
-    "KeyBindingMixin", "MouseMixin", "MouseAccessorMixin", "InGameHudMixin", "ServerWorldEntityLoaderMixin",
-    "ServerEntityManagerMixin", "ServerWorldMixin", "LevelStorageMixin",
+    "KeyBindingMixin", "MouseMixin", "MouseAccessorMixin", "InGameHudMixin", "LevelStorageMixin",
     "MinecraftClientEventsMixin", "LootTableProviderMixin", "MobEntityMixin", "MobEntityAccessorMixin",
-    "ClientWorldMixinAccess", "EntityMixin"
+    "ClientWorldMixinAccess", "EntityMixin", "ServerEntityManagerMixin", "ServerWorldMixin", "ServerWorldEntityLoaderMixin"
   ],
-  "server": [],
+  "server": ["ServerEntityManagerMixin", "ServerWorldMixin", "ServerWorldEntityLoaderMixin"],
   "injectors": {
     "defaultRequire": 1
   }

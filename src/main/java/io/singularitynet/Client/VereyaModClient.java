@@ -149,11 +149,12 @@ public class VereyaModClient implements ClientModInitializer, IMalmoModClient, S
 
     @Override
     public void onInitializeClient() {
+        LOGGER.info("initialising vereya mod client");
         this.stateMachine = new ClientStateMachine(ClientState.WAITING_FOR_MOD_READY, (IMalmoModClient) this);
         // subscribe to setScreen event
         ScreenEvents.SET_SCREEN.register(this);
-        PayloadTypeRegistry.playS2C().register(MessagePayload.ID, MessagePayload.CODEC);
-        // register the instance for messages from Server to the Client
+        // this is registered in VereyaModServer even on client
+        // PayloadTypeRegistry.playS2C().register(MessagePayload.ID, MessagePayload.CODEC);
         ClientPlayNetworking.registerGlobalReceiver(MessagePayload.ID,
                 (payload, context) -> { SidesMessageHandler.server2client.onMessage(payload, context) ; });
     }

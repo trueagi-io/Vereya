@@ -27,12 +27,14 @@ import io.singularitynet.utils.ScreenHelper;
 import jakarta.xml.bind.JAXBElement;
 import jakarta.xml.bind.JAXBException;
 
+import net.fabricmc.fabric.mixin.event.lifecycle.*;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
+import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.mob.MobEntity;
 import net.minecraft.entity.player.PlayerEntity;
 
@@ -77,6 +79,7 @@ public class ServerStateMachine extends StateMachine implements IVereyaMessageLi
     private ArrayList<String> userConnectionWatchList = new ArrayList<String>();
     private ArrayList<String> userTurnSchedule = new ArrayList<String>();
     public Map<String, MobEntity> controllableEntities = new HashMap();
+    protected Set<MobEntity> mobsInGame;
 
     /** Called to initialise a state machine for a specific Mission request.<br>
      * Most likely caused by the client creating an integrated server.
@@ -93,6 +96,7 @@ public class ServerStateMachine extends StateMachine implements IVereyaMessageLi
         LOGGER.debug("ServerStateMachine: " + this + " server " + server);
 
         this.server = new WeakReference<MinecraftServer>(server);
+        this.mobsInGame = new HashSet<MobEntity>();
         // Register ourself on the event busses, so we can harness the server tick:
         ServerTickEvents.END_SERVER_TICK.register(this::onServerTick);
         ServerLifecycleEvents.SERVER_STOPPING.register(this::onServerStopping);
@@ -111,6 +115,7 @@ public class ServerStateMachine extends StateMachine implements IVereyaMessageLi
                 LOGGER.debug("removing controlled mob uuid: " + uuid);
                 controllableEntities.remove(uuid);
             }
+            if (this.mobsInGame.contains(entity)) this.mobsInGame.remove(entity);
         }
     }
 
@@ -122,11 +127,11 @@ public class ServerStateMachine extends StateMachine implements IVereyaMessageLi
                 controllableEntities.put(uuid, mobEntity);
                 LOGGER.debug("sending new controlled mob message to client uuid: " + uuid);
                 sendToAll(new VereyaMessage(VereyaMessageType.SERVER_CONTROLLED_MOB, uuid));
+            } else {
+                this.mobsInGame.add((MobEntity) entity);
             }
         }
     }
-
-
 
     /** Used to prevent spawning in our world.*/
     public ActionResult onGetPotentialSpawns(Entity entity, ServerWorld world)
@@ -144,7 +149,6 @@ public class ServerStateMachine extends StateMachine implements IVereyaMessageLi
             ServerInitialConditions sic = (ss != null) ? ss.getServerInitialConditions() : null;
             if (sic != null)
                 allowSpawning = (sic.isAllowSpawning() == Boolean.TRUE);
-
             if (allowSpawning && sic.getAllowedMobs() != null && !sic.getAllowedMobs().isEmpty())
             {
                 // Spawning is allowed, but restricted to our list:
@@ -285,11 +289,13 @@ public class ServerStateMachine extends StateMachine implements IVereyaMessageLi
             return;
         }
         for(ServerPlayerEntity player: server.getPlayerManager().getPlayerList()){
+            LOGGER.debug("send " + msg.getMessageType().toString() + " to " + player.getName());
             ServerPlayNetworking.send(player, new MessagePayload(msg));
         }
     }
 
     private void sendToPlayer(VereyaMessage msg, ServerPlayerEntity player){
+        LOGGER.debug("send " + msg.getMessageType().toString() + " to " + player.getName());
         ServerPlayNetworking.send(player, new MessagePayload(msg));
     }
 
@@ -1031,7 +1037,6 @@ public class ServerStateMachine extends StateMachine implements IVereyaMessageLi
             }*/
         }
     }
-
 
     //---------------------------------------------------------------------------------------------------------
     /** Mission running state.

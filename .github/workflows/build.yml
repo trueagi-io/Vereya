@@ -47,6 +47,8 @@ jobs:
         env:
           DISPLAY: :99
           GITHUB_WORKSPACE: $GITHUB_WORKSPACE
+      - name: copy server cache
+        run: cp -r ~/server/ . ; git checkout server
       - name: start minecraft server
         run: cd server && ./launch.sh &
         env:

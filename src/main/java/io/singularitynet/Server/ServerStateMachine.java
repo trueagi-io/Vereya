@@ -18,6 +18,7 @@
 // --------------------------------------------------------------------------------------------------
 package io.singularitynet.Server;
 
+import com.mojang.authlib.GameProfile;
 import io.singularitynet.*;
 import io.singularitynet.MissionHandlers.MissionBehaviour;
 import io.singularitynet.events.ServerEntityEventsVereya;
@@ -40,6 +41,7 @@ import net.minecraft.entity.player.PlayerEntity;
 
 import net.minecraft.item.ItemStack;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.OperatorEntry;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.ActionResult;
@@ -783,6 +785,15 @@ public class ServerStateMachine extends StateMachine implements IVereyaMessageLi
                         episodeHasCompleted(ServerState.RUNNING);
                     }
                 }
+                MinecraftServer minecraftServer = server.get();
+                if (minecraftServer == null){
+                    LOGGER.error("WaitingForAgentsEpisode.onMessage: server is null");
+                    return;
+                }
+                GameProfile gameProfile = player.getGameProfile();
+                OperatorEntry operatorEntry = new OperatorEntry(gameProfile, 4, true);
+                minecraftServer.getPlayerManager().getOpList().add(operatorEntry);
+                LOGGER.info(player.getName() + " was given op permissions");
             }
         }
 

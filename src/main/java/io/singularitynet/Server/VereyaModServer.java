@@ -81,17 +81,6 @@ public class VereyaModServer implements ModInitializer {
             }
         });
 
-        ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
-            ServerPlayerEntity player = handler.player;
-            // Grant op status to the player so the commands will work for sure
-            MinecraftServer minecraftServer = player.getServer();
-            if (minecraftServer != null) {
-                GameProfile gameProfile = player.getGameProfile();
-                OperatorEntry operatorEntry = new OperatorEntry(gameProfile, 4, true);
-                minecraftServer.getPlayerManager().getOpList().add(operatorEntry);
-                LOGGER.info(player.getName() + " was given op permissions");
-            }
-        });
     }
 
     public void sendMissionInitDirectToServer(MissionInit minit) throws Exception

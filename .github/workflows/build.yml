@@ -34,9 +34,11 @@ jobs:
       - name: build
         run: ./gradlew build
       - name: install vereya
-        run: rm /home/tester/.minecraft/mods/* && cp $GITHUB_WORKSPACE/build/libs/* /home/tester/.minecraft/mods/
+        run: rm /home/tester/.minecraft/mods/* && cp $GITHUB_WORKSPACE/build/libs/* /home/tester/.minecraft/mods/ && 
+              rsync -v $GITHUB_WORKSPACE/build/libs/* $GITHUB_WORKSPACE/server/mods/
       - name: install fabric
-        run: rsync -v $GITHUB_WORKSPACE/fabric/* /home/tester/.minecraft/mods/
+        run: rsync -v $GITHUB_WORKSPACE/fabric/* /home/tester/.minecraft/mods/ && 
+              rsync -v $GITHUB_WORKSPACE/fabric/* $GITHUB_WORKSPACE/server/mods/
       - name: remove lock
         if: failure()
         run: rm -f /tmp/minecraft-test-lock
@@ -45,6 +47,8 @@ jobs:
         env:
           DISPLAY: :99
           GITHUB_WORKSPACE: $GITHUB_WORKSPACE
+      - name: copy server cache
+        run: cp -r ~/server/ . ; git checkout server
       - name: start minecraft server
         run: cd server && ./launch.sh &
         env:
@@ -56,6 +60,9 @@ jobs:
           path: minecraft-demo
       - name: install tagilmo
         run: conda activate py31 && cd $GITHUB_WORKSPACE/minecraft-demo && pip install .
+      - name: Check server health
+        run: |
+          timeout 60s bash -c "while ! curl -v -s http://localhost:25565/health 2>&1 | grep -q 'Empty reply'; do sleep 5s; done"
       - name: run test
         run: |
           ps a|grep [j]ava &&

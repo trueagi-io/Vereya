@@ -76,6 +76,7 @@ public class VereyaModServer implements ModInitializer {
                 this.stateMachine.queueStateChange(ServerState.WAITING_FOR_MOD_READY);
             }
         });
+
     }
 
     public void sendMissionInitDirectToServer(MissionInit minit) throws Exception

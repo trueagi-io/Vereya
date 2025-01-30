@@ -1,42 +1,25 @@
 package io.singularitynet.MissionHandlers;
 
 import io.singularitynet.MissionHandlerInterfaces.IWantToQuit;
-import io.singularitynet.projectmalmo.AgentQuitFromTouchingBlockType;
-import io.singularitynet.projectmalmo.BlockSpecWithDescription;
-import io.singularitynet.projectmalmo.MissionInit;
+import io.singularitynet.projectmalmo.*;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
 import org.apache.logging.log4j.LogManager;
 
+import java.util.HashSet;
 import java.util.List;
 
 public class AgentQuitFromTouchingBlockTypeImplementation extends HandlerBase implements IWantToQuit {
+
+    HashSet<String> qbSet;
+
     @Override
     public void cleanup() {
 
     }
 
-    @Override
-    public boolean doIWantToQuit(MissionInit currentMissionInit) {
-        String blockType = getBlockUnderPlayer();
-        if (blockType == null || blockType.isEmpty()){
-            return true;
-        }
-        List<BlockSpecWithDescription> blocks = getQuitBlocks(currentMissionInit);
-        if (blocks == null || blocks.isEmpty()){
-            return false;
-        }
-        for (BlockSpecWithDescription block : blocks){
-            String quitBlock = block.getType().getFirst().toString().toLowerCase();
-            if (blockType.equals(quitBlock)){
-                return true;
-            }
-        }
-        return false;
-
-    }
 
     @Override
     public String getOutcome() {
@@ -47,6 +30,34 @@ public class AgentQuitFromTouchingBlockTypeImplementation extends HandlerBase im
     @Override
     public void prepare(MissionInit missionInit) {
 
+    }
+
+    @Override
+    public boolean parseParameters(Object params){
+        if (params == null || !(params instanceof AgentQuitFromTouchingBlockType)) {
+            return false;
+        }
+        AgentQuitFromTouchingBlockType aqparams = (AgentQuitFromTouchingBlockType)params;
+        List<BlockSpecWithDescription> quitBlocks = aqparams.getBlock();
+        this.qbSet = new HashSet<String>();
+        if(!(quitBlocks == null || quitBlocks.isEmpty())){
+            for (BlockSpecWithDescription quitBlock : quitBlocks){
+                String blockType = quitBlock.getType().getFirst().toString().toLowerCase();
+                this.qbSet.add(blockType);
+            }
+        }
+        return true;
+    }
+    @Override
+    public boolean doIWantToQuit(MissionInit currentMissionInit) {
+        String blockType = getBlockUnderPlayer();
+        if (blockType == null || blockType.isEmpty()){
+            return true;
+        }
+        if (this.qbSet == null || this.qbSet.isEmpty()){
+            return false;
+        }
+        return this.qbSet.contains(blockType);
     }
 
     private String getBlockUnderPlayer(){
@@ -62,10 +73,5 @@ public class AgentQuitFromTouchingBlockTypeImplementation extends HandlerBase im
         String[] parts = blockType.split("\\.", 3);
         blockType = (parts.length > 2) ? parts[2] : "";
         return blockType;
-    }
-
-    private List<BlockSpecWithDescription> getQuitBlocks(MissionInit currentMissionInit) {
-        AgentQuitFromTouchingBlockType agentQuit = currentMissionInit.getMission().getAgentSection().getFirst().getAgentHandlers().getAgentMissionHandlers().stream().filter(AgentQuitFromTouchingBlockType.class::isInstance).map(AgentQuitFromTouchingBlockType.class::cast).toList().getFirst();
-        return agentQuit.getBlock();
     }
 }

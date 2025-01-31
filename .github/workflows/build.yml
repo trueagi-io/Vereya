@@ -76,12 +76,12 @@ jobs:
           path: logs/app.log
       - name: save python logs
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: PythonLog
           path: minecraft-demo/tests/vereya/app.log
       - name: save test observations
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: TestObservations
           path: minecraft-demo/tests/vereya/observations/observations.txt

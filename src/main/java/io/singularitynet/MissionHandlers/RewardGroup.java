@@ -68,9 +68,9 @@ public class RewardGroup extends HandlerBase implements IRewardProducer{
     }
 
     @Override
-    public void produceReward(Class<? extends IRewardProducer> clazz) {
+    public void trigger(Class<? extends IRewardProducer> clazz) {
         for (IRewardProducer han : this.handlers){
-            han.produceReward(clazz);
+            han.trigger(clazz);
         }
     }
 }

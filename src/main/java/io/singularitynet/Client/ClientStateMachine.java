@@ -2022,9 +2022,9 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
                 // Pass the command to our various control overrides:
                 // Minecraft.getMinecraft().mcProfiler.startSection("malmoCommandAct");
                 if (command != null) LOGGER.debug("Command " + command);
-                //handle reward for sending command
-                if (command != null) currentMissionBehaviour().rewardProducer.produceReward(RewardForSendingCommandImplementation.class);
                 boolean handled = handleCommand(command);
+                //trigger the reward for sending a command
+                if (handled) currentMissionBehaviour().rewardProducer.trigger(RewardForSendingCommandImplementation.class);
                 if ((command != null) && !handled){
                     LOGGER.warn("Command " + command + " not handled");
                 }
@@ -2074,10 +2074,10 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
                     System.out.println("Failed to get properties - final reward may go missing.");
                 }*/
                 // Get the final reward data:
-                ClientAgentConnection cac = currentMissionInit().getClientAgentConnection();/*
+                ClientAgentConnection cac = currentMissionInit().getClientAgentConnection();
                 if (currentMissionBehaviour() != null && currentMissionBehaviour().rewardProducer != null && cac != null)
-                    currentMissionBehaviour().rewardProducer.getReward(currentMissionInit(), ClientStateMachine.this.finalReward);
-                    */
+                    currentMissionBehaviour().rewardProducer.getReward(ClientStateMachine.this.finalReward);
+
 
                 onMissionEnded(ClientState.MISSION_ENDED, null);
             } else if (messageType == VereyaMessageType.SERVER_GO) {

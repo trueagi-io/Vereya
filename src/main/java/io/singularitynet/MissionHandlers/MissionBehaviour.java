@@ -199,7 +199,7 @@ public class MissionBehaviour implements IMissionBehaviour {
     }
 
     public void addRewardProducer(IRewardProducer handler)
-    {/*
+    {
         if (this.rewardProducer == null)
             this.rewardProducer = handler;
         else
@@ -212,7 +212,7 @@ public class MissionBehaviour implements IMissionBehaviour {
                 this.rewardProducer = group;
             }
             ((RewardGroup) this.rewardProducer).addRewardProducer(handler);
-        }*/
+        }
     }
 
     public void addObservationProducer(IObservationProducer handler)

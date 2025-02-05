@@ -25,10 +25,7 @@ import io.singularitynet.*;
 import io.singularitynet.MissionHandlerInterfaces.IVideoProducer;
 import io.singularitynet.MissionHandlerInterfaces.IWantToQuit;
 import io.singularitynet.MissionHandlerInterfaces.IWorldGenerator;
-import io.singularitynet.MissionHandlers.DrawImplementation;
-import io.singularitynet.MissionHandlers.MissionBehaviour;
-import io.singularitynet.MissionHandlers.MultidimensionalReward;
-import io.singularitynet.MissionHandlers.RewardForSendingCommandImplementation;
+import io.singularitynet.MissionHandlers.*;
 import io.singularitynet.Server.VereyaModServer;
 import io.singularitynet.mixin.ClientWorldMixinAccess;
 import io.singularitynet.mixin.LevelStorageMixin;
@@ -1872,8 +1869,8 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
 
                 // Get the final reward data:
                 ClientAgentConnection cac = currentMissionInit().getClientAgentConnection();
-                /*if (currentMissionBehaviour() != null && currentMissionBehaviour().rewardProducer != null && cac != null)
-                    currentMissionBehaviour().rewardProducer.getReward(currentMissionInit(), ClientStateMachine.this.finalReward);*/
+                if (currentMissionBehaviour() != null && currentMissionBehaviour().rewardProducer != null && cac != null)
+                    currentMissionBehaviour().rewardProducer.getReward(ClientStateMachine.this.finalReward);
 
                 // Now send a message to the server saying that we have finished our mission:
                 List<AgentSection> agents = currentMissionInit().getMission().getAgentSection();
@@ -2024,7 +2021,7 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
                 if (command != null) LOGGER.debug("Command " + command);
                 boolean handled = handleCommand(command);
                 //trigger the reward for sending a command
-                if (handled) currentMissionBehaviour().rewardProducer.trigger(RewardForSendingCommandImplementation.class);
+                if (handled) currentMissionBehaviour().rewardProducer.trigger(CommandBase.class);
                 if ((command != null) && !handled){
                     LOGGER.warn("Command " + command + " not handled");
                 }
@@ -2074,9 +2071,10 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
                     System.out.println("Failed to get properties - final reward may go missing.");
                 }*/
                 // Get the final reward data:
-                ClientAgentConnection cac = currentMissionInit().getClientAgentConnection();
+                ClientAgentConnection cac = currentMissionInit().getClientAgentConnection();/*
                 if (currentMissionBehaviour() != null && currentMissionBehaviour().rewardProducer != null && cac != null)
-                    currentMissionBehaviour().rewardProducer.getReward(ClientStateMachine.this.finalReward);
+                    currentMissionBehaviour().rewardProducer.getReward(CurrentMissionInit(), ClientStateMachine.this.finalReward);
+                    */
 
 
                 onMissionEnded(ClientState.MISSION_ENDED, null);

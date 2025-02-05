@@ -67,7 +67,7 @@ public class RewardForTouchingBlockTypeImplementation extends HandlerBase implem
     }
 
     @Override
-    public void trigger(Class<? extends IRewardProducer> clazz) {
+    public void trigger(Class<?> clazz) {
 
     }
 

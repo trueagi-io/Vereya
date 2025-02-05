@@ -63,8 +63,8 @@ public class RewardForSendingCommandImplementation extends HandlerBase implement
     }
 
     @Override
-    public void trigger(Class<? extends IRewardProducer> clazz) {
-        if (clazz.isInstance(this)){
+    public void trigger(Class<?> clazz) {
+        if (clazz.equals(CommandBase.class)){
             this.triggerFlag();
         }
     }

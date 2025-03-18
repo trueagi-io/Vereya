@@ -2021,7 +2021,9 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
                 if (command != null) LOGGER.debug("Command " + command);
                 boolean handled = handleCommand(command);
                 //trigger the reward for sending a command
-                if (handled) currentMissionBehaviour().rewardProducer.trigger(CommandBase.class);
+                if (handled && currentMissionBehaviour().rewardProducer != null){
+                    currentMissionBehaviour().rewardProducer.trigger(CommandBase.class);
+                }
                 if ((command != null) && !handled){
                     LOGGER.warn("Command " + command + " not handled");
                 }

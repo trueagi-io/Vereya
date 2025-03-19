@@ -64,6 +64,7 @@ public class RewardForTouchingBlockTypeImplementation extends HandlerBase implem
             this.onceOnlyBlocks.add(blockType);
         }
         reward.add(this.dimension, rewardBlock.getReward().floatValue());
+        // TODO: implement other behaviours
     }
 
     @Override

@@ -25,9 +25,7 @@ import io.singularitynet.*;
 import io.singularitynet.MissionHandlerInterfaces.IVideoProducer;
 import io.singularitynet.MissionHandlerInterfaces.IWantToQuit;
 import io.singularitynet.MissionHandlerInterfaces.IWorldGenerator;
-import io.singularitynet.MissionHandlers.DrawImplementation;
-import io.singularitynet.MissionHandlers.MissionBehaviour;
-import io.singularitynet.MissionHandlers.MultidimensionalReward;
+import io.singularitynet.MissionHandlers.*;
 import io.singularitynet.Server.VereyaModServer;
 import io.singularitynet.mixin.ClientWorldMixinAccess;
 import io.singularitynet.mixin.LevelStorageMixin;
@@ -1871,8 +1869,8 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
 
                 // Get the final reward data:
                 ClientAgentConnection cac = currentMissionInit().getClientAgentConnection();
-                /*if (currentMissionBehaviour() != null && currentMissionBehaviour().rewardProducer != null && cac != null)
-                    currentMissionBehaviour().rewardProducer.getReward(currentMissionInit(), ClientStateMachine.this.finalReward);*/
+                if (currentMissionBehaviour() != null && currentMissionBehaviour().rewardProducer != null && cac != null)
+                    currentMissionBehaviour().rewardProducer.getReward(ClientStateMachine.this.finalReward);
 
                 // Now send a message to the server saying that we have finished our mission:
                 List<AgentSection> agents = currentMissionInit().getMission().getAgentSection();
@@ -1952,23 +1950,22 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
 
             // Minecraft.getMinecraft().mcProfiler.endStartSection("malmoGatherRewardSignal");
             // Now create the reward signal:
-            /*
             if (currentMissionBehaviour() != null && currentMissionBehaviour().rewardProducer != null && cac != null)
             {
                 MultidimensionalReward reward = new MultidimensionalReward();
-                currentMissionBehaviour().rewardProducer.getReward(currentMissionInit(), reward);
+                currentMissionBehaviour().rewardProducer.getReward(reward);
                 if (!reward.isEmpty())
                 {
                     String strReward = reward.getAsSimpleString();
-                    Minecraft.getMinecraft().mcProfiler.startSection("malmoSendTCPReward");
+//                    Minecraft.getMinecraft().mcProfiler.startSection("malmoSendTCPReward");
 
-                    ScoreHelper.logReward(strReward);
+//                    ScoreHelper.logReward(strReward);
 
                     if (AddressHelper.getMissionControlPort() == 0) {
                         // MalmoEnvServer - reward
-                        if (envServer != null) {
-                            envServer.addRewards(reward.getRewardTotal());
-                        }
+//                        if (envServer != null) {
+//                            envServer.addRewards(reward.getRewardTotal());
+//                        }
                     } else {
                         if (this.rewardSocket.sendTCPString(strReward)) {
                             this.failedTCPRewardSendCount = 0; // Reset the count of consecutive TCP failures.
@@ -1978,13 +1975,12 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
                             // the agent cleanly, so tends to kill the process.)
                             this.failedTCPRewardSendCount++;
                             TCPUtils.Log(Level.WARNING, "Reward signal delivery failure count at " + this.failedTCPRewardSendCount);
-                            ClientStateMachine.this.getScreenHelper().addFragment("ERROR: Agent missed reward signal", TextCategory.TXT_CLIENT_WARNING, 5000);
+//                            ClientStateMachine.this.getScreenHelper().addFragment("ERROR: Agent missed reward signal", TextCategory.TXT_CLIENT_WARNING, 5000);
                         }
                     }
                 }
             }
-            Minecraft.getMinecraft().mcProfiler.endSection();
-            */
+//            Minecraft.getMinecraft().mcProfiler.endSection();
             int maxFailedTCPSendCount = 0;
             for (VideoHook hook : this.videoHooks)
             {
@@ -2024,6 +2020,10 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
                 // Minecraft.getMinecraft().mcProfiler.startSection("malmoCommandAct");
                 if (command != null) LOGGER.debug("Command " + command);
                 boolean handled = handleCommand(command);
+                //trigger the reward for sending a command
+                if (handled && currentMissionBehaviour().rewardProducer != null){
+                    currentMissionBehaviour().rewardProducer.trigger(CommandBase.class);
+                }
                 if ((command != null) && !handled){
                     LOGGER.warn("Command " + command + " not handled");
                 }
@@ -2075,8 +2075,9 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
                 // Get the final reward data:
                 ClientAgentConnection cac = currentMissionInit().getClientAgentConnection();/*
                 if (currentMissionBehaviour() != null && currentMissionBehaviour().rewardProducer != null && cac != null)
-                    currentMissionBehaviour().rewardProducer.getReward(currentMissionInit(), ClientStateMachine.this.finalReward);
+                    currentMissionBehaviour().rewardProducer.getReward(CurrentMissionInit(), ClientStateMachine.this.finalReward);
                     */
+
 
                 onMissionEnded(ClientState.MISSION_ENDED, null);
             } else if (messageType == VereyaMessageType.SERVER_GO) {

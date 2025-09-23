@@ -19,8 +19,7 @@
 
 package io.singularitynet.Client;
 
-import com.google.gson.JsonObject;
-import com.google.gson.JsonPrimitive;
+import com.google.gson.*;
 import io.singularitynet.*;
 import io.singularitynet.MissionHandlerInterfaces.IVideoProducer;
 import io.singularitynet.MissionHandlerInterfaces.IWantToQuit;
@@ -66,6 +65,7 @@ import org.xml.sax.SAXException;
 import javax.xml.stream.XMLStreamException;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.lang.reflect.Array;
 import java.net.UnknownHostException;
 import java.nio.file.Path;
 import java.util.*;
@@ -1669,6 +1669,7 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
         private TCPSocketChannel rewardSocket = null;
         private long lastPingSent = 0;
         private long pingFrequencyMs = 1000;
+        private HashMap<String, Float> actionStatus = new HashMap<>();
 
         private long frameTimestamp = 0;
 
@@ -1728,6 +1729,9 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
                 hook.start(currentMissionInit(), videoProducer, this);
             }
 
+            //Setup status for ContinuousMovementCommands
+            initActionStatus();
+
             // Make sure we have mouse control:
             ClientStateMachine.this.inputController.setInputType(VereyaModClient.InputType.AI);
         }
@@ -1749,6 +1753,9 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
                 currentMissionBehaviour().commandHandler.setOverriding(false);
                 currentMissionBehaviour().commandHandler.deinstall(currentMissionInit());
             }
+
+            //clear info about ContinuousMovementCommands
+            clearActionStatus();
 
             ClientStateMachine.this.inputController.setInputType(VereyaModClient.InputType.HUMAN);
             // Close our communication channels:
@@ -1894,6 +1901,41 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
 
         }
 
+        private void initActionStatus()
+        {
+            actionStatus.put("move", 0f);
+            actionStatus.put("strafe", 0f);
+            actionStatus.put("pitch", 0f);
+            actionStatus.put("turn", 0f);
+            actionStatus.put("jump", 0f);
+            actionStatus.put("crouch", 0f);
+            actionStatus.put("attack", 0f);
+            actionStatus.put("use", 0f);
+        }
+
+        private void clearActionStatus()
+        {
+            actionStatus.clear();
+        }
+
+        private void updateActionStatus(String command)
+        {
+            try {
+                String[] parts = command.split(" ");
+                //Command the structure of "verb value"
+                if (parts.length < 2) return;
+                String key = parts[0];
+                String val = parts[1];
+                //update only predefined in initActionStatus commands
+                if (actionStatus.containsKey(key)){
+                    actionStatus.put(key, Float.parseFloat(val));
+                }
+            } catch (Exception e) {
+                LOGGER.error("Failed to update the actionStatus", e);
+            }
+
+        }
+
         private void openSockets()
         {
             ClientAgentConnection cac = currentMissionInit().getClientAgentConnection();
@@ -1924,6 +1966,7 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
                 VereyaModClient.InputType inptype = ClientStateMachine.this.inputController.getInputType();
                 json.add("input_type", new JsonPrimitive(inptype.name()));
                 json.add("isPaused", new JsonPrimitive(MinecraftClient.getInstance().isPaused()));
+                json.add("actionStatus", actionStatusToJSON());
                 data = json.toString();
                 profiler.pop();
             }
@@ -2002,6 +2045,11 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
             ls.close();
         }
 
+        private JsonElement actionStatusToJSON(){
+            Gson gson = new Gson();
+            JsonElement json = gson.toJsonTree(actionStatus);
+            return json;
+        }
         /**
          * Check to see if any control instructions have been received and act on them if so.
          */
@@ -2012,7 +2060,6 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
             boolean quitHandlerFired = false;
             IWantToQuit quitHandler = (currentMissionBehaviour() != null) ? currentMissionBehaviour().quitProducer : null;
             command = ClientStateMachine.this.controlInputPoller.getCommand();
-
             while (command != null && command.length() > 0 && !quitHandlerFired)
             {
                 // TCPUtils.Log(Level.INFO, "Act on " + command);
@@ -2020,6 +2067,8 @@ public class ClientStateMachine extends StateMachine implements IVereyaMessageLi
                 // Minecraft.getMinecraft().mcProfiler.startSection("malmoCommandAct");
                 if (command != null) LOGGER.debug("Command " + command);
                 boolean handled = handleCommand(command);
+                //use this info for sending data into python API
+                if (handled) updateActionStatus(command);
                 //trigger the reward for sending a command
                 if (handled && currentMissionBehaviour().rewardProducer != null){
                     currentMissionBehaviour().rewardProducer.trigger(CommandBase.class);

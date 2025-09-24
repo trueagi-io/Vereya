@@ -34,7 +34,7 @@ jobs:
       - name: build
         run: ./gradlew build && md5sum $GITHUB_WORKSPACE/build/libs/*
       - name: copy server cache
-        run: cp -r ~/server/ . ; git checkout server && md5sum $GITHUB_WORKSPACE/server/mods/*
+        run: cp -r ~/server/ . ; git checkout server
       - name: install vereya
         run: rm /home/tester/.minecraft/mods/* && cp $GITHUB_WORKSPACE/build/libs/* /home/tester/.minecraft/mods/ && 
               rsync -v $GITHUB_WORKSPACE/build/libs/* $GITHUB_WORKSPACE/server/mods/

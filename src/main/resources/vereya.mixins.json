@@ -8,9 +8,12 @@
     "TitleScreenMixin", "SessionMixin", "MinecraftClientMixin", "GameOptionsMixin",
     "KeyBindingMixin", "MouseMixin", "MouseAccessorMixin", "InGameHudMixin", "LevelStorageMixin",
     "MinecraftClientEventsMixin", "LootTableProviderMixin", "MobEntityMixin", "MobEntityAccessorMixin",
-    "ClientWorldMixinAccess", "EntityMixin", "ServerEntityManagerMixin", "ServerWorldMixin", "ServerWorldEntityLoaderMixin"
+    "ClientWorldMixinAccess", "EntityMixin", "ServerEntityManagerMixin", "ServerWorldMixin", "ServerWorldEntityLoaderMixin",
+	"ServerPlayNetworkHandlerMixin"
   ],
-  "server": ["ServerEntityManagerMixin", "ServerWorldMixin", "ServerWorldEntityLoaderMixin", "ServerPlayNetworkHandlerMixin"],
+  "server": ["ServerEntityManagerMixin", "ServerWorldMixin", "ServerWorldEntityLoaderMixin",
+  		"ServerPlayNetworkHandlerMixin"
+   ],
   "injectors": {
     "defaultRequire": 1
   }

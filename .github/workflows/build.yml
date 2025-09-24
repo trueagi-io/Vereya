@@ -32,13 +32,17 @@ jobs:
         if: ${{ runner.os != 'Windows' }}
         run: chmod +x ./gradlew
       - name: build
-        run: ./gradlew build
+        run: ./gradlew build && md5sum $GITHUB_WORKSPACE/build/libs/*
+      - name: copy server cache
+        run: cp -r ~/server/ . ; git checkout server && md5sum $GITHUB_WORKSPACE/server/mods/*
       - name: install vereya
         run: rm /home/tester/.minecraft/mods/* && cp $GITHUB_WORKSPACE/build/libs/* /home/tester/.minecraft/mods/ && 
               rsync -v $GITHUB_WORKSPACE/build/libs/* $GITHUB_WORKSPACE/server/mods/
       - name: install fabric
         run: rsync -v $GITHUB_WORKSPACE/fabric/* /home/tester/.minecraft/mods/ && 
-              rsync -v $GITHUB_WORKSPACE/fabric/* $GITHUB_WORKSPACE/server/mods/
+              rsync -v $GITHUB_WORKSPACE/fabric/* $GITHUB_WORKSPACE/server/mods/ &&
+              md5sum $GITHUB_WORKSPACE/server/mods/* &&
+              md5sum /home/tester/.minecraft/mods/*
       - name: remove lock
         if: failure()
         run: rm -f /tmp/minecraft-test-lock
@@ -47,8 +51,6 @@ jobs:
         env:
           DISPLAY: :99
           GITHUB_WORKSPACE: $GITHUB_WORKSPACE
-      - name: copy server cache
-        run: cp -r ~/server/ . ; git checkout server
       - name: start minecraft server
         run: cd server && ./launch.sh &
         env:

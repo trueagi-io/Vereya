@@ -10,7 +10,7 @@
     "MinecraftClientEventsMixin", "LootTableProviderMixin", "MobEntityMixin", "MobEntityAccessorMixin",
     "ClientWorldMixinAccess", "EntityMixin", "ServerEntityManagerMixin", "ServerWorldMixin", "ServerWorldEntityLoaderMixin"
   ],
-  "server": ["ServerEntityManagerMixin", "ServerWorldMixin", "ServerWorldEntityLoaderMixin"],
+  "server": ["ServerEntityManagerMixin", "ServerWorldMixin", "ServerWorldEntityLoaderMixin", "ServerPlayNetworkHandlerMixin"],
   "injectors": {
     "defaultRequire": 1
   }

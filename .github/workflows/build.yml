@@ -33,6 +33,8 @@ jobs:
         run: chmod +x ./gradlew
       - name: build
         run: ./gradlew build && md5sum $GITHUB_WORKSPACE/build/libs/*
+      - name: copy server cache
+        run: cp -r ~/server/ . ; git checkout server
       - name: install vereya
         run: rm /home/tester/.minecraft/mods/* && cp $GITHUB_WORKSPACE/build/libs/* /home/tester/.minecraft/mods/ && 
               rsync -v $GITHUB_WORKSPACE/build/libs/* $GITHUB_WORKSPACE/server/mods/
@@ -49,8 +51,6 @@ jobs:
         env:
           DISPLAY: :99
           GITHUB_WORKSPACE: $GITHUB_WORKSPACE
-      - name: copy server cache
-        run: cp -r ~/server/ . ; git checkout server && md5sum $GITHUB_WORKSPACE/server/mods/*
       - name: start minecraft server
         run: cd server && ./launch.sh &
         env:

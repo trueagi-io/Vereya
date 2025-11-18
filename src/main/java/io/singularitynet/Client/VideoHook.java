@@ -116,7 +116,18 @@ public class VideoHook {
         this.missionInit = missionInit;
         this.videoProducer = videoProducer;
         this.observer = observer;
-        this.buffer = BufferUtils.createByteBuffer(this.framebuffer.textureWidth * this.framebuffer.textureHeight * this.texChannels);
+        // Choose channel count per video type and size the buffer for producer dims.
+        switch (videoProducer.getVideoType()) {
+            case COLOUR_MAP:
+                this.texChannels = 3; // BGR for segmentation
+                break;
+            default:
+                this.texChannels = 4; // BGRA for standard video
+                break;
+        }
+        int initW = Math.max(1, videoProducer.getWidth());
+        int initH = Math.max(1, videoProducer.getHeight());
+        this.buffer = BufferUtils.createByteBuffer(initW * initH * this.texChannels);
         this.renderWidth = videoProducer.getWidth();
         this.renderHeight = videoProducer.getHeight();
         resizeIfNeeded();
@@ -312,10 +323,6 @@ public class VideoHook {
                 tictac = "tac";
                 Map<String, Number> header_map = new HashMap<>();
                 this.buffer.clear();
-                if (this.framebuffer.textureWidth * this.framebuffer.textureHeight * this.texChannels != this.buffer.limit())
-                {
-                    this.buffer = BufferUtils.createByteBuffer(this.framebuffer.textureWidth * this.framebuffer.textureHeight * this.texChannels);
-                }
                 header_map.put("x", x);
                 header_map.put("y", y);
                 header_map.put("z", z);
@@ -324,8 +331,20 @@ public class VideoHook {
                 glGetFloatv(GL_PROJECTION_MATRIX, projection);
                 glGetFloatv(GL_MODELVIEW_MATRIX, modelview);
                 int[] sizes = this.videoProducer.writeFrame(this.missionInit, this.buffer);
-                header_map.put("img_width", sizes[0]);
-                header_map.put("img_height", sizes[1]);
+                int imgW = Math.max(1, sizes[0]);
+                int imgH = Math.max(1, sizes[1]);
+                int requiredLen = imgW * imgH * this.texChannels;
+                if (this.buffer.capacity() < requiredLen) {
+                    this.buffer = BufferUtils.createByteBuffer(requiredLen);
+                    // Re-fetch frame into newly sized buffer
+                    sizes = this.videoProducer.writeFrame(this.missionInit, this.buffer);
+                    imgW = Math.max(1, sizes[0]);
+                    imgH = Math.max(1, sizes[1]);
+                    requiredLen = imgW * imgH * this.texChannels;
+                }
+                this.buffer.limit(requiredLen);
+                header_map.put("img_width", imgW);
+                header_map.put("img_height", imgH);
                 header_map.put("img_ch", this.texChannels);
                 JSONObject jo_header = new JSONObject(header_map);
                 float[] proj_floats = new float[16];
@@ -340,9 +359,10 @@ public class VideoHook {
                 if (this.buffer != null) {
                     ByteBuffer jo_len_buffer = ByteBuffer.allocate(4).order(ByteOrder.BIG_ENDIAN).putInt(jo_len);
                     jo_len_buffer.flip();
-                    int frame_buf_len = this.buffer.capacity();
-                    this.buffer.limit(frame_buf_len);
-                    ByteBuffer[] buffers = {jo_len_buffer, ByteBuffer.wrap(jo_bytes), this.buffer};
+                    int frame_buf_len = this.buffer.remaining();
+                    ByteBuffer payload = this.buffer.slice();
+                    payload.limit(frame_buf_len);
+                    ByteBuffer[] buffers = {jo_len_buffer, ByteBuffer.wrap(jo_bytes), payload};
                     success = this.connection.sendTCPBytes(buffers, jo_len + frame_buf_len + 4);
                 }
             }

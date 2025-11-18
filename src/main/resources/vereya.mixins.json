@@ -5,15 +5,43 @@
   "compatibilityLevel": "JAVA_17",
   "mixins": [],
   "client": [
-    "TitleScreenMixin", "SessionMixin", "MinecraftClientMixin", "GameOptionsMixin",
-    "KeyBindingMixin", "MouseMixin", "MouseAccessorMixin", "InGameHudMixin", "LevelStorageMixin",
-    "MinecraftClientEventsMixin", "LootTableProviderMixin", "MobEntityMixin", "MobEntityAccessorMixin",
-    "ClientWorldMixinAccess", "EntityMixin", "ServerEntityManagerMixin", "ServerWorldMixin", "ServerWorldEntityLoaderMixin",
-	"ServerPlayNetworkHandlerMixin"
+    "TitleScreenMixin",
+    "SessionMixin",
+    "MinecraftClientMixin",
+    "GameOptionsMixin",
+    "KeyBindingMixin",
+    "MouseMixin",
+    "MouseAccessorMixin",
+    "InGameHudMixin",
+    "LevelStorageMixin",
+    "MinecraftClientEventsMixin",
+    "LootTableProviderMixin",
+    "MobEntityMixin",
+    "MobEntityAccessorMixin",
+    "ClientWorldMixinAccess",
+    "EntityMixin",
+    "ServerEntityManagerMixin",
+    "ServerWorldMixin",
+    "ServerWorldEntityLoaderMixin",
+    "ServerPlayNetworkHandlerMixin",
+    "WorldRendererColourmapMixin",
+    "WorldRendererSkyMixin",
+    "TextureManagerMixin",
+    "VertexBufferMixin",
+    "GlUniformChunkOffsetMixin",
+    "RenderSystemDrawMixin",
+    "RenderSystemShaderSwapMixin",
+    "GlStateManagerDrawMixin",
+    "WorldRendererShaderMixin",
+    "BlockRenderManagerMixin",
+    "EntityRenderDispatcherMixin"
   ],
-  "server": ["ServerEntityManagerMixin", "ServerWorldMixin", "ServerWorldEntityLoaderMixin",
-  		"ServerPlayNetworkHandlerMixin"
-   ],
+  "server": [
+    "ServerEntityManagerMixin",
+    "ServerWorldMixin",
+    "ServerWorldEntityLoaderMixin",
+    "ServerPlayNetworkHandlerMixin"
+  ],
   "injectors": {
     "defaultRequire": 1
   }

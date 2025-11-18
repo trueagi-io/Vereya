@@ -83,6 +83,8 @@ public class TextureHelper {
     private static Entity currentEntity = null;
     // Current block type string being rendered (eg "minecraft:stone"), set via mixin.
     private static String currentBlockType = null;
+    // Flag to indicate a block draw call is in progress
+    private static volatile boolean drawingBlock = false;
 
     // Legacy GL shader loading (kept for reference if needed for non-JSON shaders)
     private static int shaderProgram = -1;
@@ -231,11 +233,33 @@ public class TextureHelper {
         currentBlockType = blockType;
     }
 
+    public static void setDrawingBlock(boolean on) { drawingBlock = on; }
+    public static boolean isDrawingBlock() { return drawingBlock; }
+
+    public static void setPendingColourForCurrentBlock() {
+        if (currentBlockType != null && !currentBlockType.isEmpty()) {
+            int rgb = getColourForBlockType(currentBlockType) & 0x00FFFFFF;
+            pendingR = (rgb >> 16) & 0xFF;
+            pendingG = (rgb >> 8) & 0xFF;
+            pendingB = (rgb) & 0xFF;
+        } else {
+            pendingR = pendingG = pendingB = -1;
+        }
+    }
+
+    private static int nibbleToByte(int n) {
+        // Map 0..15 -> 16..226 (avoid extremes to reduce near-black/near-white)
+        return ((n & 0x0F) * 14) + 16;
+    }
+
     private static int getColourForBlockType(String blockType) {
         if (blockType == null || blockType.isEmpty()) return 0xFF444444;
-        int rgb = blockType.hashCode() & 0x00FFFFFF;
-        if (rgb == 0) rgb = 0x010101;
-        return 0xFF000000 | rgb;
+        int h = blockType.hashCode();
+        int r = nibbleToByte(h);
+        int g = nibbleToByte(h >> 4);
+        int b = nibbleToByte(h >> 8);
+        int rgb = ((r & 0xFF) << 16) | ((g & 0xFF) << 8) | (b & 0xFF);
+        return 0xFF000000 | (rgb & 0x00FFFFFF);
     }
 
     public static int getColourForEntity(Entity entity) {
@@ -309,7 +333,17 @@ public class TextureHelper {
             }
         }
         int col = 0;
-        if (currentEntity != null) {
+        boolean isAtlas = (SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE.equals(id) ||
+                (id != null && id.getPath() != null && id.getPath().contains("textures/atlas/")));
+        if (isAtlas) {
+            // Blocks: prefer stable per-type when available; else UV hash
+            if (currentBlockType != null) {
+                col = getColourForBlockType(currentBlockType) & 0x00FFFFFF;
+            } else {
+                col = -1;
+            }
+            segAtlasBinds++;
+        } else if (currentEntity != null) {
             col = getColourForEntity(currentEntity) & 0x00FFFFFF;
             segEntityBinds++;
         } else {
@@ -317,12 +351,6 @@ public class TextureHelper {
             if (misc != -1) {
                 col = misc & 0x00FFFFFF;
                 segOtherBinds++;
-            } else if (SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE.equals(id) ||
-                       (id != null && id.getPath() != null && id.getPath().contains("textures/atlas/"))) {
-                // Use UV hashing for blocks to maximize colour diversity and
-                // avoid collisions with entity colours.
-                col = -1; // signal shader to use atlas UV hashing
-                segAtlasBinds++;
             } else {
                 if (id != null) {
                     int h = id.toString().hashCode();

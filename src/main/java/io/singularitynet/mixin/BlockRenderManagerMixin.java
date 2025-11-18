@@ -37,11 +37,26 @@ public abstract class BlockRenderManagerMixin {
             if (id != null) {
                 TextureHelper.setCurrentBlockType(id.toString());
                 if (TextureHelper.isProducingColourMap() && TextureHelper.colourmapFrame) {
+                    TextureHelper.setDrawingBlock(true);
                     // Default to atlas-derived colouring for blocks to increase
                     // per-frame colour diversity until a more specific bind occurs
                     TextureHelper.setPendingForBlockAtlas();
                 }
             }
         } catch (Throwable ignored) {}
+    }
+
+    @Inject(method = "renderBlock", at = @At("TAIL"))
+    private void vereya$clearBlockFlag(BlockState state,
+                                       BlockPos pos,
+                                       BlockRenderView world,
+                                       MatrixStack matrices,
+                                       VertexConsumer vertexConsumer,
+                                       boolean cull,
+                                       Random random,
+                                       CallbackInfo ci) {
+        if (TextureHelper.isProducingColourMap() && TextureHelper.colourmapFrame) {
+            TextureHelper.setDrawingBlock(false);
+        }
     }
 }

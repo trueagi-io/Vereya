@@ -164,8 +164,8 @@ public class MinecraftSegmentationTestMain {
         }
 
         // Additionally assert adequate colour diversity to avoid solid-sky false positives
-        // Default lower than Malmo's original to reduce flakiness across GPUs/pipelines.
-        int minUnique = getIntEnvOrProp("RUN_SEG_MIN_UNIQUE", "seg.test.minUnique", 50);
+        // Default conservatively to 30 to accommodate initial scenes with few block types.
+        int minUnique = getIntEnvOrProp("RUN_SEG_MIN_UNIQUE", "seg.test.minUnique", 30);
         int uniqueLast = server.getLastUniqueColors();
         int uniqueMax = server.getMaxUniqueColors();
         if (uniqueLast < minUnique && uniqueMax < minUnique) {
@@ -545,6 +545,7 @@ public class MinecraftSegmentationTestMain {
                                 if (!everNonBlack && isBufferNonBlack(frame, ch)) everNonBlack = true;
                                 this.lastUniqueColors = computeUniqueColors(frame, ch, 4096);
                                 if (this.lastUniqueColors > this.maxUniqueColors) this.maxUniqueColors = this.lastUniqueColors;
+                                int approxBlockTypes = computeUniqueBlockLikeColors(frame, ch, 4096);
                                 // Map central pixel BGR to latest ObservationFromRay type
                                 String rayType = ObservationsServer.getLatestRayType();
                                 if (rayType != null && !rayType.isEmpty()) {
@@ -561,6 +562,7 @@ public class MinecraftSegmentationTestMain {
                                             + " color(BGR)=" + r + "," + g + "," + b
                                             + " hex=#" + String.format("%06X", rgb)
                                             + " unique(last/max)=" + this.lastUniqueColors + "/" + this.maxUniqueColors
+                                            + " approx_block_types=" + approxBlockTypes
                                             + " frames=" + this.frameCount);
                                 }
                             } catch (Throwable ignored) {}
@@ -630,6 +632,27 @@ public class MinecraftSegmentationTestMain {
                 int b = fr[off] & 0xFF;
                 int g = fr[off + 1] & 0xFF;
                 int r = fr[off + 2] & 0xFF;
+                int rgb = (r << 16) | (g << 8) | b;
+                uniq.add(rgb);
+                if (uniq.size() >= maxSamples) break;
+            }
+            return uniq.size();
+        }
+
+        // Heuristic: count colours that look like "block-type" colours by excluding
+        // entity-like colours with any channel >= 240 (our entity colour scheme uses high nibbles)
+        private static int computeUniqueBlockLikeColors(byte[] fr, int ch, int maxSamples) {
+            if (fr == null || ch < 3) return 0;
+            int stride = ch;
+            int pixels = fr.length / stride;
+            int step = Math.max(1, pixels / Math.max(1, maxSamples));
+            java.util.HashSet<Integer> uniq = new java.util.HashSet<>();
+            for (int px = 0; px < pixels; px += step) {
+                int off = px * stride;
+                int b = fr[off] & 0xFF;
+                int g = fr[off + 1] & 0xFF;
+                int r = fr[off + 2] & 0xFF;
+                if (r >= 240 || g >= 240 || b >= 240) continue; // likely entity colour
                 int rgb = (r << 16) | (g << 8) | b;
                 uniq.add(rgb);
                 if (uniq.size() >= maxSamples) break;

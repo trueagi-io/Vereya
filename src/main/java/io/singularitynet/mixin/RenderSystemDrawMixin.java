@@ -21,9 +21,15 @@ public abstract class RenderSystemDrawMixin {
         if (!TextureHelper.isProducingColourMap() || !TextureHelper.colourmapFrame) {
             return;
         }
-        // If drawing with the block atlas bound and we know the current block type,
-        // force a stable per-type colour before uploading.
-        TextureHelper.updateAtlasOverrideColourForCurrentBlock();
+        // If drawing blocks and we know the current block type, force a stable
+        // per-type colour regardless of the last bound texture.
+        if (TextureHelper.isDrawingBlock()) {
+            TextureHelper.setPendingColourForCurrentBlock();
+        } else {
+            // If drawing with the block atlas bound and we know the current block type,
+            // force a stable per-type colour before uploading.
+            TextureHelper.updateAtlasOverrideColourForCurrentBlock();
+        }
         ShaderProgram program = RenderSystem.getShader();
         if (program == null) {
             return;

@@ -23,8 +23,12 @@ public abstract class RenderSystemDrawMixin {
         }
         // If drawing blocks and we know the current block type, force a stable
         // per-type colour regardless of the last bound texture.
-        if (TextureHelper.isDrawingBlock()) {
-            TextureHelper.setPendingColourForCurrentBlock();
+        if (!TextureHelper.hasCurrentEntity()) {
+            // Any non-entity draw should use atlas/UV hashing colours
+            TextureHelper.setPendingForBlockAtlas();
+        } else if (TextureHelper.isDrawingBlock()) {
+            // Prefer atlas hashing for blocks here to avoid stale type/state.
+            TextureHelper.setPendingForBlockAtlas();
         } else {
             // If drawing with the block atlas bound and we know the current block type,
             // force a stable per-type colour before uploading.

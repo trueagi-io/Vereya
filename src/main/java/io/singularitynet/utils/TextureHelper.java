@@ -217,6 +217,8 @@ public class TextureHelper {
         }
     }
 
+    public static boolean hasCurrentEntity() { return currentEntity != null; }
+
     /**
      * Force pending uniform colour to the stable per-entity colour for the
      * given entity. Used by entity rendering hooks to avoid relying on
@@ -335,31 +337,17 @@ public class TextureHelper {
         int col = 0;
         boolean isAtlas = (SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE.equals(id) ||
                 (id != null && id.getPath() != null && id.getPath().contains("textures/atlas/")));
-        if (isAtlas) {
-            // Blocks: prefer stable per-type when available; else UV hash
-            if (currentBlockType != null) {
-                col = getColourForBlockType(currentBlockType) & 0x00FFFFFF;
-            } else {
-                col = -1;
-            }
-            segAtlasBinds++;
+        int misc = getColourForTexture(id);
+        if (misc != -1) {
+            col = misc & 0x00FFFFFF;
+            segOtherBinds++;
         } else if (currentEntity != null) {
             col = getColourForEntity(currentEntity) & 0x00FFFFFF;
             segEntityBinds++;
         } else {
-            int misc = getColourForTexture(id);
-            if (misc != -1) {
-                col = misc & 0x00FFFFFF;
-                segOtherBinds++;
-            } else {
-                if (id != null) {
-                    int h = id.toString().hashCode();
-                    col = (h == 0 ? 0x010101 : (h & 0x00FFFFFF));
-                } else {
-                    col = 0x222222;
-                }
-                segOtherBinds++;
-            }
+            // Default for world/block draws: force atlas/UV hashing via -1
+            col = -1;
+            if (isAtlas) segAtlasBinds++; else segOtherBinds++;
         }
         if (col == -1) {
             pendingR = -1;
@@ -462,6 +450,11 @@ public class TextureHelper {
             program.bind();
         } catch (Throwable t) {
             LOGGER.warn("applyPendingColourToProgram: program.bind failed: {}", t.toString());
+        }
+        // If we're in a block draw section, force the block's stable colour
+        if (isProducingColourMap && colourmapFrame && isDrawingBlock()) {
+            // Use atlas hashing during block draws to avoid entity colour bleed.
+            pendingR = pendingG = pendingB = -1;
         }
         // Avoid all-black output before any texture bind has set a colour.
         // Treat (0,0,0) as "unset" during the segmentation pass and fall back to

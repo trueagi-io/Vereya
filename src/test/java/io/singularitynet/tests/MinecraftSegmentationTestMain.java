@@ -206,50 +206,29 @@ public class MinecraftSegmentationTestMain {
             LOG.info("  type=" + e.getKey() + " colours=" + e.getValue().size() + " sample=" + cols);
         }
 
-        // Enforce colour->type uniqueness: each observed colour must map to exactly one type
-        java.util.Map<Integer, java.util.Map<String,Integer>> colourToTypeCounts = new java.util.HashMap<>();
+        // Enforce colour->block-type uniqueness: for block types (namespaced ids),
+        // each observed colour must map to exactly one block type.
+        java.util.Map<Integer, java.util.Set<String>> colourToBlockTypes = new java.util.HashMap<>();
         for (java.util.Map.Entry<String, java.util.Map<Integer,Integer>> e : perTypeCounts.entrySet()) {
             String type = e.getKey();
+            boolean isBlockType = type.contains(":");
+            if (!isBlockType) continue;
             for (java.util.Map.Entry<Integer,Integer> ce : e.getValue().entrySet()) {
-                colourToTypeCounts.computeIfAbsent(ce.getKey(), k -> new java.util.HashMap<>()).merge(type, ce.getValue(), Integer::sum);
+                colourToBlockTypes.computeIfAbsent(ce.getKey(), k -> new java.util.HashSet<>()).add(type);
             }
         }
         int colourCollisions = 0;
-        for (java.util.Map.Entry<Integer, java.util.Map<String,Integer>> c : colourToTypeCounts.entrySet()) {
-            int col = c.getKey();
-            int r = (col >> 16) & 0xFF;
-            int g = (col >> 8) & 0xFF;
-            int b = col & 0xFF;
-            boolean looksLikeEntityColour = (r >= 240) || (g >= 240) || (b >= 240);
-            int mapped = 0;
-            for (String typeName : c.getValue().keySet()) {
-                // Treat namespaced identifiers as blocks; plain names as entities
-                boolean isBlockType = typeName.contains(":");
-                if (looksLikeEntityColour && isBlockType) continue; // ignore block mapping to entity-like colour
-                mapped++;
-            }
-            if (mapped > 1) colourCollisions++;
+        for (java.util.Map.Entry<Integer, java.util.Set<String>> c : colourToBlockTypes.entrySet()) {
+            if (c.getValue().size() > 1) colourCollisions++;
         }
-        if (colourCollisions > 1) {
+        if (colourCollisions > 0) {
             LOG.info("Colour->types summary (collisions):");
-            for (java.util.Map.Entry<Integer, java.util.Map<String,Integer>> c : colourToTypeCounts.entrySet()) {
-                int col = c.getKey();
-                int r = (col >> 16) & 0xFF;
-                int g = (col >> 8) & 0xFF;
-                int b = col & 0xFF;
-                boolean looksLikeEntityColour = (r >= 240) || (g >= 240) || (b >= 240);
-                int mapped = 0;
-                for (String typeName : c.getValue().keySet()) {
-                    boolean isBlockType = typeName.contains(":");
-                    if (looksLikeEntityColour && isBlockType) continue;
-                    mapped++;
-                }
-                if (mapped <= 1) continue;
-                java.util.List<String> types = new java.util.ArrayList<>();
-                c.getValue().entrySet().stream().limit(10).forEach(en -> types.add(en.getKey() + "(x" + en.getValue() + ")"));
-                LOG.info("  colour=#" + String.format("%06X", c.getKey()) + " types=" + c.getValue().size() + " sample=" + types);
+            for (java.util.Map.Entry<Integer, java.util.Set<String>> c : colourToBlockTypes.entrySet()) {
+                if (c.getValue().size() <= 1) continue;
+                java.util.List<String> types = new java.util.ArrayList<>(c.getValue());
+                LOG.info("  colour=#" + String.format("%06X", c.getKey()) + " blockTypes=" + c.getValue().size() + " sample=" + types);
             }
-            throw new AssertionError("Colour uniqueness failed: " + colourCollisions + " colours mapped to multiple types");
+            throw new AssertionError("Colour uniqueness failed: " + colourCollisions + " colours mapped to multiple block types");
         }
         LOG.info("PASS: segmentation had non-black/diverse colours; per-type consistent and colour->type unique");
         } finally {

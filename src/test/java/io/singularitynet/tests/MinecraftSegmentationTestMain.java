@@ -24,6 +24,7 @@ import java.util.concurrent.TimeUnit;
  * Usage: gradlew runSegTest (provided by build.gradle task), or run main directly.
  */
 public class MinecraftSegmentationTestMain {
+    private static final java.util.logging.Logger LOG = java.util.logging.Logger.getLogger(MinecraftSegmentationTestMain.class.getName());
 
     public static void main(String[] args) throws Exception {
         String missionPath = args.length > 0 ? args[0] : "mission.xml";
@@ -41,11 +42,12 @@ public class MinecraftSegmentationTestMain {
         int chosenObsPort = findFreePort();
         int chosenRewPort = findFreePort();
         int chosenCmdPort = findFreePort();
-        System.out.println("[TEST] Chosen AgentColourMapPort=" + chosenColourPort);
-        System.out.println("[TEST] Chosen AgentMissionControlPort=" + chosenAgentCtrlPort);
-        System.out.println("[TEST] Chosen AgentObservationsPort=" + chosenObsPort);
-        System.out.println("[TEST] Chosen AgentRewardsPort=" + chosenRewPort);
-        System.out.println("[TEST] Chosen ClientCommandsPort=" + chosenCmdPort);
+        setupLogger();
+        LOG.info("Chosen AgentColourMapPort=" + chosenColourPort);
+        LOG.info("Chosen AgentMissionControlPort=" + chosenAgentCtrlPort);
+        LOG.info("Chosen AgentObservationsPort=" + chosenObsPort);
+        LOG.info("Chosen AgentRewardsPort=" + chosenRewPort);
+        LOG.info("Chosen ClientCommandsPort=" + chosenCmdPort);
         missionXml = patchAgentColourMapPort(missionXml, chosenColourPort);
         missionXml = patchAgentMissionControlPort(missionXml, chosenAgentCtrlPort);
         missionXml = patchAgentObservationsPort(missionXml, chosenObsPort);
@@ -60,20 +62,20 @@ public class MinecraftSegmentationTestMain {
 
         // Ensure the latest built vereya mod jar is deployed to the Minecraft mods directory (and old ones removed)
         Path deployed = ensureLatestModJarDeployed();
-        System.out.println("[TEST] Deployed mod jar: " + deployed);
+        LOG.info("Deployed mod jar: " + deployed);
 
         // Start observation server (parses ObservationFromRay) and reward drain.
         ObservationsServer obsServer = new ObservationsServer(chosenObsPort);
         Thread obsThread = new Thread(obsServer, "ObsServer");
         obsThread.setDaemon(true);
         obsThread.start();
-        System.out.println("[TEST] Observation server listening on " + chosenObsPort);
+        LOG.info("Observation server listening on " + chosenObsPort);
 
         DrainServer rewServer = new DrainServer(chosenRewPort, "rew");
         Thread rewThread = new Thread(rewServer, "RewServer");
         rewThread.setDaemon(true);
         rewThread.start();
-        System.out.println("[TEST] Reward server listening on " + chosenRewPort);
+        LOG.info("Reward server listening on " + chosenRewPort);
 
         // FrameServer (colour map) is started after we parse the effective port (or fallback to chosen).
         FrameServer server = null;
@@ -97,15 +99,15 @@ public class MinecraftSegmentationTestMain {
             if (mcp <= 0) {
                 throw new IllegalStateException("Did not detect MCP line from launch.sh within timeout");
             }
-            System.out.println("[TEST] Detected MCP=" + mcp);
+            LOG.info("Detected MCP=" + mcp);
             // Parse effective AgentColourMapPort from the MissionInit echo in logs, then start FrameServer there.
         Ports ports = waitForAgentPorts(proc.getInputStream(), Duration.ofSeconds(60));
             int effectiveColourPort = ports.colourPort;
             if (effectiveColourPort <= 0) {
-                System.out.println("[TEST] Could not parse AgentColourMapPort from logs; falling back to chosen=" + chosenColourPort);
+                LOG.warning("Could not parse AgentColourMapPort from logs; falling back to chosen=" + chosenColourPort);
                 effectiveColourPort = chosenColourPort;
             } else {
-                System.out.println("[TEST] Parsed AgentColourMapPort=" + effectiveColourPort);
+                LOG.info("Parsed AgentColourMapPort=" + effectiveColourPort);
             }
             server = new FrameServer(effectiveColourPort);
             Thread serverThread = new Thread(server, "ColourMapServer");
@@ -133,7 +135,7 @@ public class MinecraftSegmentationTestMain {
             if (!server.awaitFirstFrame(60, TimeUnit.SECONDS)) {
                 throw new AssertionError("No colour-map frames received within timeout");
             }
-        System.out.println("[TEST] First frame: " + server.lastHeader);
+        LOG.info("First frame: " + server.lastHeader);
 
         // Additional wait after frames start to ensure blocks/world finish loading.
         // Parameters can be overridden via env or sysprops:
@@ -142,14 +144,14 @@ public class MinecraftSegmentationTestMain {
         int moreFrames = getIntEnvOrProp("RUN_SEG_MIN_FRAMES", "seg.test.minFrames", 60);
         long maxWaitSec = getLongEnvOrProp("RUN_SEG_MAX_WAIT_SEC", "seg.test.maxWaitSec", 60);
         boolean gotMore = server.awaitFramesAtLeast(moreFrames, maxWaitSec, TimeUnit.SECONDS);
-        System.out.println("[TEST] Additional frames observed >= " + moreFrames + " => " + gotMore + "; totalFrames=" + server.getFrameCount());
+        LOG.info("Additional frames observed >= " + moreFrames + " => " + gotMore + "; totalFrames=" + server.getFrameCount());
 
         // Prefer a non-black determination; if still black, tolerate longer until timeout reached
         boolean nonBlack = server.isLastFrameNonBlack();
         if (!nonBlack) {
-            System.out.println("[TEST] Last frame still black after wait; extending grace period up to 90s total...");
+            LOG.info("Last frame still black after wait; extending grace period up to 90s total...");
             boolean gotMore2 = server.awaitFramesAtLeast(30, 30, TimeUnit.SECONDS);
-            System.out.println("[TEST] Extra frames observed => " + gotMore2 + "; totalFrames=" + server.getFrameCount());
+            LOG.info("Extra frames observed => " + gotMore2 + "; totalFrames=" + server.getFrameCount());
             nonBlack = server.isLastFrameNonBlack();
         }
 
@@ -166,7 +168,7 @@ public class MinecraftSegmentationTestMain {
         int uniqueLast = server.getLastUniqueColors();
         int uniqueMax = server.getMaxUniqueColors();
         if (uniqueLast < minUnique && uniqueMax < minUnique) {
-            System.out.println("[TEST] Colour diversity low (last=" + uniqueLast + ", max=" + uniqueMax + ") — waiting for more frames...");
+            LOG.info("Colour diversity low (last=" + uniqueLast + ", max=" + uniqueMax + ") — waiting for more frames...");
             server.awaitFramesAtLeast(20, 20, TimeUnit.SECONDS);
             uniqueLast = server.getLastUniqueColors();
             uniqueMax = server.getMaxUniqueColors();
@@ -186,21 +188,44 @@ public class MinecraftSegmentationTestMain {
             if (e.getValue().size() > 1 && domFrac < 0.8) inconsistent++;
         }
         if (withSamples >= 2 && inconsistent > 0) {
-            System.out.println("[TEST] Per-type colours summary:" );
+            LOG.info("Per-type colours summary:" );
             for (java.util.Map.Entry<String, java.util.Map<Integer,Integer>> e : perTypeCounts.entrySet()) {
                 java.util.List<String> cols = new java.util.ArrayList<>();
                 e.getValue().entrySet().stream().limit(10).forEach(en -> cols.add(String.format("#%06X(x%d)", en.getKey(), en.getValue())));
-                System.out.println("[TEST]   type=" + e.getKey() + " colours=" + e.getValue().size() + " sample=" + cols);
+                LOG.info("  type=" + e.getKey() + " colours=" + e.getValue().size() + " sample=" + cols);
             }
             throw new AssertionError("ObservationFromRay consistency failed: " + inconsistent + " types have multiple dominant colours (<80% dominance)");
         }
-        System.out.println("[TEST] Per-type colours summary:" );
+        LOG.info("Per-type colours summary:" );
         for (java.util.Map.Entry<String, java.util.Map<Integer,Integer>> e : perTypeCounts.entrySet()) {
             java.util.List<String> cols = new java.util.ArrayList<>();
             e.getValue().entrySet().stream().limit(10).forEach(en -> cols.add(String.format("#%06X(x%d)", en.getKey(), en.getValue())));
-            System.out.println("[TEST]   type=" + e.getKey() + " colours=" + e.getValue().size() + " sample=" + cols);
+            LOG.info("  type=" + e.getKey() + " colours=" + e.getValue().size() + " sample=" + cols);
         }
-        System.out.println("[TEST] PASS: segmentation had non-black/diverse colours and per-type consistency for " + withSamples + " types");
+
+        // Enforce colour->type uniqueness: each observed colour must map to exactly one type
+        java.util.Map<Integer, java.util.Map<String,Integer>> colourToTypeCounts = new java.util.HashMap<>();
+        for (java.util.Map.Entry<String, java.util.Map<Integer,Integer>> e : perTypeCounts.entrySet()) {
+            String type = e.getKey();
+            for (java.util.Map.Entry<Integer,Integer> ce : e.getValue().entrySet()) {
+                colourToTypeCounts.computeIfAbsent(ce.getKey(), k -> new java.util.HashMap<>()).merge(type, ce.getValue(), Integer::sum);
+            }
+        }
+        int colourCollisions = 0;
+        for (java.util.Map.Entry<Integer, java.util.Map<String,Integer>> c : colourToTypeCounts.entrySet()) {
+            if (c.getValue().size() > 1) colourCollisions++;
+        }
+        if (colourCollisions > 0) {
+            LOG.info("Colour->types summary (collisions):");
+            for (java.util.Map.Entry<Integer, java.util.Map<String,Integer>> c : colourToTypeCounts.entrySet()) {
+                if (c.getValue().size() <= 1) continue;
+                java.util.List<String> types = new java.util.ArrayList<>();
+                c.getValue().entrySet().stream().limit(10).forEach(en -> types.add(en.getKey() + "(x" + en.getValue() + ")"));
+                LOG.info("  colour=#" + String.format("%06X", c.getKey()) + " types=" + c.getValue().size() + " sample=" + types);
+            }
+            throw new AssertionError("Colour uniqueness failed: " + colourCollisions + " colours mapped to multiple types");
+        }
+        LOG.info("PASS: segmentation had non-black/diverse colours; per-type consistent and colour->type unique");
         } finally {
             // Ensure Minecraft + Xvfb are terminated
             try { proc.destroy(); } catch (Throwable ignored) {}
@@ -276,7 +301,7 @@ public class MinecraftSegmentationTestMain {
         String line;
         long deadline = System.nanoTime() + timeout.toNanos();
         while (System.nanoTime() < deadline && (line = br.readLine()) != null) {
-            System.out.println(line);
+            LOG.info(line);
             int idx = line.indexOf("MCP: ");
             if (idx >= 0) {
                 String tail = line.substring(idx + 5).trim();
@@ -297,12 +322,33 @@ public class MinecraftSegmentationTestMain {
             try (BufferedReader br = new BufferedReader(new InputStreamReader(stdout, StandardCharsets.UTF_8))) {
                 String line;
                 while ((line = br.readLine()) != null) {
-                    System.out.println(line);
+                    LOG.info(line);
                 }
             } catch (IOException ignored) {}
         }, "MinecraftStdoutDrainer");
         t.setDaemon(true);
         t.start();
+    }
+
+    private static void setupLogger() {
+        try {
+            java.nio.file.Files.createDirectories(java.nio.file.Paths.get("logs"));
+            java.util.logging.Logger root = java.util.logging.Logger.getLogger("");
+            boolean hasFile = false;
+            for (java.util.logging.Handler h : root.getHandlers()) {
+                if (h instanceof java.util.logging.FileHandler) { hasFile = true; break; }
+            }
+            if (!hasFile) {
+                java.util.logging.FileHandler fh = new java.util.logging.FileHandler("logs/test-integration.log", true);
+                fh.setFormatter(new java.util.logging.Formatter() {
+                    @Override public String format(java.util.logging.LogRecord r) {
+                        String ts = new java.text.SimpleDateFormat("HH:mm:ss.SSS").format(new java.util.Date(r.getMillis()));
+                        return ts + " [" + r.getLevel() + "] " + r.getMessage() + "\n";
+                    }
+                });
+                root.addHandler(fh);
+            }
+        } catch (Throwable ignored) {}
     }
 
     private static String patchAgentColourMapPort(String xml, int colourPort) {
@@ -442,7 +488,7 @@ public class MinecraftSegmentationTestMain {
                 ss.setReuseAddress(true);
                 while (!stop) {
                     try (Socket s = ss.accept()) {
-                        System.out.println("[FRAME-SERVER] accepted connection from " + s.getRemoteSocketAddress());
+                        LOG.info("[FRAME-SERVER] accepted connection from " + s.getRemoteSocketAddress());
                         s.setTcpNoDelay(true);
                         InputStream in = s.getInputStream();
                         while (!stop) {
@@ -485,7 +531,7 @@ public class MinecraftSegmentationTestMain {
                                     int rgb = (r << 16) | (g << 8) | b;
                                     blockTypeToColourCounts.computeIfAbsent(rayType, k -> new java.util.concurrent.ConcurrentHashMap<>())
                                             .merge(rgb, 1, Integer::sum);
-                                    System.out.println("[TEST] Ray center type=" + rayType
+                                    LOG.info("Ray center type=" + rayType
                                             + " color(BGR)=" + r + "," + g + "," + b
                                             + " hex=#" + String.format("%06X", rgb)
                                             + " unique(last/max)=" + this.lastUniqueColors + "/" + this.maxUniqueColors
@@ -677,13 +723,13 @@ public class MinecraftSegmentationTestMain {
                         out.flush();
                         try { Thread.sleep(delayMs); } catch (InterruptedException ignored) {}
                     }
-                    System.out.println("[TEST] CmdSender: commands sent on port " + port);
+                    LOG.info("CmdSender: commands sent on port " + port);
                     return;
                 } catch (Exception e) {
                     try { Thread.sleep(1000); } catch (InterruptedException ignored) {}
                 }
             }
-            System.out.println("[TEST] CmdSender: failed to connect within timeout to port " + port);
+            LOG.warning("CmdSender: failed to connect within timeout to port " + port);
         }
     }
 
@@ -704,7 +750,7 @@ public class MinecraftSegmentationTestMain {
                             if (len <= 0 || len > 10_000_000) break;
                             byte[] msg = FrameServer.readFully(in, len);
                             String txt = new String(msg, StandardCharsets.UTF_8);
-                            System.out.println("[CTRL] " + txt);
+                            LOG.info("[CTRL] " + txt);
                         }
                     } catch (Throwable t) {
                         // ignore and continue

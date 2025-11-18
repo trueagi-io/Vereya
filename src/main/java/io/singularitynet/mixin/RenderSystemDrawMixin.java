@@ -23,11 +23,11 @@ public abstract class RenderSystemDrawMixin {
         }
         // If drawing blocks and we know the current block type, force a stable
         // per-type colour regardless of the last bound texture.
-        if (!TextureHelper.hasCurrentEntity()) {
-            // Any non-entity draw should use atlas/UV hashing colours
-            TextureHelper.setPendingForBlockAtlas();
-        } else if (TextureHelper.isDrawingBlock()) {
-            // Prefer atlas hashing for blocks here to avoid stale type/state.
+        if (TextureHelper.isDrawingBlock()) {
+            // When drawing blocks, force stable per-type block colour
+            TextureHelper.setPendingColourForCurrentBlock();
+        } else if (!TextureHelper.hasCurrentEntity()) {
+            // For non-entity draws (sky, clouds filtered, etc.), prefer atlas hashing
             TextureHelper.setPendingForBlockAtlas();
         } else {
             // If drawing with the block atlas bound and we know the current block type,
@@ -61,6 +61,11 @@ public abstract class RenderSystemDrawMixin {
         if (grid != null) {
             grid.set(128);
             grid.upload();
+        }
+        GlUniform lod = program.getUniform("atlasLod");
+        if (lod != null) {
+            lod.set(8);
+            lod.upload();
         }
     }
 }

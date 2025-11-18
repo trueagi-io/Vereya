@@ -38,9 +38,8 @@ public abstract class BlockRenderManagerMixin {
                 TextureHelper.setCurrentBlockType(id.toString());
                 if (TextureHelper.isProducingColourMap() && TextureHelper.colourmapFrame) {
                     TextureHelper.setDrawingBlock(true);
-                    // Default to atlas-derived colouring for blocks to increase
-                    // per-frame colour diversity until a more specific bind occurs
-                    TextureHelper.setPendingForBlockAtlas();
+                    // Set a stable per-type colour for the block being drawn
+                    TextureHelper.setPendingColourForCurrentBlock();
                 }
             }
         } catch (Throwable ignored) {}

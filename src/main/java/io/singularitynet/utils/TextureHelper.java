@@ -249,19 +249,19 @@ public class TextureHelper {
         }
     }
 
-    private static int nibbleToByte(int n) {
-        // Map 0..15 -> 16..226 (avoid extremes to reduce near-black/near-white)
-        return ((n & 0x0F) * 14) + 16;
-    }
-
     private static int getColourForBlockType(String blockType) {
         if (blockType == null || blockType.isEmpty()) return 0xFF444444;
+        // Derive 3 decorrelated bytes from the string hash; then clamp to mid-range (32..223)
         int h = blockType.hashCode();
-        int r = nibbleToByte(h);
-        int g = nibbleToByte(h >> 4);
-        int b = nibbleToByte(h >> 8);
-        int rgb = ((r & 0xFF) << 16) | ((g & 0xFF) << 8) | (b & 0xFF);
-        return 0xFF000000 | (rgb & 0x00FFFFFF);
+        int h2 = Integer.rotateLeft(h * 0x45D9F3B, 13);
+        int h3 = Integer.rotateLeft(h2 * 0x45D9F3B, 17);
+        int r0 = (h      ) & 0xFF;
+        int g0 = (h2     ) & 0xFF;
+        int b0 = (h3     ) & 0xFF;
+        int r = 32 + (r0 * 191 / 255);
+        int g = 32 + (g0 * 191 / 255);
+        int b = 32 + (b0 * 191 / 255);
+        return 0xFF000000 | ((r & 0xFF) << 16) | ((g & 0xFF) << 8) | (b & 0xFF);
     }
 
     public static int getColourForEntity(Entity entity) {
@@ -341,12 +341,18 @@ public class TextureHelper {
         if (misc != -1) {
             col = misc & 0x00FFFFFF;
             segOtherBinds++;
-        } else if (currentEntity != null) {
+        } else if (currentEntity != null && !isDrawingBlock()) {
             col = getColourForEntity(currentEntity) & 0x00FFFFFF;
             segEntityBinds++;
         } else {
-            // Default for world/block draws: force atlas/UV hashing via -1
-            col = -1;
+            // For block/world draws: if we are in a block draw, keep per-type pending
+            // colour (don't overwrite with -1). Otherwise, default to atlas hashing.
+            if (isDrawingBlock()) {
+                setPendingColourForCurrentBlock();
+                col = (pendingR < 0 || pendingG < 0 || pendingB < 0) ? -1 : ((pendingR << 16) | (pendingG << 8) | pendingB);
+            } else {
+                col = -1;
+            }
             if (isAtlas) segAtlasBinds++; else segOtherBinds++;
         }
         if (col == -1) {
@@ -384,11 +390,23 @@ public class TextureHelper {
             } else {
                 LOGGER.info("Active program {} lacks annotate uniforms; will defer to swap handler", active.getName());
             }
-            if (dbg != null) {
-                dbg.set(segmentationDebugLevel);
-                dbg.upload();
-                LOGGER.info("Applied debugMode={} to ACTIVE program {}", segmentationDebugLevel, active.getName());
-            }
+        if (dbg != null) {
+            dbg.set(segmentationDebugLevel);
+            dbg.upload();
+            LOGGER.info("Applied debugMode={} to ACTIVE program {}", segmentationDebugLevel, active.getName());
+        }
+        GlUniform grid = active.getUniform("atlasGrid");
+        if (grid != null) {
+            grid.set(128);
+            grid.upload();
+            LOGGER.info("Applied atlasGrid={} to ACTIVE program {}", 128, active.getName());
+        }
+        GlUniform lod = active.getUniform("atlasLod");
+        if (lod != null) {
+            lod.set(8);
+            lod.upload();
+            LOGGER.info("Applied atlasLod={} to ACTIVE program {}", 8, active.getName());
+        }
         }
     }
 
@@ -451,10 +469,9 @@ public class TextureHelper {
         } catch (Throwable t) {
             LOGGER.warn("applyPendingColourToProgram: program.bind failed: {}", t.toString());
         }
-        // If we're in a block draw section, force the block's stable colour
+        // If we're in a block draw section, force the block's stable per-type colour
         if (isProducingColourMap && colourmapFrame && isDrawingBlock()) {
-            // Use atlas hashing during block draws to avoid entity colour bleed.
-            pendingR = pendingG = pendingB = -1;
+            setPendingColourForCurrentBlock();
         }
         // Avoid all-black output before any texture bind has set a colour.
         // Treat (0,0,0) as "unset" during the segmentation pass and fall back to

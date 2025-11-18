@@ -6,6 +6,7 @@ uniform int entityColourG;
 uniform int entityColourB;
 uniform int debugMode;
 uniform int atlasGrid;
+uniform int atlasLod; // MIP level used to derive per-sprite colour
 
 in vec4 vertexColor;
 in vec2 texCoord0;
@@ -51,5 +52,14 @@ void main() {
         return;
     }
 
-    FragColor = colourFromAtlas(texCoord0, atlasGrid);
+    // Derive a stable per-sprite colour by sampling a high MIP level of the atlas
+    // and hashing it to spread colours across RGB. This avoids UV-based striping.
+    float lod = float(atlasLod);
+    vec3 base = textureLod(Sampler0, texCoord0, lod).rgb;
+    float h1 = fract(sin(dot(base, vec3(12.9898, 78.233, 37.719))) * 43758.5453);
+    float h2 = fract(sin(dot(base, vec3(93.9898, 67.345, 24.113))) * 24634.6345);
+    float h3 = fract(sin(dot(base, vec3(19.123, 12.345, 98.765))) * 35791.0123);
+    // Keep colours in a mid/bright range to reduce accidental near-black matches
+    vec3 col = vec3(h1, h2, h3) * 0.7 + 0.3;
+    FragColor = vec4(col, 1.0);
 }

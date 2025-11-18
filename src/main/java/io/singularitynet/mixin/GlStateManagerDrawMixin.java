@@ -48,5 +48,10 @@ public abstract class GlStateManagerDrawMixin {
             grid.set(128);
             grid.upload();
         }
+        GlUniform lod = program.getUniform("atlasLod");
+        if (lod != null) {
+            lod.set(8);
+            lod.upload();
+        }
     }
 }

@@ -186,11 +186,12 @@ public class MinecraftSegmentationTestMain {
             withSamples++;
             int dominant = e.getValue().values().stream().mapToInt(Integer::intValue).max().orElse(0);
             double domFrac = total > 0 ? (dominant * 1.0 / total) : 1.0;
-            // Allow some noise in early frames; require stronger disagreement
-            // than the original 0.8 dominance to flag inconsistency.
-            if (e.getValue().size() > 1 && domFrac < 0.6) inconsistent++;
+            // Restore Malmo-like strictness: if a type appears with multiple
+            // colours and no clear dominant (>=80%), count as inconsistent.
+            if (e.getValue().size() > 1 && domFrac < 0.8) inconsistent++;
         }
-        if (withSamples >= 2 && inconsistent > 1) {
+        // Fail if any type is inconsistent once we have at least 2 sampled types.
+        if (withSamples >= 2 && inconsistent > 0) {
             LOG.info("Per-type colours summary:" );
             for (java.util.Map.Entry<String, java.util.Map<Integer,Integer>> e : perTypeCounts.entrySet()) {
                 java.util.List<String> cols = new java.util.ArrayList<>();
@@ -632,7 +633,11 @@ public class MinecraftSegmentationTestMain {
                 int g = fr[off + 1] & 0xFF;
                 int r = fr[off + 2] & 0xFF;
                 if (r >= 240 || g >= 240 || b >= 240) continue; // likely entity colour
-                int rgb = (r << 16) | (g << 8) | b;
+                // Quantize to 4-bit per channel to approximate block types, not per-UV colours
+                int rq = (r >> 4) & 0x0F;
+                int gq = (g >> 4) & 0x0F;
+                int bq = (b >> 4) & 0x0F;
+                int rgb = (rq << 8) | (gq << 4) | bq;
                 uniq.add(rgb);
                 if (uniq.size() >= maxSamples) break;
             }

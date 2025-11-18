@@ -12,6 +12,7 @@
     { "name": "entityColourG", "type": "int", "count": 1, "values": [255] },
     { "name": "entityColourB", "type": "int", "count": 1, "values": [255] },
     { "name": "debugMode", "type": "int", "count": 1, "values": [0] },
-    { "name": "atlasGrid", "type": "int", "count": 1, "values": [32] }
+    { "name": "atlasGrid", "type": "int", "count": 1, "values": [32] },
+    { "name": "atlasLod", "type": "int", "count": 1, "values": [8] }
   ]
 }

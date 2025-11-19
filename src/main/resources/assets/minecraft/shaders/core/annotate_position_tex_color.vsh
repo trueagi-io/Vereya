@@ -3,6 +3,8 @@
 in vec3 Position;
 in vec4 Color;
 in vec2 UV0;
+// Accept overlays/light/normal even if unused, to match common entity/chunk formats
+in vec2 UV1;
 in vec2 UV2;
 in vec3 Normal;
 

@@ -34,7 +34,10 @@
     "GlStateManagerDrawMixin",
     "WorldRendererShaderMixin",
     "BlockRenderManagerMixin",
-    "EntityRenderDispatcherMixin"
+    "EntityRenderDispatcherMixin",
+    "EntityRenderDispatcherShadowMixin",
+    "EntityRenderDispatcherAccessor",
+    "MinecraftClientFramebufferMixin"
   ],
   "server": [
     "ServerEntityManagerMixin",

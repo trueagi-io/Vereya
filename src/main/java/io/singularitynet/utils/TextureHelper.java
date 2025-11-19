@@ -231,6 +231,13 @@ public class TextureHelper {
         pendingB = (col) & 0xFF;
     }
 
+    /** Sets pending colour to the current entity's stable colour, if any. */
+    public static void setPendingColourForCurrentEntity() {
+        if (currentEntity != null) {
+            setPendingColourForEntity(currentEntity);
+        }
+    }
+
     public static void setCurrentBlockType(String blockType) {
         currentBlockType = blockType;
     }
@@ -341,7 +348,7 @@ public class TextureHelper {
         if (misc != -1) {
             col = misc & 0x00FFFFFF;
             segOtherBinds++;
-        } else if (currentEntity != null && !isDrawingBlock()) {
+        } else if (currentEntity != null) {
             col = getColourForEntity(currentEntity) & 0x00FFFFFF;
             segEntityBinds++;
         } else {
@@ -477,7 +484,13 @@ public class TextureHelper {
         // Treat (0,0,0) as "unset" during the segmentation pass and fall back to
         // atlas-derived colouring by setting uniforms to -1.
         if (isProducingColourMap && colourmapFrame && pendingR == 0 && pendingG == 0 && pendingB == 0) {
-            pendingR = pendingG = pendingB = -1;
+            if (hasCurrentEntity()) {
+                setPendingColourForCurrentEntity();
+            } else if (isDrawingBlock()) {
+                setPendingColourForCurrentBlock();
+            } else {
+                pendingR = pendingG = pendingB = -1;
+            }
         }
         GlUniform r = program.getUniform("entityColourR");
         GlUniform g = program.getUniform("entityColourG");
@@ -633,6 +646,29 @@ public class TextureHelper {
         }
     }
 
+    /**
+     * Deletes and clears the segmentation framebuffer owned by TextureHelper.
+     * Safe to call repeatedly.
+     */
+    public static synchronized void destroySegmentationFramebuffer() {
+        if (segmentationFbo != null) {
+            try {
+                segmentationFbo.delete();
+            } catch (Throwable ignored) {}
+            segmentationFbo = null;
+            LOGGER.info("TextureHelper: destroyed segmentation FBO");
+        }
+    }
+
+    // Saved GL state toggled during segmentation pass (extended)
+    private static boolean prevCull = false;
+    private static int prevDrawFb = 0;
+    private static int prevReadFb = 0;
+    private static int prevDrawBuf = 0;
+    private static int prevReadBuf = 0;
+    private static final int[] PREV_VIEWPORT = new int[4];
+    private static int prevProgram = 0;
+
     public static void beginSegmentationPass() {
         if (segmentationFbo != null) {
             segAtlasBinds = segEntityBinds = segOtherBinds = 0;
@@ -645,6 +681,21 @@ public class TextureHelper {
             } catch (Throwable t) {
                 LOGGER.warn("TextureHelper: logging beginSegPass failed: {}", t.toString());
             }
+            // Capture GL state before we mutate it
+            try {
+                prevProgram = GL11.glGetInteger(GL20.GL_CURRENT_PROGRAM);
+                prevBlend = GL11.glIsEnabled(GL11.GL_BLEND);
+                prevDepth = GL11.glIsEnabled(GL11.GL_DEPTH_TEST);
+                prevScissor = GL11.glIsEnabled(GL11.GL_SCISSOR_TEST);
+                prevStencil = GL11.glIsEnabled(GL11.GL_STENCIL_TEST);
+                prevCull = GL11.glIsEnabled(GL11.GL_CULL_FACE);
+                prevDrawFb = GL11.glGetInteger(GL30.GL_DRAW_FRAMEBUFFER_BINDING);
+                prevReadFb = GL11.glGetInteger(GL30.GL_READ_FRAMEBUFFER_BINDING);
+                prevDrawBuf = GL11.glGetInteger(GL11.GL_DRAW_BUFFER);
+                prevReadBuf = GL11.glGetInteger(GL11.GL_READ_BUFFER);
+                GL11.glGetIntegerv(GL11.GL_VIEWPORT, PREV_VIEWPORT);
+            } catch (Throwable ignored) {}
+
             segmentationFbo.beginWrite(true);
             try {
                 GlStateManager._glBindFramebuffer(GlConst.GL_DRAW_FRAMEBUFFER, segmentationFbo.fbo);
@@ -763,15 +814,21 @@ public class TextureHelper {
                 LOGGER.warn("TextureHelper: endSegPass sample failed: {}", t.toString());
             }
             segmentationFbo.endWrite();
-            GL20.glUseProgram(0);
+            try { GL20.glUseProgram(prevProgram); } catch (Throwable ignored) {}
             try {
                 if (prevBlend) GL11.glEnable(GL11.GL_BLEND); else GL11.glDisable(GL11.GL_BLEND);
                 if (prevScissor) GL11.glEnable(GL11.GL_SCISSOR_TEST); else GL11.glDisable(GL11.GL_SCISSOR_TEST);
                 if (prevStencil) GL11.glEnable(GL11.GL_STENCIL_TEST); else GL11.glDisable(GL11.GL_STENCIL_TEST);
-                if (segmentationDebugLevel != 0) {
-                    if (prevDepth) GL11.glEnable(GL11.GL_DEPTH_TEST); else GL11.glDisable(GL11.GL_DEPTH_TEST);
-                    LOGGER.info("TextureHelper: endSegPass restored DEPTH_TEST (prev={})", prevDepth);
-                }
+                if (prevDepth) GL11.glEnable(GL11.GL_DEPTH_TEST); else GL11.glDisable(GL11.GL_DEPTH_TEST);
+                if (prevCull) GL11.glEnable(GL11.GL_CULL_FACE); else GL11.glDisable(GL11.GL_CULL_FACE);
+                // Restore framebuffer bindings, draw/read buffers and viewport
+                try {
+                    GlStateManager._glBindFramebuffer(GlConst.GL_DRAW_FRAMEBUFFER, prevDrawFb);
+                    GlStateManager._glBindFramebuffer(GlConst.GL_READ_FRAMEBUFFER, prevReadFb);
+                    GL11.glDrawBuffer(prevDrawBuf);
+                    GL11.glReadBuffer(prevReadBuf);
+                    GL11.glViewport(PREV_VIEWPORT[0], PREV_VIEWPORT[1], PREV_VIEWPORT[2], PREV_VIEWPORT[3]);
+                } catch (Throwable ignored) {}
                 try {
                     GL11.glDisable(GL30.GL_RASTERIZER_DISCARD);
                 } catch (Throwable t) {
@@ -800,5 +857,20 @@ public class TextureHelper {
 
     public static Framebuffer getSegmentationFramebuffer() {
         return segmentationFbo;
+    }
+
+    /**
+     * Resets transient segmentation state like current entity, block type,
+     * pending colours, and last bound texture. Does not toggle the
+     * isProducingColourMap flag; callers should set that explicitly.
+     */
+    public static void resetSegmentationState() {
+        currentEntity = null;
+        currentBlockType = null;
+        drawingBlock = false;
+        pendingR = pendingG = pendingB = 0;
+        lastBoundTexture = null;
+        segAtlasBinds = segEntityBinds = segOtherBinds = 0;
+        segProgramSwapsUV = segProgramSwapsNoUV = 0;
     }
 }

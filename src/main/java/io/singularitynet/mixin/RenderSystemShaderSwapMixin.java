@@ -33,6 +33,10 @@ public abstract class RenderSystemShaderSwapMixin {
             if (original == null) {
                 return; // let vanilla handle nulls
             }
+            // When rendering entities, ensure a stable per-entity colour is pending
+            if (TextureHelper.hasCurrentEntity()) {
+                TextureHelper.setPendingColourForCurrentEntity();
+            }
             ShaderProgram annotate = TextureHelper.getAnnotateProgramForFormat(original.getFormat());
             // Apply the currently pending uniform colour/debug to the annotate program
             TextureHelper.applyPendingColourToProgram(annotate);
@@ -44,4 +48,3 @@ public abstract class RenderSystemShaderSwapMixin {
         }
     }
 }
-

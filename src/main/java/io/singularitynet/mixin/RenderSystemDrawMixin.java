@@ -30,9 +30,8 @@ public abstract class RenderSystemDrawMixin {
             // For non-entity draws (sky, clouds filtered, etc.), prefer atlas hashing
             TextureHelper.setPendingForBlockAtlas();
         } else {
-            // If drawing with the block atlas bound and we know the current block type,
-            // force a stable per-type colour before uploading.
-            TextureHelper.updateAtlasOverrideColourForCurrentBlock();
+            // Rendering an entity: force a stable per-entity colour
+            TextureHelper.setPendingColourForCurrentEntity();
         }
         ShaderProgram program = RenderSystem.getShader();
         if (program == null) {

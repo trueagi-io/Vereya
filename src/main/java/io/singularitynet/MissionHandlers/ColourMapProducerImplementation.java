@@ -28,7 +28,7 @@ public class ColourMapProducerImplementation extends HandlerBase implements IVid
     private ColourMapProducer cmParams;
     private final Map<String, Integer> mobColours = new HashMap<>();
     private final Map<String, Integer> miscColours = new HashMap<>();
-    private Framebuffer segmentationFbo;
+    // Segmentation FBO is owned by TextureHelper; do not store/delete locally.
     private ByteBuffer readbackBuffer;
     private final int[] frameSize = new int[2];
 
@@ -77,11 +77,8 @@ public class ColourMapProducerImplementation extends HandlerBase implements IVid
     @Override
     public int[] writeFrame(MissionInit missionInit, ByteBuffer buffer) {
         Framebuffer fbo = ensureFramebuffer();
-        if (fbo != null) {
-            this.segmentationFbo = fbo;
-        }
-        int width = this.segmentationFbo != null ? this.segmentationFbo.textureWidth : Math.max(1, getWidth());
-        int height = this.segmentationFbo != null ? this.segmentationFbo.textureHeight : Math.max(1, getHeight());
+        int width = fbo != null ? fbo.textureWidth : Math.max(1, getWidth());
+        int height = fbo != null ? fbo.textureHeight : Math.max(1, getHeight());
         int requiredBytes = width * height * CHANNEL_COUNT;
 
         if (buffer != null && buffer.capacity() < requiredBytes) {
@@ -90,7 +87,7 @@ public class ColourMapProducerImplementation extends HandlerBase implements IVid
         }
 
         boolean readSuccess = false;
-        if (this.segmentationFbo != null) {
+        if (fbo != null) {
             ByteBuffer bgra = ensureReadbackBuffer(width * height * 4);
             bgra.clear();
 
@@ -98,7 +95,7 @@ public class ColourMapProducerImplementation extends HandlerBase implements IVid
             int previousReadBuffer = GL11.glGetInteger(GL11.GL_READ_BUFFER);
             int previousAlignment = GL11.glGetInteger(GL11.GL_PACK_ALIGNMENT);
             try {
-                GlStateManager._glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, this.segmentationFbo.fbo);
+                GlStateManager._glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, fbo.fbo);
                 GL30.glReadBuffer(GL30.GL_COLOR_ATTACHMENT0);
                 GL11.glPixelStorei(GL11.GL_PACK_ALIGNMENT, 1);
                 GlStateManager._readPixels(0, 0, width, height, GL_BGRA, GL11.GL_UNSIGNED_BYTE, bgra);
@@ -146,7 +143,6 @@ public class ColourMapProducerImplementation extends HandlerBase implements IVid
             TextureHelper.setSkyRenderer(null);
         }
 
-        this.segmentationFbo = ensureFramebuffer();
         TextureHelper.setIsProducingColourMap(true);
     }
 
@@ -154,10 +150,13 @@ public class ColourMapProducerImplementation extends HandlerBase implements IVid
     public void cleanup() {
         TextureHelper.setIsProducingColourMap(false);
         TextureHelper.setSkyRenderer(null);
-        if (this.segmentationFbo != null) {
-            this.segmentationFbo.delete();
-            this.segmentationFbo = null;
-        }
+        // Clear colour mappings and segmentation state and release FBO via helper.
+        TextureHelper.setMobColours(null);
+        TextureHelper.setMiscTextureColours(null);
+        TextureHelper.resetSegmentationState();
+        TextureHelper.destroySegmentationFramebuffer();
+        mobColours.clear();
+        miscColours.clear();
     }
 
     private Framebuffer ensureFramebuffer() {

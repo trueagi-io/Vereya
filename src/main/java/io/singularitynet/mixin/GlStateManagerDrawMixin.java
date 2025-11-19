@@ -59,4 +59,6 @@ public abstract class GlStateManagerDrawMixin {
             lod.upload();
         }
     }
+
+    // Note: No _drawArrays injection (1.20.4 GlStateManager has no such target).
 }

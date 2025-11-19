@@ -38,6 +38,7 @@ public abstract class BlockRenderManagerMixin {
                 TextureHelper.setCurrentBlockType(id.toString());
                 if (TextureHelper.isProducingColourMap() && TextureHelper.colourmapFrame) {
                     TextureHelper.setDrawingBlock(true);
+                    TextureHelper.setStrictBlockDraw(true);
                     // Set a stable per-type colour for the block being drawn
                     TextureHelper.setPendingColourForCurrentBlock();
                 }
@@ -56,6 +57,7 @@ public abstract class BlockRenderManagerMixin {
                                        CallbackInfo ci) {
         if (TextureHelper.isProducingColourMap() && TextureHelper.colourmapFrame) {
             TextureHelper.setDrawingBlock(false);
+            TextureHelper.setStrictBlockDraw(false);
         }
     }
 }

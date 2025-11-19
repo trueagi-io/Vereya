@@ -20,6 +20,7 @@ public abstract class EntityRenderDispatcherMixin {
             TextureHelper.setCurrentEntity(entity);
             // Ensure a stable per-entity colour is pending before any draw calls
             TextureHelper.setPendingColourForEntity(entity);
+            TextureHelper.setStrictEntityDraw(true);
         }
     }
 
@@ -28,6 +29,7 @@ public abstract class EntityRenderDispatcherMixin {
     private <E extends Entity> void vereya$clearCurrentEntity(E entity, double x, double y, double z, float yaw, float tickDelta, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, CallbackInfo ci) {
         if (TextureHelper.isProducingColourMap() && TextureHelper.colourmapFrame) {
             TextureHelper.setCurrentEntity(null);
+            TextureHelper.setStrictEntityDraw(false);
         }
     }
 }

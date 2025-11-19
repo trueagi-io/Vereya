@@ -26,12 +26,24 @@ public abstract class RenderSystemDrawMixin {
         if (TextureHelper.isDrawingBlock()) {
             // When drawing blocks, force stable per-type block colour
             TextureHelper.setPendingColourForCurrentBlock();
-        } else if (!TextureHelper.hasCurrentEntity()) {
-            // For non-entity draws (sky, clouds filtered, etc.), prefer atlas hashing
-            TextureHelper.setPendingForBlockAtlas();
-        } else {
+        } else if (TextureHelper.hasCurrentEntity()) {
             // Rendering an entity: force a stable per-entity colour
             TextureHelper.setPendingColourForCurrentEntity();
+        } else {
+            // No current entity: try entity fallback from last bound texture; else atlas
+            net.minecraft.util.Identifier last = TextureHelper.getLastBoundTexture();
+            boolean fallbackApplied = false;
+            if (last != null) {
+                String p = last.getPath();
+                if (p != null && p.startsWith("textures/entity/")) {
+                    // Let applyPendingColourToProgram resolve fallback to a stable colour
+                    // by leaving pending untouched here; it will pick up last-bound id.
+                    fallbackApplied = true;
+                }
+            }
+            if (!fallbackApplied) {
+                TextureHelper.setPendingForBlockAtlas();
+            }
         }
         ShaderProgram program = RenderSystem.getShader();
         if (program == null) {

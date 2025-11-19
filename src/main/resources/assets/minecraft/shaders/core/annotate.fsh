@@ -60,8 +60,15 @@ void main() {
         return;
     }
 
-    // Derive a stable per-sprite colour based on atlas grid cell only; this
-    // guarantees a uniform colour across the whole sprite (no intra-sprite
-    // variation). Grid size is provided via uniform atlasGrid.
-    FragColor = colourFromAtlas(texCoord0, atlasGrid);
+    // Derive a stable per-sprite colour by sampling a higher MIP level
+    // and hashing the averaged texel colour. This keeps a uniform colour
+    // across each sprite and avoids per-fragment striping while reducing
+    // collisions compared to a coarse grid.
+    float lod = float(atlasLod);
+    vec3 base = textureLod(Sampler0, texCoord0, lod).rgb;
+    float h1 = fract(sin(dot(base, vec3(12.9898, 78.233, 37.719))) * 43758.5453);
+    float h2 = fract(sin(dot(base, vec3(93.9898, 67.345, 24.113))) * 24634.6345);
+    float h3 = fract(sin(dot(base, vec3(19.123, 12.345, 98.765))) * 35791.0123);
+    vec3 col = vec3(h1, h2, h3) * 0.7 + 0.3;
+    FragColor = vec4(col, 1.0);
 }

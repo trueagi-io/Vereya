@@ -83,6 +83,12 @@ public class TextureHelper {
 
     // Current entity being rendered (set via mixin).
     private static Entity currentEntity = null;
+    // When true, force a solid per-entity colour for the entire entity render
+    // (base model + feature layers), regardless of intermediate binds.
+    private static volatile boolean strictEntityDraw = false;
+    // When true, force a solid per-block-type colour for the entire block draw
+    // section (all binds within BlockRenderManager.renderBlock scope).
+    private static volatile boolean strictBlockDraw = false;
     // Current block type string being rendered (eg "minecraft:stone"), set via mixin.
     private static String currentBlockType = null;
     // Flag to indicate a block draw call is in progress
@@ -227,6 +233,11 @@ public class TextureHelper {
         }
     }
 
+    public static void setStrictEntityDraw(boolean on) { strictEntityDraw = on; }
+    public static boolean isStrictEntityDraw() { return strictEntityDraw; }
+    public static void setStrictBlockDraw(boolean on) { strictBlockDraw = on; }
+    public static boolean isStrictBlockDraw() { return strictBlockDraw; }
+
     public static boolean hasCurrentEntity() { return currentEntity != null; }
 
     /**
@@ -315,6 +326,79 @@ public class TextureHelper {
         return 0xFF000000 | (col & 0x00FFFFFF);
     }
 
+    /**
+     * Best-effort fallback: derive a stable per-entity colour from a bound
+     * entity texture path when we don't have the current entity.
+     * Tries to parse textures/entity/<type>/... and use either a configured
+     * mission colour (minecraft:<type>) or a high-range hash of that key.
+     */
+    private static int getFallbackEntityColourFromTexture(Identifier id) {
+        if (id == null || id.getPath() == null) return -1;
+        String p = id.getPath();
+        // Expect paths like "textures/entity/chicken/chicken.png"
+        String marker = "textures/entity/";
+        int idx = p.indexOf(marker);
+        if (idx < 0) return -1;
+        String rest = p.substring(idx + marker.length());
+        int slash = rest.indexOf('/');
+        String type;
+        if (slash > 0) {
+            type = rest.substring(0, slash);
+        } else {
+            // No subfolder; use filename stem without extension
+            int dot = rest.lastIndexOf('.');
+            type = (dot > 0) ? rest.substring(0, dot) : rest;
+        }
+        // Normalise some known special cases (eg, zombie/villager sub-variants)
+        if (type == null || type.isEmpty()) return -1;
+        String key = "minecraft:" + type;
+        // If mission provided a colour for this type, prefer it
+        if (idealMobColours != null) {
+            Integer c = idealMobColours.get(key);
+            if (c != null) return (0xFF000000 | (c & 0x00FFFFFF));
+        }
+        // Otherwise, derive a bright high-range RGB from the key
+        int hash = key.hashCode();
+        int r = (hash >> 16) & 0xFF;
+        int g = (hash >> 8) & 0xFF;
+        int b = (hash) & 0xFF;
+        r = (r & 0x0F) | 0xF0;
+        g = (g & 0x0F) | 0xF0;
+        b = (b & 0x0F) | 0xF0;
+        int rgb = ((r & 0xFF) << 16) | ((g & 0xFF) << 8) | (b & 0xFF);
+        return 0xFF000000 | (rgb & 0x00FFFFFF);
+    }
+
+    /**
+     * Fallback per-block colour derived from a block texture path when we
+     * don't have a currentBlockType. Produces a stable bright RGB from
+     * something like textures/block/<name>.png.
+     */
+    private static int getFallbackBlockColourFromTexture(Identifier id) {
+        if (id == null || id.getPath() == null) return -1;
+        String p = id.getPath();
+        String marker = "textures/block/";
+        int idx = p.indexOf(marker);
+        if (idx < 0) return -1;
+        String rest = p.substring(idx + marker.length());
+        // Use stem before '/' or '.'
+        int slash = rest.indexOf('/');
+        if (slash > 0) rest = rest.substring(0, slash);
+        int dot = rest.lastIndexOf('.');
+        String name = (dot > 0) ? rest.substring(0, dot) : rest;
+        if (name.isEmpty()) return -1;
+        String key = "minecraft:block/" + name;
+        int hash = key.hashCode();
+        int r = (hash >> 16) & 0xFF;
+        int g = (hash >> 8) & 0xFF;
+        int b = (hash) & 0xFF;
+        r = (r & 0x0F) | 0xF0;
+        g = (g & 0x0F) | 0xF0;
+        b = (b & 0x0F) | 0xF0;
+        int rgb = ((r & 0xFF) << 16) | ((g & 0xFF) << 8) | (b & 0xFF);
+        return 0xFF000000 | (rgb & 0x00FFFFFF);
+    }
+
     public static void setSkyRenderer(Object skyRenderer) {
         blankSkyRenderer = skyRenderer;
     }
@@ -362,20 +446,36 @@ public class TextureHelper {
         boolean isAtlas = (SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE.equals(id) ||
                 (id != null && id.getPath() != null && id.getPath().contains("textures/atlas/")));
         int misc = getColourForTexture(id);
-        if (misc != -1) {
-            col = misc & 0x00FFFFFF;
-            segOtherBinds++;
-        } else if (currentEntity != null) {
+        if (hasCurrentEntity() || strictEntityDraw) {
+            // While rendering an entity, keep entity colour fully stable regardless of binds
             col = getColourForEntity(currentEntity) & 0x00FFFFFF;
             segEntityBinds++;
+        } else if (misc != -1) {
+            col = misc & 0x00FFFFFF;
+            segOtherBinds++;
+        } else if (id != null && id.getPath() != null && id.getPath().startsWith("textures/entity/")) {
+            // Fallback: if an entity texture is bound but currentEntity isn't set yet,
+            // derive a stable high-range colour from the entity type encoded in the path.
+            int fallback = getFallbackEntityColourFromTexture(id);
+            if (fallback != -1) {
+                col = fallback & 0x00FFFFFF;
+                segEntityBinds++;
+            } else {
+                col = -1;
+            }
         } else {
-            // For block/world draws: if we are in a block draw, keep per-type pending
-            // colour (don't overwrite with -1). Otherwise, default to atlas hashing.
-            if (isDrawingBlock()) {
+            // For block/world draws: prefer stable per-type colour whenever we know the current block type.
+            if (isDrawingBlock() || strictBlockDraw || (currentBlockType != null && !currentBlockType.isEmpty())) {
                 setPendingColourForCurrentBlock();
                 col = (pendingR < 0 || pendingG < 0 || pendingB < 0) ? -1 : ((pendingR << 16) | (pendingG << 8) | pendingB);
             } else {
-                col = -1;
+                // No current block type: try to derive a stable per-sprite block colour from the texture path.
+                int fb = getFallbackBlockColourFromTexture(id);
+                if (fb != -1) {
+                    col = fb & 0x00FFFFFF;
+                } else {
+                    col = -1;
+                }
             }
             if (isAtlas) segAtlasBinds++; else segOtherBinds++;
         }
@@ -427,7 +527,7 @@ public class TextureHelper {
         }
         GlUniform grid = active.getUniform("atlasGrid");
         if (grid != null) {
-            int atlasGrid = 32; // match legacy Malmo grid to keep per-sprite uniform colour
+            int atlasGrid = 32; // classic coarse grid (used only by debug or fallback paths)
             grid.set(atlasGrid);
             grid.upload();
             LOGGER.info("Applied atlasGrid={} to ACTIVE program {}", atlasGrid, active.getName());
@@ -500,22 +600,37 @@ public class TextureHelper {
         } catch (Throwable t) {
             LOGGER.warn("applyPendingColourToProgram: program.bind failed: {}", t.toString());
         }
-        // If we're in a block draw section, force the block's stable per-type colour
-        if (isProducingColourMap && colourmapFrame && isDrawingBlock()) {
-            setPendingColourForCurrentBlock();
-        }
-        // Avoid all-black output before any texture bind has set a colour.
-        // Treat (0,0,0) as "unset" during the segmentation pass and fall back to
-        // atlas-derived colouring by setting uniforms to -1.
-        if (isProducingColourMap && colourmapFrame && pendingR == 0 && pendingG == 0 && pendingB == 0) {
-            if (hasCurrentEntity()) {
+        if (isProducingColourMap && colourmapFrame) {
+            // Strongly prefer stable colours per entity/block at draw time.
+            if (hasCurrentEntity() || strictEntityDraw) {
                 setPendingColourForCurrentEntity();
-            } else if (isDrawingBlock()) {
+            } else if (isDrawingBlock() || strictBlockDraw) {
                 setPendingColourForCurrentBlock();
-            } else {
+            } else if (pendingR == 0 && pendingG == 0 && pendingB == 0) {
+                // Avoid all-black output before any texture bind has set a colour.
                 pendingR = pendingG = pendingB = -1;
             }
         }
+        // Additional hardening: if the last bound texture indicates an entity and
+        // we don't have currentEntity, avoid atlas fallback by hashing the path.
+        try {
+            Identifier last = lastBoundTexture;
+            if (isProducingColourMap && colourmapFrame && last != null) {
+                String p = last.getPath();
+                boolean pendIsAtlas = (pendingR < 0 || pendingG < 0 || pendingB < 0);
+                if (p != null && p.startsWith("textures/entity/") && !hasCurrentEntity() && pendIsAtlas) {
+                    int fb = getFallbackEntityColourFromTexture(last);
+                    if (fb != -1) {
+                        pendingR = (fb >> 16) & 0xFF;
+                        pendingG = (fb >> 8) & 0xFF;
+                        pendingB = (fb) & 0xFF;
+                    }
+                } else if ((SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE.equals(last) || (p != null && p.contains("textures/atlas/"))) && (isDrawingBlock() || currentBlockType != null)) {
+                    // Ensure blocks keep their per-type colour even if a late bind overwrote pending to -1
+                    setPendingColourForCurrentBlock();
+                }
+            }
+        } catch (Throwable ignored) {}
         GlUniform r = program.getUniform("entityColourR");
         GlUniform g = program.getUniform("entityColourG");
         GlUniform b = program.getUniform("entityColourB");
@@ -545,7 +660,7 @@ public class TextureHelper {
             LOGGER.info("Applied respectAlpha={} to PROGRAM {}", (respectOpacity ? 1 : 0), program.getName());
         }
         if (grid != null) {
-            int atlasGrid = 32; // per-sprite cell count along one axis
+            int atlasGrid = 32;
             grid.set(atlasGrid);
             grid.upload();
             LOGGER.info("Applied atlasGrid={} to PROGRAM {}", atlasGrid, program.getName());

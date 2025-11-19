@@ -29,12 +29,16 @@ public abstract class VertexBufferMixin {
     @Inject(method = "draw(Lorg/joml/Matrix4f;Lorg/joml/Matrix4f;Lnet/minecraft/client/gl/ShaderProgram;)V", at = @At("HEAD"))
     private void vereya$markBlockDrawStart(org.joml.Matrix4f pos, org.joml.Matrix4f proj, ShaderProgram program, CallbackInfo ci) {
         if (!TextureHelper.isProducingColourMap() || !TextureHelper.colourmapFrame) return;
+        // If rendering an entity, enforce entity colour and do NOT toggle block-draw based on atlas binds.
+        if (TextureHelper.hasCurrentEntity()) {
+            TextureHelper.setPendingColourForCurrentEntity();
+            return;
+        }
+        // Only consider a block draw if we actually have a current block type captured.
         Identifier last = TextureHelper.getLastBoundTexture();
         boolean isAtlas = last != null && (SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE.equals(last)
                 || (last.getPath() != null && last.getPath().contains("textures/atlas/")));
-        if (isAtlas) {
-            TextureHelper.setDrawingBlock(true);
-        }
+        // Rely on BlockRenderManagerMixin to toggle block draws; do nothing here
     }
 
     @Inject(method = "draw(Lorg/joml/Matrix4f;Lorg/joml/Matrix4f;Lnet/minecraft/client/gl/ShaderProgram;)V", at = @At("TAIL"))

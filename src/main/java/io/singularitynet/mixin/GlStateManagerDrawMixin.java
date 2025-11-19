@@ -43,9 +43,14 @@ public abstract class GlStateManagerDrawMixin {
             debug.set(TextureHelper.getSegmentationDebugLevel());
             debug.upload();
         }
+        GlUniform alpha = program.getUniform("respectAlpha");
+        if (alpha != null) {
+            alpha.set(TextureHelper.isRespectOpacity() ? 1 : 0);
+            alpha.upload();
+        }
         GlUniform grid = program.getUniform("atlasGrid");
         if (grid != null) {
-            grid.set(128);
+            grid.set(32);
             grid.upload();
         }
         GlUniform lod = program.getUniform("atlasLod");

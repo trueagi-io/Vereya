@@ -7,6 +7,7 @@ uniform int entityColourB;
 uniform int debugMode;
 uniform int atlasGrid;
 uniform int atlasLod; // MIP level used to derive per-sprite colour
+uniform int respectAlpha; // 1 = discard transparent texels (cutouts)
 
 in vec4 vertexColor;
 in vec2 texCoord0;
@@ -31,6 +32,13 @@ vec4 colourFromAtlas(vec2 uv, int gridSize) {
 }
 
 void main() {
+    // Optionally discard fully transparent fragments for cutout geometry.
+    if (respectAlpha != 0) {
+        float a = texture(Sampler0, texCoord0).a;
+        if (a < 0.1) {
+            discard;
+        }
+    }
     if (debugMode == 1) {
         FragColor = vec4(1.0, 0.0, 1.0, 1.0);
         return;
@@ -52,14 +60,8 @@ void main() {
         return;
     }
 
-    // Derive a stable per-sprite colour by sampling a high MIP level of the atlas
-    // and hashing it to spread colours across RGB. This avoids UV-based striping.
-    float lod = float(atlasLod);
-    vec3 base = textureLod(Sampler0, texCoord0, lod).rgb;
-    float h1 = fract(sin(dot(base, vec3(12.9898, 78.233, 37.719))) * 43758.5453);
-    float h2 = fract(sin(dot(base, vec3(93.9898, 67.345, 24.113))) * 24634.6345);
-    float h3 = fract(sin(dot(base, vec3(19.123, 12.345, 98.765))) * 35791.0123);
-    // Keep colours in a mid/bright range to reduce accidental near-black matches
-    vec3 col = vec3(h1, h2, h3) * 0.7 + 0.3;
-    FragColor = vec4(col, 1.0);
+    // Derive a stable per-sprite colour based on atlas grid cell only; this
+    // guarantees a uniform colour across the whole sprite (no intra-sprite
+    // variation). Grid size is provided via uniform atlasGrid.
+    FragColor = colourFromAtlas(texCoord0, atlasGrid);
 }

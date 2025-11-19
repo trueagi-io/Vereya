@@ -142,13 +142,22 @@ public class ColourMapProducerImplementation extends HandlerBase implements IVid
         } else {
             TextureHelper.setSkyRenderer(null);
         }
-
+        // Configure whether to respect cutout/alpha in segmentation (leaves/grass transparency)
+        boolean respectOpacity = false;
+        try {
+            if (this.cmParams != null) {
+                // Generated getter from XJC for xs:boolean attribute respectOpacity
+                respectOpacity = this.cmParams.isRespectOpacity();
+            }
+        } catch (Throwable ignored) {}
+        TextureHelper.setRespectOpacity(respectOpacity);
         TextureHelper.setIsProducingColourMap(true);
     }
 
     @Override
     public void cleanup() {
         TextureHelper.setIsProducingColourMap(false);
+        TextureHelper.setRespectOpacity(false);
         TextureHelper.setSkyRenderer(null);
         // Clear colour mappings and segmentation state and release FBO via helper.
         TextureHelper.setMobColours(null);

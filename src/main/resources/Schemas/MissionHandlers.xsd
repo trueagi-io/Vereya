@@ -1203,6 +1203,9 @@
                 </xs:choice>
             </xs:sequence>
             <xs:attribute name="skyColour" type="HexColour" default="fbceb1"/>
+            <!-- When true, segmentation respects texture opacity (eg leaves/grass cutouts).
+                 When false, cutout textures are rendered as solid (no alpha discard). -->
+            <xs:attribute name="respectOpacity" type="xs:boolean" default="false"/>
         </xs:complexType>
     </xs:element>
 

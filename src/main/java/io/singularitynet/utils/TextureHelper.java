@@ -70,6 +70,8 @@ public class TextureHelper {
     public static volatile boolean colourmapFrame = false;
 
     private static volatile boolean isProducingColourMap = false;
+    // If true, segmentation respects texture opacity (cutouts like leaves/grass)
+    private static volatile boolean respectOpacity = false;
 
     // Optional mapping from mob/entity identifiers to colours.
     private static Map<String, Integer> idealMobColours = null;
@@ -181,6 +183,14 @@ public class TextureHelper {
     public static boolean isProducingColourMap() {
         return isProducingColourMap;
     }
+
+    /** Controls whether segmentation respects texture opacity (cutouts). */
+    public static void setRespectOpacity(boolean respect) {
+        respectOpacity = respect;
+        LOGGER.info("TextureHelper: respectOpacity set to {}", respect);
+    }
+
+    public static boolean isRespectOpacity() { return respectOpacity; }
 
     /**
      * Set preferred mob colours, keyed by entity type string.
@@ -392,6 +402,7 @@ public class TextureHelper {
             GlUniform g = active.getUniform("entityColourG");
             GlUniform b = active.getUniform("entityColourB");
             GlUniform dbg = active.getUniform("debugMode");
+            GlUniform alpha = active.getUniform("respectAlpha");
             if (r != null && g != null && b != null) {
             
                 r.set(pendingR);
@@ -409,11 +420,17 @@ public class TextureHelper {
             dbg.upload();
             LOGGER.info("Applied debugMode={} to ACTIVE program {}", segmentationDebugLevel, active.getName());
         }
+        if (alpha != null) {
+            alpha.set(respectOpacity ? 1 : 0);
+            alpha.upload();
+            LOGGER.info("Applied respectAlpha={} to ACTIVE program {}", (respectOpacity ? 1 : 0), active.getName());
+        }
         GlUniform grid = active.getUniform("atlasGrid");
         if (grid != null) {
-            grid.set(128);
+            int atlasGrid = 32; // match legacy Malmo grid to keep per-sprite uniform colour
+            grid.set(atlasGrid);
             grid.upload();
-            LOGGER.info("Applied atlasGrid={} to ACTIVE program {}", 128, active.getName());
+            LOGGER.info("Applied atlasGrid={} to ACTIVE program {}", atlasGrid, active.getName());
         }
         GlUniform lod = active.getUniform("atlasLod");
         if (lod != null) {
@@ -503,6 +520,7 @@ public class TextureHelper {
         GlUniform g = program.getUniform("entityColourG");
         GlUniform b = program.getUniform("entityColourB");
         GlUniform dbg = program.getUniform("debugMode");
+        GlUniform alpha = program.getUniform("respectAlpha");
         GlUniform grid = program.getUniform("atlasGrid");
         if (r != null && g != null && b != null) {
             
@@ -521,8 +539,13 @@ public class TextureHelper {
             dbg.upload();
             LOGGER.info("Applied debugMode={} to PROGRAM {}", segmentationDebugLevel, program.getName());
         }
+        if (alpha != null) {
+            alpha.set(respectOpacity ? 1 : 0);
+            alpha.upload();
+            LOGGER.info("Applied respectAlpha={} to PROGRAM {}", (respectOpacity ? 1 : 0), program.getName());
+        }
         if (grid != null) {
-            int atlasGrid = 128;
+            int atlasGrid = 32; // per-sprite cell count along one axis
             grid.set(atlasGrid);
             grid.upload();
             LOGGER.info("Applied atlasGrid={} to PROGRAM {}", atlasGrid, program.getName());

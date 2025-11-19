@@ -273,7 +273,14 @@ public class TextureHelper {
 
     public static int getColourForEntity(Entity entity) {
         if (entity == null) return 0x000000;
-        String key = entity.getType().toString();
+        // Prefer a stable, namespaced id for the entity type (eg "minecraft:zombie")
+        String key;
+        try {
+            net.minecraft.util.Identifier rid = net.minecraft.registry.Registries.ENTITY_TYPE.getId(entity.getType());
+            key = (rid != null) ? rid.toString() : entity.getType().toString();
+        } catch (Throwable t) {
+            key = entity.getType().toString();
+        }
         if (idealMobColours != null) {
             Integer col = idealMobColours.get(key);
             if (col != null) return (0xFF000000 | (col & 0x00FFFFFF));

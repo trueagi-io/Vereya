@@ -35,6 +35,7 @@
     "WorldRendererShaderMixin",
     "BlockRenderManagerMixin",
     "EntityRenderDispatcherMixin",
+    "EntityRendererMixin",
     "EntityRenderDispatcherShadowMixin",
     "EntityRenderDispatcherAccessor",
     "MinecraftClientFramebufferMixin"

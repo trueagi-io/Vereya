@@ -56,6 +56,8 @@ public class MinecraftSegmentationSpawnChickensTestMain {
                     proc.getInputStream(), Duration.ofSeconds(60), MConnector.FrameReceiver::new, "ColourMapServer");
             MConnector.FrameReceiver server = res.server;
             int cmdPort = res.cmdPort;
+            // Start normal video capture (saves to images/video)
+            conn.startVideoServer();
             // No rotation. We want a stable viewpoint while we spawn chickens.
 
             // Start draining logs only after parsing ports
@@ -96,9 +98,21 @@ public class MinecraftSegmentationSpawnChickensTestMain {
                     + " window=" + startBefore + "-" + endBefore
                     + " min/avg=" + minBefore + "/" + avgBefore);
 
+            // Assert minimum colour diversity before spawning
+            int minUniqueRequired = SegmentationTestBase.getIntEnvOrProp("RUN_SEG_MIN_UNIQUE", "seg.test.minUnique", 9);
+            if (minBefore < minUniqueRequired || uniqBefore < minUniqueRequired) {
+                String msg = "Colour diversity too low before spawn (minWindow=" + minBefore + ", last=" + uniqBefore + ", required>=" + minUniqueRequired + ")";
+                LOG.severe(msg);
+                throw new AssertionError(msg);
+            }
+
             // Spawn many chickens near the agent using chat /summon.
             int spawnCount = Integer.getInteger("seg.test.spawnCount", 40);
             LOG.info("Spawning chickens now: count=" + spawnCount);
+            // Reset per-type ObservationFromRay aggregation so that post-spawn
+            // assertions only consider colours observed after chickens appear.
+            int framesAtReset = server.getFrameCount();
+            server.resetTypeCounts();
             String[] cmds = new String[spawnCount];
             for (int i = 0; i < spawnCount; i++) cmds[i] = "chat /summon minecraft:chicken ~ ~ ~";
             Thread spawner = conn.createCmdSenderThread("127.0.0.1", cmdPort, cmds, 1000, "Spawner");
@@ -128,6 +142,25 @@ public class MinecraftSegmentationSpawnChickensTestMain {
                     + " window=" + startAfter + "-" + endAfter
                     + " min/avg=" + minAfter + "/" + avgAfter);
 
+            // Assert minimum colour diversity after spawn as well
+            if (minAfter < minUniqueRequired || uniqAfter < minUniqueRequired) {
+                String msg = "Colour diversity too low after spawn (minWindow=" + minAfter + ", last=" + uniqAfter + ", required>=" + minUniqueRequired + ")";
+                LOG.severe(msg);
+                throw new AssertionError(msg);
+            }
+
+            // Now that we reached stabilization, reset per-type aggregation and collect
+            // only stable-window samples before running ObservationFromRay assertions.
+            server.resetTypeCounts();
+            server.awaitFramesAtLeast(Math.max(3, stableFrames), 30, TimeUnit.SECONDS);
+
+            // ObservationFromRay-based assertions using only post-spawn samples
+            SegmentationTestBase.assertObservationFromRayConsistency(server, LOG,
+                    "post-spawn (frames >= " + framesAtReset + ")", 0.8, 2);
+            SegmentationTestBase.assertColourToBlockTypeUniqueness(server, LOG,
+                    "post-spawn (frames >= " + framesAtReset + ")");
+
+            // Now also assert that the total number of unique colours did not explode
             int allowedIncrease = Integer.getInteger("seg.test.allowedIncrease", Integer.getInteger("RUN_SEG_ALLOWED_INCREASE", 2));
             if (delta > allowedIncrease) {
                 String msg = "Too many new colours after spawning chickens: delta=" + delta + " (>" + allowedIncrease + ")";

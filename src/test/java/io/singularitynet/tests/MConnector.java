@@ -6,6 +6,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.net.ServerSocket;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.function.IntFunction;
@@ -32,6 +33,7 @@ public final class MConnector {
     private final int chosenObsPort;
     private final int chosenRewPort;
     private final int chosenCmdPort;
+    private final int chosenVideoPort;
     private final String missionXmlPatched;
 
     private Thread ctrlThread;
@@ -45,18 +47,23 @@ public final class MConnector {
         this.chosenObsPort = TestUtils.findFreePort();
         this.chosenRewPort = TestUtils.findFreePort();
         this.chosenCmdPort = TestUtils.findFreePort();
+        this.chosenVideoPort = TestUtils.findFreePort();
         String patched = missionXml;
         patched = TestUtils.patchAgentColourMapPort(patched, this.chosenColourPort);
         patched = TestUtils.patchAgentMissionControlPort(patched, this.chosenAgentCtrlPort);
         patched = TestUtils.patchAgentObservationsPort(patched, this.chosenObsPort);
         patched = TestUtils.patchAgentRewardsPort(patched, this.chosenRewPort);
         patched = TestUtils.patchClientCommandsPort(patched, this.chosenCmdPort);
+        patched = TestUtils.patchAgentVideoPort(patched, this.chosenVideoPort);
+        patched = TestUtils.ensureVideoProducer(patched);
+        patched = TestUtils.ensureColourMapRespectOpacity(patched);
         this.missionXmlPatched = patched;
         LOG.info("MConnector ports: colour=" + chosenColourPort
                 + ", ctrl=" + chosenAgentCtrlPort
                 + ", obs=" + chosenObsPort
                 + ", rew=" + chosenRewPort
-                + ", cmd=" + chosenCmdPort);
+                + ", cmd=" + chosenCmdPort
+                + ", video=" + chosenVideoPort);
     }
 
     public String getPatchedMissionXml() { return missionXmlPatched; }
@@ -65,6 +72,7 @@ public final class MConnector {
     public int getChosenObsPort() { return chosenObsPort; }
     public int getChosenRewPort() { return chosenRewPort; }
     public int getChosenCmdPort() { return chosenCmdPort; }
+    public int getChosenVideoPort() { return chosenVideoPort; }
 
     /** Start lightweight TCP servers used by the mod during tests. */
     public void startServers() {
@@ -83,6 +91,15 @@ public final class MConnector {
         rewThread.setDaemon(true);
         rewThread.start();
         LOG.info("Started servers: ctrl=" + chosenAgentCtrlPort + ", obs=" + chosenObsPort + ", rew=" + chosenRewPort);
+    }
+
+    /** Start a video receiver server to save normal frames to images/video. */
+    public Thread startVideoServer() {
+        VideoReceiver vr = new VideoReceiver(this.chosenVideoPort);
+        Thread t = new Thread(vr, "VideoServer");
+        t.setDaemon(true);
+        t.start();
+        return t;
     }
 
     /** Parse MissionControlPort (MCP) from Minecraft stdout. */
@@ -155,6 +172,12 @@ public final class MConnector {
 
         private final java.util.List<Integer> uniqueHistory = new java.util.ArrayList<>();
         private final java.util.concurrent.ConcurrentHashMap<String, java.util.concurrent.ConcurrentHashMap<Integer,Integer>> blockTypeToColourCounts = new java.util.concurrent.ConcurrentHashMap<>();
+        private static int getIntEnvOrProp(String envKey, String propKey, int def) {
+            String v = System.getenv(envKey);
+            if (v == null || v.isEmpty()) v = System.getProperty(propKey);
+            if (v == null || v.isEmpty()) return def;
+            try { return Integer.parseInt(v.trim()); } catch (Exception ignored) { return def; }
+        }
 
         public FrameReceiver(int port) {
             this.port = port;
@@ -163,7 +186,7 @@ public final class MConnector {
                 Path csvPath = this.saveDir.resolve("metrics.csv");
                 this.csv = Files.newBufferedWriter(csvPath, java.nio.charset.StandardCharsets.UTF_8,
                         StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
-                this.csv.write("frame,w,h,ch,uniq,uniq_max,entity_uniq,entity_uniq_max\n");
+                this.csv.write("frame,w,h,ch,uniq,uniq_max,entity_uniq,entity_uniq_max,center_r,center_g,center_b,ray_type,ray_distance,ray_dt_ms\n");
                 this.csv.flush();
             } catch (IOException ignored) {}
         }
@@ -214,30 +237,55 @@ public final class MConnector {
                                 this.lastEntityLike = computeEntityLikeUniqueColors(frame, ch, 4096);
                                 if (this.lastEntityLike > this.maxEntityLike) this.maxEntityLike = this.lastEntityLike;
 
-                                // Update center-pixel mapping using latest observation ray type
+                                // Update center-pixel mapping using latest observation ray type and distance
+                                long frameTimeNs = System.nanoTime();
+                                int cx = Math.max(0, Math.min(w - 1, w / 2));
+                                int cy = Math.max(0, Math.min(h - 1, h / 2));
+                                int off = (cy * w + cx) * ch;
+                                int bC = frame[off] & 0xFF;
+                                int gC = frame[off + 1] & 0xFF;
+                                int rC = frame[off + 2] & 0xFF;
+                                int rgbC = (rC << 16) | (gC << 8) | bC;
                                 String rayType = TestUtils.ObservationsServer.getLatestRayType();
-                                if (rayType != null && !rayType.isEmpty()) {
-                                    int cx = Math.max(0, Math.min(w - 1, w / 2));
-                                    int cy = Math.max(0, Math.min(h - 1, h / 2));
-                                    int off = (cy * w + cx) * ch;
-                                    int b = frame[off] & 0xFF;
-                                    int g = frame[off + 1] & 0xFF;
-                                    int r = frame[off + 2] & 0xFF;
-                                    int rgb = (r << 16) | (g << 8) | b;
+                                Double rayDist = TestUtils.ObservationsServer.getLatestRayDistance();
+                                long obsNs = TestUtils.ObservationsServer.getLatestRayTimestampNs();
+                                long dtMs = (obsNs == 0L) ? -1L : (frameTimeNs - obsNs) / 1_000_000L;
+                                int maxSkewMs = getIntEnvOrProp("RUN_SEG_MAX_OBS_SKEW_MS", "seg.test.maxObsSkewMs", 200);
+                                boolean fresh = (rayType != null && !rayType.isEmpty() && dtMs >= 0 && dtMs <= maxSkewMs);
+                                if (fresh) {
                                     blockTypeToColourCounts.computeIfAbsent(rayType, k -> new java.util.concurrent.ConcurrentHashMap<>())
-                                            .merge(rgb, 1, Integer::sum);
+                                            .merge(rgbC, 1, Integer::sum);
+                                } else {
+                                    // discard stale mapping; keep rayType blank for CSV
+                                    if (dtMs < 0) rayType = ""; else rayType = "";
                                 }
 
                                 try { savePng(frame, w, h, ch, this.frameCount); } catch (Throwable ignored) {}
                                 try {
                                     if (csv != null) {
-                                        csv.write(String.format(Locale.ROOT, "%d,%d,%d,%d,%d,%d,%d,%d\n",
+                                        csv.write(String.format(Locale.ROOT, "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%s,%s,%d\n",
                                                 this.frameCount, w, h, ch,
                                                 this.lastUniqueColors, this.maxUniqueColors,
-                                                this.lastEntityLike, this.maxEntityLike));
+                                                this.lastEntityLike, this.maxEntityLike,
+                                                rC, gC, bC,
+                                                rayType == null ? "" : rayType,
+                                                rayDist == null ? "" : String.format(Locale.ROOT, "%.3f", rayDist),
+                                                dtMs));
                                         csv.flush();
                                     }
                                 } catch (IOException ignored) {}
+
+                                // Also log each observation sample concisely for debugging.
+                                if (rayType != null && !rayType.isEmpty()) {
+                                    java.util.logging.Logger.getLogger(MConnector.class.getName())
+                                            .info(String.format(Locale.ROOT,
+                                                    "OBS-RAY frame=%d type=%s dist=%s color=#%06X dtMs=%d",
+                                                    this.frameCount,
+                                                    rayType,
+                                                    rayDist == null ? "" : String.format(Locale.ROOT, "%.3f", rayDist),
+                                                    rgbC & 0xFFFFFF,
+                                                    dtMs));
+                                }
                             } catch (Throwable ignored) {}
                             firstFrameLatch.countDown();
                         }
@@ -333,6 +381,73 @@ public final class MConnector {
                 int off = px*stride; int b=fr[off]&0xFF, g=fr[off+1]&0xFF, r=fr[off+2]&0xFF; if(r<240 && g<240 && b<240) continue; int rgb=(r<<16)|(g<<8)|b; uniq.add(rgb); if(uniq.size()>=maxSamples) break;
             }
             return uniq.size();
+        }
+    }
+
+    /** Simple receiver for normal VIDEO frames that saves PNGs under images/video. */
+    public static class VideoReceiver implements Runnable {
+        final int port;
+        final Path saveDir;
+        volatile boolean stop = false;
+        public VideoReceiver(int port) {
+            this.port = port;
+            String base = System.getProperty("video.test.saveDir", "images/video");
+            this.saveDir = Paths.get(base, String.format("run-%d", System.currentTimeMillis()/1000));
+            try { Files.createDirectories(this.saveDir); } catch (IOException ignored) {}
+        }
+        @Override public void run() {
+            try (ServerSocket ss = new ServerSocket(port)) {
+                ss.setReuseAddress(true);
+                while (!stop) {
+                    try (Socket s = ss.accept()) {
+                        s.setTcpNoDelay(true);
+                        InputStream in = s.getInputStream();
+                        int idx = 0;
+                        while (!stop) {
+                            int packetLen = TestUtils.readIntBE(in);
+                            if (packetLen <= 0 || packetLen > 50_000_000) break;
+                            byte[] payload = TestUtils.readFully(in, packetLen);
+                            ByteBuffer pb = ByteBuffer.wrap(payload).order(ByteOrder.BIG_ENDIAN);
+                            if (pb.remaining() < 4) break;
+                            int jsonLen = pb.getInt();
+                            if (jsonLen < 0 || jsonLen > pb.remaining()) break;
+                            byte[] jsonBytes = new byte[jsonLen]; pb.get(jsonBytes);
+                            org.json.JSONObject hdr = new org.json.JSONObject(new String(jsonBytes, java.nio.charset.StandardCharsets.UTF_8));
+                            int w = hdr.optInt("img_width", -1);
+                            int h = hdr.optInt("img_height", -1);
+                            int ch = hdr.optInt("img_ch", 4);
+                            if (w <= 0 || h <= 0 || ch < 3 || ch > 4) break;
+                            int expected = w * h * ch;
+                            if (pb.remaining() < expected) break;
+                            byte[] frame = new byte[expected]; pb.get(frame);
+                            savePng(frame, w, h, ch, ++idx);
+                        }
+                    } catch (Throwable t) {
+                        // continue accepting
+                    }
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        private void savePng(byte[] bgra, int w, int h, int ch, int index) throws IOException {
+            if (bgra == null || w <= 0 || h <= 0 || ch < 3) return;
+            java.awt.image.BufferedImage img = new java.awt.image.BufferedImage(w, h, java.awt.image.BufferedImage.TYPE_INT_RGB);
+            int stride = ch; int off = 0;
+            for (int y = 0; y < h; y++) {
+                for (int x = 0; x < w; x++) {
+                    int b = bgra[off] & 0xFF;
+                    int g = bgra[off + 1] & 0xFF;
+                    int r = bgra[off + 2] & 0xFF;
+                    int rgb = (r << 16) | (g << 8) | b;
+                    img.setRGB(x, y, rgb);
+                    off += stride;
+                }
+            }
+            Path out = saveDir.resolve(String.format("frame_%05d.png", index));
+            try (OutputStream os = Files.newOutputStream(out, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)) {
+                javax.imageio.ImageIO.write(img, "PNG", os);
+            }
         }
     }
 

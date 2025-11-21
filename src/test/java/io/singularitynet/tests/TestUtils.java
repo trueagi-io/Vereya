@@ -144,18 +144,56 @@ public final class TestUtils {
     public static class ObservationsServer implements Runnable {
         final int port;
         public static volatile String latestRayType = null;
+        public static volatile Double latestRayDistance = null;
         private static volatile Double latestYaw = null;
         private static volatile Double latestPitch = null;
+        private static volatile long latestRayTimestampNs = 0L;
         volatile boolean stop=false;
         public ObservationsServer(int port){this.port=port;}
         @Override public void run(){ try(ServerSocket ss=new ServerSocket(port)){ ss.setReuseAddress(true); while(!stop){ try(Socket s=ss.accept()){ s.setTcpNoDelay(true); InputStream in=s.getInputStream(); while(!stop){ int len = readIntBE(in); if(len<=0||len>50_000_000) break; byte[] payload = readFully(in, len); String txt = new String(payload, StandardCharsets.UTF_8); parseObservation(txt); } } catch(Throwable t){} } } catch(IOException e){ e.printStackTrace(); } }
         private static void parseObservation(String txt){
             try{
                 JSONObject o = new JSONObject(txt);
-                String t = findRayType(o); if(t!=null && !t.isEmpty()) latestRayType=t;
+                // Log raw observation payload
+                LOG.info("[OBS-RAW] " + txt);
+                String t = findRayType(o); if(t!=null && !t.isEmpty()) { latestRayType=t; latestRayTimestampNs = System.nanoTime(); }
                 Double yaw = findDoubleByKeys(o, new String[]{"yaw", "Yaw"}); if (yaw != null && !yaw.isNaN() && Double.isFinite(yaw)) latestYaw = yaw;
                 Double pitch = findDoubleByKeys(o, new String[]{"pitch", "Pitch"}); if (pitch != null && !pitch.isNaN() && Double.isFinite(pitch)) latestPitch = pitch;
+                // Try multiple likely keys for ray distance
+                Double dist = findDoubleByKeys(o, new String[]{"distance","Distance","dist","ray_distance","range","hitdistance","HitDistance"});
+                if (dist != null && !dist.isNaN() && Double.isFinite(dist)) latestRayDistance = dist;
+                // Log all hits (types/blocks) we can find in the JSON
+                logAllHits(o);
             }catch(Throwable ignored){}
+        }
+        private static void logAllHits(Object o){
+            if(o instanceof JSONObject jo){
+                String type = null, block = null;
+                try { if (jo.has("type") && jo.opt("type") instanceof String) type = jo.optString("type", null); } catch(Throwable ignored){}
+                try { if (jo.has("block") && jo.opt("block") instanceof String) block = jo.optString("block", null); } catch(Throwable ignored){}
+                if (type != null || block != null) {
+                    Double dist = findDoubleByKeys(jo, new String[]{"distance","Distance","dist","ray_distance","range","hitdistance","HitDistance"});
+                    Double x = findDoubleByKeys(jo, new String[]{"x","X"});
+                    Double y = findDoubleByKeys(jo, new String[]{"y","Y"});
+                    Double z = findDoubleByKeys(jo, new String[]{"z","Z"});
+                    String msg = String.format(java.util.Locale.ROOT,
+                            "OBS-HIT type=%s block=%s dist=%s pos=(%s,%s,%s) yaw=%s pitch=%s",
+                            type==null?"":type,
+                            block==null?"":block,
+                            dist==null?"":String.format(java.util.Locale.ROOT, "%.3f", dist),
+                            x==null?"":String.format(java.util.Locale.ROOT, "%.3f", x),
+                            y==null?"":String.format(java.util.Locale.ROOT, "%.3f", y),
+                            z==null?"":String.format(java.util.Locale.ROOT, "%.3f", z),
+                            latestYaw==null?"":String.format(java.util.Locale.ROOT, "%.2f", latestYaw),
+                            latestPitch==null?"":String.format(java.util.Locale.ROOT, "%.2f", latestPitch));
+                    LOG.info(msg);
+                }
+                for(String key: jo.keySet()){
+                    logAllHits(jo.opt(key));
+                }
+            } else if (o instanceof org.json.JSONArray arr){
+                for(int i=0;i<arr.length();i++) logAllHits(arr.opt(i));
+            }
         }
         private static String findRayType(Object o){ if(o instanceof JSONObject jo){ Object ray=jo.opt("Ray"); String t=findRayType(ray); if(t!=null) return t; if(jo.has("type") && jo.opt("type") instanceof String) return jo.optString("type", null); if(jo.has("block") && jo.opt("block") instanceof String) return jo.optString("block", null); for(String key: jo.keySet()){ t=findRayType(jo.opt(key)); if(t!=null) return t; } } else if(o instanceof org.json.JSONArray arr){ for(int i=0;i<arr.length();i++){ String t=findRayType(arr.opt(i)); if(t!=null) return t; } } return null; }
         private static Double findDoubleByKeys(Object o, String[] keys){ for(String k: keys){ Double d = findDouble(o, k); if(d!=null) return d; } return null; }
@@ -163,6 +201,8 @@ public final class TestUtils {
         public static String getLatestRayType(){ return latestRayType; }
         public static double getLatestYaw(){ Double d=latestYaw; return d==null? Double.NaN : d; }
         public static double getLatestPitch(){ Double d=latestPitch; return d==null? Double.NaN : d; }
+        public static Double getLatestRayDistance(){ return latestRayDistance; }
+        public static long getLatestRayTimestampNs(){ return latestRayTimestampNs; }
     }
 
     // Small helpers for reading the frame streams
@@ -178,6 +218,40 @@ public final class TestUtils {
     public static String patchAgentObservationsPort(String xml, int port) { return xml.replaceAll("(<AgentObservationsPort>)(\\d+)(</AgentObservationsPort>)", "$1" + port + "$3"); }
     public static String patchAgentRewardsPort(String xml, int port) { return xml.replaceAll("(<AgentRewardsPort>)(\\d+)(</AgentRewardsPort>)", "$1" + port + "$3"); }
     public static String patchClientCommandsPort(String xml, int port) { return xml.replaceAll("(<ClientCommandsPort>)(\\d+)(</ClientCommandsPort>)", "$1" + port + "$3"); }
+    public static String patchAgentVideoPort(String xml, int port) { return xml.replaceAll("(<AgentVideoPort>)(\\d+)(</AgentVideoPort>)", "$1" + port + "$3"); }
+
+    /** Ensure a <VideoProducer> exists under AgentHandlers. If missing, insert one with width/height
+     * copied from ColourMapProducer when available, otherwise 1280x960. */
+    public static String ensureVideoProducer(String xml) {
+        if (xml.contains("<VideoProducer")) return xml;
+        int w = 1280, h = 960;
+        try {
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile(
+                    "<ColourMapProducer[\\s\\S]*?<Width>(\\d+)</Width>[\\s\\S]*?<Height>(\\d+)</Height>[\\s\\S]*?</ColourMapProducer>").matcher(xml);
+            if (m.find()) {
+                w = Integer.parseInt(m.group(1));
+                h = Integer.parseInt(m.group(2));
+            }
+        } catch (Throwable ignored) {}
+        String videoXml = String.format("<VideoProducer><Width>%d</Width><Height>%d</Height></VideoProducer>", w, h);
+        // Prefer inserting immediately before ColourMapProducer, else before </AgentHandlers>
+        int idx = xml.indexOf("<ColourMapProducer");
+        if (idx >= 0) {
+            return new StringBuilder(xml).insert(idx, videoXml).toString();
+        }
+        int ahClose = xml.indexOf("</AgentHandlers>");
+        if (ahClose >= 0) {
+            return new StringBuilder(xml).insert(ahClose, videoXml).toString();
+        }
+        // Fallback: append at end
+        return xml + videoXml;
+    }
+
+    /** Ensure ColourMapProducer has respectOpacity="true" attribute to cut out transparent texels. */
+    public static String ensureColourMapRespectOpacity(String xml) {
+        if (xml.contains("<ColourMapProducer") && xml.contains("respectOpacity")) return xml;
+        return xml.replace("<ColourMapProducer", "<ColourMapProducer respectOpacity=\"true\"");
+    }
 
     // XML patchers for spawn are removed; set agent spawn directly in mission.xml
 

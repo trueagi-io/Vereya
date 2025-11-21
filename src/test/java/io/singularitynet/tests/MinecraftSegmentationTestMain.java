@@ -78,11 +78,13 @@ public class MinecraftSegmentationTestMain {
             }
             LOG.info("Detected MCP=" + mcp);
             // Parse ports, resolve effective colour/commands, and start the frame server via MConnector
-            MConnector.Resolved<MConnector.FrameReceiver> res = conn.startFrameServerFromLogs(
-                    proc.getInputStream(), Duration.ofSeconds(60), MConnector.FrameReceiver::new, "ColourMapServer");
-            server = res.server;
-            // Gently rotate the agent to avoid sky-only views, using detected commands port or the one we set.
-            int cmdPort = res.cmdPort;
+        MConnector.Resolved<MConnector.FrameReceiver> res = conn.startFrameServerFromLogs(
+                proc.getInputStream(), Duration.ofSeconds(60), MConnector.FrameReceiver::new, "ColourMapServer");
+        server = res.server;
+        // Gently rotate the agent to avoid sky-only views, using detected commands port or the one we set.
+        int cmdPort = res.cmdPort;
+        // Start normal video capture (saves to images/video)
+        conn.startVideoServer();
             // Slow down rotation 4x to reduce sky-only frames and allow scene stabilization.
             // Optional: disable rotation to isolate view-related variance
             boolean noRotate = Boolean.parseBoolean(System.getProperty("seg.test.noRotate", System.getenv().getOrDefault("RUN_SEG_NO_ROTATE", "false")));
@@ -181,64 +183,9 @@ public class MinecraftSegmentationTestMain {
         } else {
             LOG.info("Skipping tail diversity check: frames=" + server.getFrameCount() + ", need>=" + (tailFrames + graceFrames));
         }
-        // Check per-type consistency at central pixel via ObservationFromRay
-        java.util.Map<String, java.util.Map<Integer,Integer>> perTypeCounts = server.getBlockTypeToColourCounts();
-        int inconsistent = 0; int withSamples = 0;
-        for (java.util.Map.Entry<String, java.util.Map<Integer,Integer>> e : perTypeCounts.entrySet()) {
-            int total = e.getValue().values().stream().mapToInt(Integer::intValue).sum();
-            if (total == 0) continue;
-            withSamples++;
-            int dominant = e.getValue().values().stream().mapToInt(Integer::intValue).max().orElse(0);
-            double domFrac = total > 0 ? (dominant * 1.0 / total) : 1.0;
-            // Restore Malmo-like strictness: if a type appears with multiple
-            // colours and no clear dominant (>=80%), count as inconsistent.
-            if (e.getValue().size() > 1 && domFrac < 0.8) inconsistent++;
-        }
-        // Fail if any type is inconsistent once we have at least 2 sampled types.
-        if (withSamples >= 2 && inconsistent > 0) {
-            LOG.info("Per-type colours summary:" );
-            for (java.util.Map.Entry<String, java.util.Map<Integer,Integer>> e : perTypeCounts.entrySet()) {
-                java.util.List<String> cols = new java.util.ArrayList<>();
-                e.getValue().entrySet().stream().limit(10).forEach(en -> cols.add(String.format("#%06X(x%d)", en.getKey(), en.getValue())));
-                LOG.info("  type=" + e.getKey() + " colours=" + e.getValue().size() + " sample=" + cols);
-            }
-            String msg = "ObservationFromRay consistency failed: " + inconsistent + " types have multiple dominant colours (<80% dominance)";
-            LOG.severe(msg);
-            throw new AssertionError(msg);
-        }
-        LOG.info("Per-type colours summary:" );
-        for (java.util.Map.Entry<String, java.util.Map<Integer,Integer>> e : perTypeCounts.entrySet()) {
-            java.util.List<String> cols = new java.util.ArrayList<>();
-            e.getValue().entrySet().stream().limit(10).forEach(en -> cols.add(String.format("#%06X(x%d)", en.getKey(), en.getValue())));
-            LOG.info("  type=" + e.getKey() + " colours=" + e.getValue().size() + " sample=" + cols);
-        }
-
-        // Enforce colour->block-type uniqueness: for block types (namespaced ids),
-        // each observed colour must map to exactly one block type.
-        java.util.Map<Integer, java.util.Set<String>> colourToBlockTypes = new java.util.HashMap<>();
-        for (java.util.Map.Entry<String, java.util.Map<Integer,Integer>> e : perTypeCounts.entrySet()) {
-            String type = e.getKey();
-            boolean isBlockType = type.contains(":");
-            if (!isBlockType) continue;
-            for (java.util.Map.Entry<Integer,Integer> ce : e.getValue().entrySet()) {
-                colourToBlockTypes.computeIfAbsent(ce.getKey(), k -> new java.util.HashSet<>()).add(type);
-            }
-        }
-        int colourCollisions = 0;
-        for (java.util.Map.Entry<Integer, java.util.Set<String>> c : colourToBlockTypes.entrySet()) {
-            if (c.getValue().size() > 1) colourCollisions++;
-        }
-        if (colourCollisions > 0) {
-            LOG.info("Colour->types summary (collisions):");
-            for (java.util.Map.Entry<Integer, java.util.Set<String>> c : colourToBlockTypes.entrySet()) {
-                if (c.getValue().size() <= 1) continue;
-                java.util.List<String> types = new java.util.ArrayList<>(c.getValue());
-                LOG.info("  colour=#" + String.format("%06X", c.getKey()) + " blockTypes=" + c.getValue().size() + " sample=" + types);
-            }
-            String msg = "Colour uniqueness failed: " + colourCollisions + " colours mapped to multiple block types";
-            LOG.severe(msg);
-            throw new AssertionError(msg);
-        }
+        // ObservationFromRay-based assertions (post-grace window)
+        SegmentationTestBase.assertObservationFromRayConsistency(server, LOG, "main", 0.8, 2);
+        SegmentationTestBase.assertColourToBlockTypeUniqueness(server, LOG, "main");
         LOG.info("PASS: segmentation had non-black/diverse colours; per-type consistent and colour->type unique");
         } finally {
             // Ensure Minecraft + Xvfb are terminated

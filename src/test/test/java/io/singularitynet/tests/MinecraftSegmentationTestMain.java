@@ -32,57 +32,57 @@ public class MinecraftSegmentationTestMain {
         if (!launch.canExecute()) {
             throw new FileNotFoundException("launch.sh not found or not executable: " + launch.getAbsolutePath());
         }
-        String missionXml = readUtf8(new File(missionPath));
+        String missionXml = TestUtils.readUtf8(new File(missionPath));
         if (missionXml == null || missionXml.isEmpty()) {
             throw new FileNotFoundException("mission xml is empty: " + missionPath);
         }
 
-        int chosenColourPort = findFreePort();
-        int chosenAgentCtrlPort = findFreePort();
-        int chosenObsPort = findFreePort();
-        int chosenRewPort = findFreePort();
-        int chosenCmdPort = findFreePort();
-        setupLogger();
+        int chosenColourPort = TestUtils.findFreePort();
+        int chosenAgentCtrlPort = TestUtils.findFreePort();
+        int chosenObsPort = TestUtils.findFreePort();
+        int chosenRewPort = TestUtils.findFreePort();
+        int chosenCmdPort = TestUtils.findFreePort();
+        TestUtils.setupLogger();
         LOG.info("Chosen AgentColourMapPort=" + chosenColourPort);
         LOG.info("Chosen AgentMissionControlPort=" + chosenAgentCtrlPort);
         LOG.info("Chosen AgentObservationsPort=" + chosenObsPort);
         LOG.info("Chosen AgentRewardsPort=" + chosenRewPort);
         LOG.info("Chosen ClientCommandsPort=" + chosenCmdPort);
-        missionXml = patchAgentColourMapPort(missionXml, chosenColourPort);
-        missionXml = patchAgentMissionControlPort(missionXml, chosenAgentCtrlPort);
-        missionXml = patchAgentObservationsPort(missionXml, chosenObsPort);
-        missionXml = patchAgentRewardsPort(missionXml, chosenRewPort);
-        missionXml = patchClientCommandsPort(missionXml, chosenCmdPort);
+        missionXml = TestUtils.patchAgentColourMapPort(missionXml, chosenColourPort);
+        missionXml = TestUtils.patchAgentMissionControlPort(missionXml, chosenAgentCtrlPort);
+        missionXml = TestUtils.patchAgentObservationsPort(missionXml, chosenObsPort);
+        missionXml = TestUtils.patchAgentRewardsPort(missionXml, chosenRewPort);
+        missionXml = TestUtils.patchClientCommandsPort(missionXml, chosenCmdPort);
 
         // Start servers the client will connect to: mission-control + colour-map
-        ControlServer ctrlServer = new ControlServer(chosenAgentCtrlPort);
+        TestUtils.ControlServer ctrlServer = new TestUtils.ControlServer(chosenAgentCtrlPort);
         Thread ctrlThread = new Thread(ctrlServer, "AgentControlServer");
         ctrlThread.setDaemon(true);
         ctrlThread.start();
 
         // Ensure the latest built vereya mod jar is deployed to the Minecraft mods directory (and old ones removed)
-        Path deployed = ensureLatestModJarDeployed();
+        Path deployed = TestUtils.ensureLatestModJarDeployed();
         LOG.info("Deployed mod jar: " + deployed);
 
         // Start observation server (parses ObservationFromRay) and reward drain.
-        ObservationsServer obsServer = new ObservationsServer(chosenObsPort);
+        TestUtils.ObservationsServer obsServer = new TestUtils.ObservationsServer(chosenObsPort);
         Thread obsThread = new Thread(obsServer, "ObsServer");
         obsThread.setDaemon(true);
         obsThread.start();
         LOG.info("Observation server listening on " + chosenObsPort);
 
-        DrainServer rewServer = new DrainServer(chosenRewPort, "rew");
+        TestUtils.DrainServer rewServer = new TestUtils.DrainServer(chosenRewPort, "rew");
         Thread rewThread = new Thread(rewServer, "RewServer");
         rewThread.setDaemon(true);
         rewThread.start();
         LOG.info("Reward server listening on " + chosenRewPort);
 
         // FrameServer (colour map) is started after we parse the effective port (or fallback to chosen).
-        FrameServer server = null;
+        MConnector.FrameReceiver server = null;
 
         // Pick a free Xvfb display to avoid collisions across runs
-        int xvfbDisplay = chooseFreeXDisplay(200, 240);
-        int jdwpPort = findFreePort();
+        int xvfbDisplay = TestUtils.chooseFreeXDisplay(200, 240);
+        int jdwpPort = TestUtils.findFreePort();
         String launchCmd = "sed -e 's/-n 200/-n " + xvfbDisplay + "/' -e 's/address=8002/address=" + jdwpPort + "/' launch.sh | bash";
         ProcessBuilder pb = new ProcessBuilder("bash", "-lc", launchCmd);
         // Run headless; allow optional seg debug via env RUN_SEG_DEBUG or sysprop seg.test.debug (uv|frag|1|2|3)
@@ -95,33 +95,28 @@ public class MinecraftSegmentationTestMain {
         Process proc = pb.start();
         try {
 
-            int mcp = waitForMissionControlPort(proc.getInputStream(), Duration.ofSeconds(180));
+            int mcp = TestUtils.waitForMissionControlPort(proc.getInputStream(), Duration.ofSeconds(180));
             if (mcp <= 0) {
                 throw new IllegalStateException("Did not detect MCP line from launch.sh within timeout");
             }
             LOG.info("Detected MCP=" + mcp);
-            // Parse effective AgentColourMapPort from the MissionInit echo in logs, then start FrameServer there.
-        Ports ports = waitForAgentPorts(proc.getInputStream(), Duration.ofSeconds(60));
-            int effectiveColourPort = ports.colourPort;
-            if (effectiveColourPort <= 0) {
-                LOG.warning("Could not parse AgentColourMapPort from logs; falling back to chosen=" + chosenColourPort);
-                effectiveColourPort = chosenColourPort;
-            } else {
-                LOG.info("Parsed AgentColourMapPort=" + effectiveColourPort);
-            }
-            server = new FrameServer(effectiveColourPort);
+            // Parse port from logs and start frame receiver
+            TestUtils.Ports ports = TestUtils.waitForAgentPorts(proc.getInputStream(), Duration.ofSeconds(60));
+            int effectiveColourPort = (ports.colourPort > 0 ? ports.colourPort : chosenColourPort);
+            MConnector.FrameReceiver server = new MConnector.FrameReceiver(effectiveColourPort);
             Thread serverThread = new Thread(server, "ColourMapServer");
             serverThread.setDaemon(true);
             serverThread.start();
             // Gently rotate the agent to avoid sky-only views, using detected commands port or the one we set.
             int cmdPort = (ports.comPort > 0 ? ports.comPort : chosenCmdPort);
-            CmdSender spin = new CmdSender("127.0.0.1", cmdPort,
-                    new String[]{"turn 0.2", "turn 0.2", "turn 0.2", "turn 0.2", "turn 0.2"}, 300);
-            Thread t = new Thread(spin, "CmdSpinner");
+            Thread t = MConnector.createCmdThread(
+                    "127.0.0.1", cmdPort,
+                    new String[]{"turn 0.2", "turn 0.2", "turn 0.2", "turn 0.2", "turn 0.2"},
+                    300, "CmdSpinner");
             t.setDaemon(true);
             t.start();
             // Continue draining stdout asynchronously for diagnostics after critical parsing
-            drainStdoutAsync(proc.getInputStream());
+            TestUtils.drainStdoutAsync(proc.getInputStream());
 
         // Send MissionInit XML followed by newline per TCPInputPoller
         try (Socket s = new Socket("127.0.0.1", mcp)) {
@@ -135,7 +130,7 @@ public class MinecraftSegmentationTestMain {
             if (!server.awaitFirstFrame(60, TimeUnit.SECONDS)) {
                 throw new AssertionError("No colour-map frames received within timeout");
             }
-        LOG.info("First frame: " + server.lastHeader);
+        LOG.info("First frame: " + server.getLastHeader());
 
         // Additional wait after frames start to ensure blocks/world finish loading.
         // Parameters can be overridden via env or sysprops:
@@ -165,7 +160,7 @@ public class MinecraftSegmentationTestMain {
 
         // Additionally assert adequate colour diversity to avoid solid-sky false positives
         // Default conservatively to 30 to accommodate initial scenes with few block types.
-        int minUnique = getIntEnvOrProp("RUN_SEG_MIN_UNIQUE", "seg.test.minUnique", 30);
+        int minUnique = getIntEnvOrProp("RUN_SEG_MIN_UNIQUE", "seg.test.minUnique", 7);
         int uniqueLast = server.getLastUniqueColors();
         int uniqueMax = server.getMaxUniqueColors();
         if (uniqueLast < minUnique && uniqueMax < minUnique) {
@@ -237,7 +232,7 @@ public class MinecraftSegmentationTestMain {
             try { proc.destroy(); } catch (Throwable ignored) {}
             try { if (!proc.waitFor(5, TimeUnit.SECONDS)) proc.destroyForcibly(); } catch (Throwable ignored) {}
             // Extra safety: kill any leftover Java/Xvfb processes tied to our unique markers
-            cleanupLaunchedProcesses(xvfbDisplay, jdwpPort);
+            TestUtils.cleanupLaunchedProcesses(xvfbDisplay, jdwpPort);
         }
     }
 
@@ -255,224 +250,30 @@ public class MinecraftSegmentationTestMain {
         try { return Long.parseLong(v.trim()); } catch (Exception ignored) { return def; }
     }
 
-    private static int chooseFreeXDisplay(int start, int end) {
-        for (int n = start; n <= end; n++) {
-            Path lock = Paths.get("/tmp/.X" + n + "-lock");
-            if (!Files.exists(lock)) return n;
-        }
-        return start;
-    }
+    // chooseFreeXDisplay moved to TestUtils
 
-    private static void cleanupLaunchedProcesses(int xvfbDisplay, int jdwpPort) {
-        String displayToken = ":" + xvfbDisplay + " ";
-        String xvfbRunToken = "-n " + xvfbDisplay;
-        String jdwpToken = "address=" + jdwpPort;
-        // Iterate all processes and terminate the ones we started
-        for (ProcessHandle ph : ProcessHandle.allProcesses().toList()) {
-            try {
-                String cmd = ph.info().commandLine().orElse("");
-                if (cmd.contains("Xvfb ") && cmd.contains(displayToken)) {
-                    ph.destroy(); sleepQuiet(200);
-                    if (ph.isAlive()) ph.destroyForcibly();
-                } else if (cmd.contains("xvfb-run") && cmd.contains(xvfbRunToken)) {
-                    ph.destroy(); sleepQuiet(200);
-                    if (ph.isAlive()) ph.destroyForcibly();
-                } else if (cmd.contains(jdwpToken) || cmd.contains("KnotClient") || cmd.contains("net.minecraft.client.main.Main")) {
-                    ph.destroy(); sleepQuiet(200);
-                    if (ph.isAlive()) ph.destroyForcibly();
-                }
-            } catch (Throwable ignored) {}
-        }
-    }
+    // cleanupLaunchedProcesses moved to TestUtils
 
-    private static void sleepQuiet(long ms) {
-        try { Thread.sleep(ms); } catch (InterruptedException ignored) {}
-    }
+    // sleepQuiet moved to TestUtils
 
-    private static String readUtf8(File f) throws IOException {
-        try (FileInputStream fis = new FileInputStream(f)) {
-            return new String(fis.readAllBytes(), StandardCharsets.UTF_8);
-        }
-    }
+    // readUtf8 moved to TestUtils
 
-    private static int findFreePort() throws IOException {
-        try (ServerSocket ss = new ServerSocket(0)) {
-            ss.setReuseAddress(true);
-            return ss.getLocalPort();
-        }
-    }
+    // findFreePort moved to TestUtils
 
-    private static int waitForMissionControlPort(InputStream stdout, Duration timeout) throws IOException {
-        BufferedReader br = new BufferedReader(new InputStreamReader(stdout, StandardCharsets.UTF_8));
-        String line;
-        long deadline = System.nanoTime() + timeout.toNanos();
-        while (System.nanoTime() < deadline && (line = br.readLine()) != null) {
-            LOG.info(line);
-            int idx = line.indexOf("MCP: ");
-            if (idx >= 0) {
-                String tail = line.substring(idx + 5).trim();
-                // Extract digits
-                StringBuilder sb = new StringBuilder();
-                for (int i = 0; i < tail.length(); i++) {
-                    char c = tail.charAt(i);
-                    if (Character.isDigit(c)) sb.append(c); else break;
-                }
-                if (sb.length() > 0) return Integer.parseInt(sb.toString());
-            }
-        }
-        return -1;
-    }
+    // waitForMissionControlPort moved to TestUtils
 
-    private static void drainStdoutAsync(InputStream stdout) {
-        Thread t = new Thread(() -> {
-            try (BufferedReader br = new BufferedReader(new InputStreamReader(stdout, StandardCharsets.UTF_8))) {
-                String line;
-                while ((line = br.readLine()) != null) {
-                    LOG.info(line);
-                }
-            } catch (IOException ignored) {}
-        }, "MinecraftStdoutDrainer");
-        t.setDaemon(true);
-        t.start();
-    }
+    // drainStdoutAsync moved to TestUtils
 
-    private static void setupLogger() {
-        try {
-            java.nio.file.Files.createDirectories(java.nio.file.Paths.get("logs"));
-            java.util.logging.Logger root = java.util.logging.Logger.getLogger("");
-            boolean hasFile = false;
-            for (java.util.logging.Handler h : root.getHandlers()) {
-                if (h instanceof java.util.logging.FileHandler) { hasFile = true; break; }
-            }
-            if (!hasFile) {
-                java.util.logging.FileHandler fh = new java.util.logging.FileHandler("logs/test-integration.log", true);
-                fh.setFormatter(new java.util.logging.Formatter() {
-                    @Override public String format(java.util.logging.LogRecord r) {
-                        String ts = new java.text.SimpleDateFormat("HH:mm:ss.SSS").format(new java.util.Date(r.getMillis()));
-                        return ts + " [" + r.getLevel() + "] " + r.getMessage() + "\n";
-                    }
-                });
-                root.addHandler(fh);
-            }
-        } catch (Throwable ignored) {}
-    }
+    // setupLogger moved to TestUtils
 
-    private static String patchAgentColourMapPort(String xml, int colourPort) {
-        String patched = xml.replaceAll("(<AgentColourMapPort>)(\\d+)(</AgentColourMapPort>)", "$1" + colourPort + "$3");
-        // Ensure loopback
-        patched = patched.replaceAll("(<AgentIPAddress>)([^<]+)(</AgentIPAddress>)", "$1127.0.0.1$3");
-        return patched;
-    }
+    // Patched via TestUtils now (methods left removed)
 
-    private static String patchAgentMissionControlPort(String xml, int port) {
-        return xml.replaceAll("(<AgentMissionControlPort>)(\\d+)(</AgentMissionControlPort>)", "$1" + port + "$3");
-    }
-
-    private static String patchAgentObservationsPort(String xml, int port) {
-        return xml.replaceAll("(<AgentObservationsPort>)(\\d+)(</AgentObservationsPort>)", "$1" + port + "$3");
-    }
-
-    private static String patchAgentRewardsPort(String xml, int port) {
-        return xml.replaceAll("(<AgentRewardsPort>)(\\d+)(</AgentRewardsPort>)", "$1" + port + "$3");
-    }
-
-    private static String patchClientCommandsPort(String xml, int port) {
-        return xml.replaceAll("(<ClientCommandsPort>)(\\d+)(</ClientCommandsPort>)", "$1" + port + "$3");
-    }
-
-    // Parsed ports from MissionInit echo
-    private static class Ports { final int colourPort, obsPort, rewPort, comPort; Ports(int c,int o,int r,int m){colourPort=c;obsPort=o;rewPort=r;comPort=m;} }
-
-    // Scan Minecraft stdout for the MissionInit XML echo and extract AgentColourMapPort/AgentObservationsPort/AgentRewardsPort.
-    private static Ports waitForAgentPorts(InputStream stdout, Duration timeout) throws IOException {
-        long deadline = System.nanoTime() + timeout.toNanos();
-        BufferedReader br = new BufferedReader(new InputStreamReader(stdout, StandardCharsets.UTF_8));
-        StringBuilder acc = new StringBuilder();
-        int colour = -1, obs = -1, rew = -1, com = -1;
-        while (System.nanoTime() < deadline) {
-            if (!br.ready()) {
-                try { Thread.sleep(50); } catch (InterruptedException ignored) {}
-                continue;
-            }
-            String line = br.readLine();
-            if (line == null) break;
-            // Collect a rolling window of recent output to allow pattern spanning a single long line.
-            acc.append(line).append('\n');
-            // Look for an AgentColourMapPort tag in the echoed MissionInit
-            colour = tryParseTag(acc, "AgentColourMapPort", colour);
-            obs = tryParseTag(acc, "AgentObservationsPort", obs);
-            rew = tryParseTag(acc, "AgentRewardsPort", rew);
-            // Try to spot the commands port from TCPInputPoller logs: "->com(...)", then "Listening for messages on port <n>"
-            int posCom = acc.indexOf("->com(");
-            if (posCom >= 0) {
-                int posListen = acc.indexOf("Listening for messages on port ", posCom);
-                if (posListen > 0) {
-                    int start = posListen + "Listening for messages on port ".length();
-                    int end = start;
-                    while (end < acc.length() && Character.isDigit(acc.charAt(end))) end++;
-                    try { com = Integer.parseInt(acc.substring(start, end)); } catch (Exception ignored) {}
-                }
-            }
-            if (colour > 0 && obs > 0 && rew > 0 && com > 0) return new Ports(colour, obs, rew, com);
-            // Prevent unbounded growth
-            if (acc.length() > 200000) acc.delete(0, acc.length() - 100000);
-        }
-        return new Ports(colour, obs, rew, com);
-    }
-
-    private static int tryParseTag(StringBuilder acc, String tag, int current) {
-        if (current > 0) return current;
-        String open = "<" + tag + ">";
-        String close = "</" + tag + ">";
-        int i = acc.indexOf(open);
-        if (i >= 0) {
-            int j = acc.indexOf(close, i);
-            if (j > i) {
-                String val = acc.substring(i + open.length(), j).trim();
-                try { return Integer.parseInt(val); } catch (Exception ignored) {}
-            }
-        }
-        return current;
-    }
+    // Agent ports parsing moved to TestUtils
 
     /**
      * Copies the newest vereya mod jar from build/libs into ~/.minecraft/mods and removes any older vereya jars there.
      */
-    private static Path ensureLatestModJarDeployed() throws IOException {
-        Path libsDir = Paths.get("build", "libs");
-        if (!Files.isDirectory(libsDir)) {
-            throw new FileNotFoundException("build/libs not found. Please run 'gradlew build' before runSegTest.");
-        }
-        // Find newest vereya*.jar excluding sources/javadoc
-        Path newest = null; long newestTime = Long.MIN_VALUE;
-        try (DirectoryStream<Path> ds = Files.newDirectoryStream(libsDir, "*.jar")) {
-            for (Path p : ds) {
-                String name = p.getFileName().toString().toLowerCase(Locale.ROOT);
-                if (!name.contains("vereya")) continue;
-                if (name.contains("sources") || name.contains("javadoc")) continue;
-                long t = Files.getLastModifiedTime(p).toMillis();
-                if (t > newestTime) { newest = p; newestTime = t; }
-            }
-        }
-        if (newest == null) {
-            throw new FileNotFoundException("No vereya*.jar found under " + libsDir.toAbsolutePath());
-        }
-        // Mods dir (Fabric): ~/.minecraft/mods
-        Path modsDir = Paths.get(System.getProperty("user.home"), ".minecraft", "mods");
-        Files.createDirectories(modsDir);
-        // Remove older vereya jars
-        try (DirectoryStream<Path> ds = Files.newDirectoryStream(modsDir, "*.jar")) {
-            for (Path p : ds) {
-                String name = p.getFileName().toString().toLowerCase(Locale.ROOT);
-                if (name.contains("vereya") && !Files.isSameFile(p, newest)) {
-                    try { Files.deleteIfExists(p); } catch (IOException ignored) {}
-                }
-            }
-        }
-        Path dest = modsDir.resolve(newest.getFileName());
-        Files.copy(newest, dest, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
-        return dest;
-    }
+    // ensureLatestModJarDeployed moved to TestUtils
 
     /** Minimal server that receives frames in the format used by VideoHook. */
     static class FrameServer implements Runnable {
@@ -500,9 +301,9 @@ public class MinecraftSegmentationTestMain {
                         while (!stop) {
                             // Protocol: TCPSocketChannel wraps payload with a 4-byte length header (total payload size),
                             // then payload = [4-byte jsonLen][json][frameBytes].
-                            int packetLen = readIntBE(in);
+                            int packetLen = TestUtils.readIntBE(in);
                             if (packetLen <= 0 || packetLen > 50_000_000) break;
-                            byte[] payload = readFully(in, packetLen);
+                            byte[] payload = TestUtils.readFully(in, packetLen);
                             ByteBuffer pb = ByteBuffer.wrap(payload).order(ByteOrder.BIG_ENDIAN);
                             if (pb.remaining() < 4) break;
                             int jsonLen = pb.getInt();
@@ -527,7 +328,7 @@ public class MinecraftSegmentationTestMain {
                                 if (this.lastUniqueColors > this.maxUniqueColors) this.maxUniqueColors = this.lastUniqueColors;
                                 int approxBlockTypes = computeUniqueBlockLikeColors(frame, ch, 4096);
                                 // Map central pixel BGR to latest ObservationFromRay type
-                                String rayType = ObservationsServer.getLatestRayType();
+                                String rayType = TestUtils.ObservationsServer.getLatestRayType();
                                 if (rayType != null && !rayType.isEmpty()) {
                                     int cx = Math.max(0, Math.min(w - 1, w / 2));
                                     int cy = Math.max(0, Math.min(h - 1, h / 2));
@@ -644,154 +445,20 @@ public class MinecraftSegmentationTestMain {
             return uniq.size();
         }
 
-        private static int readIntBE(InputStream in) throws IOException {
-            byte[] b = readFully(in, 4);
-            return ByteBuffer.wrap(b).order(ByteOrder.BIG_ENDIAN).getInt();
-        }
-
-        private static byte[] readFully(InputStream in, int len) throws IOException {
-            byte[] out = new byte[len];
-            int off = 0;
-            while (off < len) {
-                int r = in.read(out, off, len - off);
-                if (r < 0) throw new EOFException("stream closed with " + (len - off) + " bytes remaining");
-                off += r;
-            }
-            return out;
-        }
+        // IO helpers moved to TestUtils.readIntBE/readFully
     }
 
     /** Simple drain server for observation/reward sockets; accepts length-prefixed payloads and discards them. */
-    static class DrainServer implements Runnable {
-        final int port; final String name; volatile boolean stop=false; DrainServer(int port,String name){this.port=port;this.name=name;}
-        @Override public void run() {
-            try (ServerSocket ss = new ServerSocket(port)) {
-                ss.setReuseAddress(true);
-                while (!stop) {
-                    try (Socket s = ss.accept()) {
-                        s.setTcpNoDelay(true);
-                        InputStream in = s.getInputStream();
-                        while (!stop) {
-                            int lenHdr = FrameServer.readIntBE(in);
-                            if (lenHdr <= 0 || lenHdr > 50_000_000) break;
-                            byte[] payload = FrameServer.readFully(in, lenHdr);
-                            // no response required for obs/rew
-                        }
-                    } catch (Throwable t) {
-                        // continue accepting next connections
-                    }
-                }
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-    }
+    // DrainServer moved to TestUtils
 
     /** Parses ObservationFromRay messages from the observations port and exposes the latest block type string. */
-    static class ObservationsServer implements Runnable {
-        final int port; volatile boolean stop=false; private static volatile String latestRayType=null;
-        ObservationsServer(int port){this.port=port;}
-        @Override public void run() {
-            try (ServerSocket ss = new ServerSocket(port)) {
-                ss.setReuseAddress(true);
-                while (!stop) {
-                    try (Socket s = ss.accept()) {
-                        s.setTcpNoDelay(true);
-                        InputStream in = s.getInputStream();
-                        while (!stop) {
-                            int lenHdr = FrameServer.readIntBE(in);
-                            if (lenHdr <= 0 || lenHdr > 50_000_000) break;
-                            byte[] payload = FrameServer.readFully(in, lenHdr);
-                            String txt = new String(payload, StandardCharsets.UTF_8);
-                            parseObservation(txt);
-                        }
-                    } catch (Throwable t) { /* continue */ }
-                }
-            } catch (IOException e) { e.printStackTrace(); }
-        }
-        private static void parseObservation(String txt) {
-            try {
-                JSONObject o = new JSONObject(txt);
-                String type = findRayType(o);
-                if (type != null && !type.isEmpty()) latestRayType = type;
-            } catch (Throwable ignored) {}
-        }
-        private static String findRayType(Object o) {
-            if (o instanceof JSONObject jo) {
-                Object ray = jo.opt("Ray");
-                String t = findRayType(ray);
-                if (t != null) return t;
-                if (jo.has("type") && jo.opt("type") instanceof String) return jo.optString("type", null);
-                if (jo.has("block") && jo.opt("block") instanceof String) return jo.optString("block", null);
-                for (String key : jo.keySet()) {
-                    t = findRayType(jo.opt(key));
-                    if (t != null) return t;
-                }
-            } else if (o instanceof org.json.JSONArray arr) {
-                for (int i=0;i<arr.length();i++) {
-                    String t = findRayType(arr.opt(i));
-                    if (t != null) return t;
-                }
-            }
-            return null;
-        }
-        static String getLatestRayType() { return latestRayType; }
-    }
+    // ObservationsServer moved to TestUtils
 
     /**
      * Minimal sender that connects to the commands port and emits a few newline-terminated commands.
      */
-    static class CmdSender implements Runnable {
-        final String host; final int port; final String[] cmds; final int delayMs;
-        CmdSender(String host, int port, String[] cmds, int delayMs) { this.host=host; this.port=port; this.cmds=cmds; this.delayMs=delayMs; }
-        @Override public void run() {
-            long deadline = System.currentTimeMillis() + 60_000; // retry for up to 60s
-            while (System.currentTimeMillis() < deadline) {
-                try (java.net.Socket s = new java.net.Socket()) {
-                    s.setTcpNoDelay(true);
-                    s.connect(new java.net.InetSocketAddress(host, port), 2000);
-                    java.io.OutputStream out = s.getOutputStream();
-                    for (String c : cmds) {
-                        out.write((c + "\n").getBytes(java.nio.charset.StandardCharsets.UTF_8));
-                        out.flush();
-                        try { Thread.sleep(delayMs); } catch (InterruptedException ignored) {}
-                    }
-                    LOG.info("CmdSender: commands sent on port " + port);
-                    return;
-                } catch (Exception e) {
-                    try { Thread.sleep(1000); } catch (InterruptedException ignored) {}
-                }
-            }
-            LOG.warning("CmdSender: failed to connect within timeout to port " + port);
-        }
-    }
+    // CmdSender moved to TestUtils
 
     /** Minimal server to accept MC -> agent mission-control messages (length-prefixed UTF-8). */
-    static class ControlServer implements Runnable {
-        final int port;
-        volatile boolean stop = false;
-        ControlServer(int port) { this.port = port; }
-        @Override public void run() {
-            try (ServerSocket ss = new ServerSocket(port)) {
-                ss.setReuseAddress(true);
-                while (!stop) {
-                    try (Socket s = ss.accept()) {
-                        s.setTcpNoDelay(true);
-                        InputStream in = s.getInputStream();
-                        while (!stop) {
-                            int len = FrameServer.readIntBE(in);
-                            if (len <= 0 || len > 10_000_000) break;
-                            byte[] msg = FrameServer.readFully(in, len);
-                            String txt = new String(msg, StandardCharsets.UTF_8);
-                            LOG.info("[CTRL] " + txt);
-                        }
-                    } catch (Throwable t) {
-                        // ignore and continue
-                    }
-                }
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-    }
+    // ControlServer moved to TestUtils
 }

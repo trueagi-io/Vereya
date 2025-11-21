@@ -102,7 +102,9 @@ public class MinecraftSegmentationTestMain {
 
             // Await first frame
             if (!server.awaitFirstFrame(60, TimeUnit.SECONDS)) {
-                throw new AssertionError("No colour-map frames received within timeout");
+                String msg = "No colour-map frames received within timeout";
+                LOG.severe(msg);
+                throw new AssertionError(msg);
             }
         LOG.info("First frame: " + server.getLastHeader());
 
@@ -140,7 +142,9 @@ public class MinecraftSegmentationTestMain {
             nonBlack = true;
         }
         if (!nonBlack) {
-            throw new AssertionError("Received colour-map frame was entirely black (all RGB zeros)");
+            String msg = "Received colour-map frame was entirely black (all RGB zeros)";
+            LOG.severe(msg);
+            throw new AssertionError(msg);
         }
 
         // Additionally assert adequate colour diversity to avoid solid-sky false positives
@@ -156,7 +160,9 @@ public class MinecraftSegmentationTestMain {
             uniqueMax = server.getMaxUniqueColors();
         }
         if (uniqueLast < minUnique && uniqueMax < minUnique) {
-            throw new AssertionError("Colour diversity too low (last=" + uniqueLast + ", max=" + uniqueMax + ", required>=" + minUnique + ")");
+            String msg = "Colour diversity too low (last=" + uniqueLast + ", max=" + uniqueMax + ", required>=" + minUnique + ")";
+            LOG.severe(msg);
+            throw new AssertionError(msg);
         }
 
         // Additional tail-stability check: ensure latter frames maintain sufficient diversity.
@@ -168,7 +174,9 @@ public class MinecraftSegmentationTestMain {
             int tailAvg = server.getTailAvgUnique(tailFrames);
             LOG.info("Tail diversity over last " + tailFrames + " frames: min=" + tailMin + ", avg=" + tailAvg + ", required>=" + tailMinRequired);
             if (tailMin < tailMinRequired) {
-                throw new AssertionError("Tail colour diversity too low (minLastN=" + tailMin + ", lastN=" + tailFrames + ", required>=" + tailMinRequired + ")");
+                String msg = "Tail colour diversity too low (minLastN=" + tailMin + ", lastN=" + tailFrames + ", required>=" + tailMinRequired + ")";
+                LOG.severe(msg);
+                throw new AssertionError(msg);
             }
         } else {
             LOG.info("Skipping tail diversity check: frames=" + server.getFrameCount() + ", need>=" + (tailFrames + graceFrames));
@@ -194,7 +202,9 @@ public class MinecraftSegmentationTestMain {
                 e.getValue().entrySet().stream().limit(10).forEach(en -> cols.add(String.format("#%06X(x%d)", en.getKey(), en.getValue())));
                 LOG.info("  type=" + e.getKey() + " colours=" + e.getValue().size() + " sample=" + cols);
             }
-            throw new AssertionError("ObservationFromRay consistency failed: " + inconsistent + " types have multiple dominant colours (<80% dominance)");
+            String msg = "ObservationFromRay consistency failed: " + inconsistent + " types have multiple dominant colours (<80% dominance)";
+            LOG.severe(msg);
+            throw new AssertionError(msg);
         }
         LOG.info("Per-type colours summary:" );
         for (java.util.Map.Entry<String, java.util.Map<Integer,Integer>> e : perTypeCounts.entrySet()) {
@@ -225,7 +235,9 @@ public class MinecraftSegmentationTestMain {
                 java.util.List<String> types = new java.util.ArrayList<>(c.getValue());
                 LOG.info("  colour=#" + String.format("%06X", c.getKey()) + " blockTypes=" + c.getValue().size() + " sample=" + types);
             }
-            throw new AssertionError("Colour uniqueness failed: " + colourCollisions + " colours mapped to multiple block types");
+            String msg = "Colour uniqueness failed: " + colourCollisions + " colours mapped to multiple block types";
+            LOG.severe(msg);
+            throw new AssertionError(msg);
         }
         LOG.info("PASS: segmentation had non-black/diverse colours; per-type consistent and colour->type unique");
         } finally {

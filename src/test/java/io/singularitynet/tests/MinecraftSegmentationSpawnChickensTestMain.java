@@ -62,37 +62,86 @@ public class MinecraftSegmentationSpawnChickensTestMain {
             TestUtils.drainStdoutAsync(proc.getInputStream());
 
             conn.sendMissionInit("127.0.0.1", mcp);
-            if (!server.awaitFirstFrame(60, TimeUnit.SECONDS)) throw new AssertionError("No colour-map frames within timeout");
+            if (!server.awaitFirstFrame(60, TimeUnit.SECONDS)) {
+                String msg = "No colour-map frames within timeout";
+                LOG.severe(msg);
+                throw new AssertionError(msg);
+            }
             LOG.info("First frame: " + server.getLastHeader());
 
-            // No rotation — collect baseline immediately before spawning
+            // No rotation — first, collect a baseline and then wait until the
+            // unique-colour count stabilizes for N consecutive frames.
             int preSpawnFrames = Integer.getInteger("seg.test.preSpawnFrames", 30);
-            if (preSpawnFrames > 0) {
-                server.awaitFramesAtLeast(preSpawnFrames, 60, TimeUnit.SECONDS);
-                LOG.info("Pre-spawn baseline: frames=" + server.getFrameCount()
-                        + " uniq(last/max)=" + server.getLastUniqueColors() + "/" + server.getMaxUniqueColors()
-                        + " entity_uniq(last/max)=" + server.getLastEntityLikeUniqueColors() + "/" + server.getMaxEntityLikeUniqueColors());
+            if (preSpawnFrames > 0) server.awaitFramesAtLeast(preSpawnFrames, 60, TimeUnit.SECONDS);
+            int stableFrames = Integer.getInteger("seg.test.stableFrames", Integer.getInteger("RUN_SEG_STABLE_FRAMES", 10));
+            long stableTimeoutSec = Long.getLong("seg.test.stableTimeoutSec", Long.getLong("RUN_SEG_STABLE_TIMEOUT_SEC", 120L));
+            long stableDeadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(stableTimeoutSec);
+            LOG.info("Waiting for baseline stabilization: stableFrames=" + stableFrames + ", timeoutSec=" + stableTimeoutSec);
+            while (System.nanoTime() < stableDeadline) {
+                int minTail = server.getTailMinUnique(stableFrames);
+                int avgTail = server.getTailAvgUnique(stableFrames);
+                int last = server.getLastUniqueColors();
+                if (stableFrames <= 1 || (minTail == avgTail && last == minTail && last > 0)) break;
+                // Wait for one more frame and re-evaluate
+                server.awaitFramesAtLeast(1, 5, TimeUnit.SECONDS);
             }
+            int uniqBefore = server.getLastUniqueColors();
+            int endBefore = server.getFrameCount();
+            int startBefore = Math.max(1, endBefore - Math.max(1, stableFrames) + 1);
+            int minBefore = server.getTailMinUnique(stableFrames);
+            int avgBefore = server.getTailAvgUnique(stableFrames);
+            LOG.info("Pre-spawn stabilized: frames=" + server.getFrameCount()
+                    + " uniq(last/max)=" + server.getLastUniqueColors() + "/" + server.getMaxUniqueColors()
+                    + " entity_uniq(last/max)=" + server.getLastEntityLikeUniqueColors() + "/" + server.getMaxEntityLikeUniqueColors()
+                    + " window=" + startBefore + "-" + endBefore
+                    + " min/avg=" + minBefore + "/" + avgBefore);
 
             // Spawn many chickens near the agent using chat /summon.
             int spawnCount = Integer.getInteger("seg.test.spawnCount", 40);
+            LOG.info("Spawning chickens now: count=" + spawnCount);
             String[] cmds = new String[spawnCount];
             for (int i = 0; i < spawnCount; i++) cmds[i] = "chat /summon minecraft:chicken ~ ~ ~";
             Thread spawner = conn.createCmdSenderThread("127.0.0.1", cmdPort, cmds, 1000, "Spawner");
             spawner.setDaemon(true); spawner.start();
 
-            // Observe frames for a while and track entity-like unique colours
-            server.awaitFramesAtLeast(80, 120, TimeUnit.SECONDS);
-            LOG.info("Frames seen=" + server.getFrameCount());
-            LOG.info("Unique colours (last/max)=" + server.getLastUniqueColors() + "/" + server.getMaxUniqueColors());
-            LOG.info("Entity-like unique colours (last/max)=" + server.getLastEntityLikeUniqueColors() + "/" + server.getMaxEntityLikeUniqueColors());
+            // After spawning, wait until the unique colour count stabilizes again.
+            long postStableTimeoutSec = Long.getLong("seg.test.postStableTimeoutSec", Long.getLong("RUN_SEG_POST_STABLE_TIMEOUT_SEC", 180L));
+            long postDeadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(postStableTimeoutSec);
+            // Give at least some frames for entities to appear
+            server.awaitFramesAtLeast(stableFrames, 30, TimeUnit.SECONDS);
+            while (System.nanoTime() < postDeadline) {
+                int minTail = server.getTailMinUnique(stableFrames);
+                int avgTail = server.getTailAvgUnique(stableFrames);
+                int last = server.getLastUniqueColors();
+                if (stableFrames <= 1 || (minTail == avgTail && last == minTail && last > 0)) break;
+                server.awaitFramesAtLeast(1, 5, TimeUnit.SECONDS);
+            }
+            int uniqAfter = server.getLastUniqueColors();
+            int delta = Math.max(0, uniqAfter - uniqBefore);
+            int endAfter = server.getFrameCount();
+            int startAfter = Math.max(1, endAfter - Math.max(1, stableFrames) + 1);
+            int minAfter = server.getTailMinUnique(stableFrames);
+            int avgAfter = server.getTailAvgUnique(stableFrames);
+            LOG.info("Post-spawn stabilized: frames=" + server.getFrameCount()
+                    + " uniqBefore=" + uniqBefore + " uniqAfter=" + uniqAfter + " delta=" + delta
+                    + " entity_uniq(last/max)=" + server.getLastEntityLikeUniqueColors() + "/" + server.getMaxEntityLikeUniqueColors()
+                    + " window=" + startAfter + "-" + endAfter
+                    + " min/avg=" + minAfter + "/" + avgAfter);
 
-            // Simple outcome: print summary to stdout; do not assert here.
-            System.out.println("SUMMARY: frames=" + server.getFrameCount()
-                    + " uniq=" + server.getLastUniqueColors()
-                    + " uniqMax=" + server.getMaxUniqueColors()
-                    + " entityUniq=" + server.getLastEntityLikeUniqueColors()
-                    + " entityUniqMax=" + server.getMaxEntityLikeUniqueColors());
+            int allowedIncrease = Integer.getInteger("seg.test.allowedIncrease", Integer.getInteger("RUN_SEG_ALLOWED_INCREASE", 2));
+            if (delta > allowedIncrease) {
+                String msg = "Too many new colours after spawning chickens: delta=" + delta + " (>" + allowedIncrease + ")";
+                LOG.severe(msg);
+                throw new AssertionError(msg);
+            }
+            String summary = "SUMMARY: frames=" + server.getFrameCount()
+                    + " uniqBefore=" + uniqBefore
+                    + " uniqAfter=" + uniqAfter
+                    + " delta=" + delta
+                    + " entityUniq(last/max)=" + server.getLastEntityLikeUniqueColors() + "/" + server.getMaxEntityLikeUniqueColors();
+            // Print and also log to ensure it appears in logs/test-integration.log
+            System.out.println(summary);
+            LOG.info(summary);
         } finally {
             try { proc.destroy(); } catch (Throwable ignored) {}
             try { if (!proc.waitFor(5, TimeUnit.SECONDS)) proc.destroyForcibly(); } catch (Throwable ignored) {}

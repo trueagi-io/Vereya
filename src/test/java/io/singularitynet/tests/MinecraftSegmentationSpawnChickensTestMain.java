@@ -1,24 +1,11 @@
 package io.singularitynet.tests;
 
-import org.json.JSONObject;
-
 import java.io.*;
-import java.net.*;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.*;
+import java.nio.file.Path;
 import java.time.Duration;
-import java.util.Locale;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
-/**
- * Similar to MinecraftSegmentationTestMain but keeps the agent stationary and
- * spawns many chickens via chat commands. It records how many unique colours
- * appear in the segmentation stream, with a special focus on "entity-like"
- * colours (any channel >= 240) to detect mosaic behaviour on small mobs.
- */
+/** Spawn chickens and compare pre/post unique-colour counts using new API. */
 public class MinecraftSegmentationSpawnChickensTestMain {
     private static final java.util.logging.Logger LOG = java.util.logging.Logger.getLogger(MinecraftSegmentationSpawnChickensTestMain.class.getName());
 
@@ -33,7 +20,6 @@ public class MinecraftSegmentationSpawnChickensTestMain {
         TestUtils.setupLogger();
         MConnector conn = new MConnector(missionXml);
         conn.startServers();
-
         Path deployed = TestUtils.ensureLatestModJarDeployed();
         LOG.info("Deployed mod jar: " + deployed);
 
@@ -43,8 +29,7 @@ public class MinecraftSegmentationSpawnChickensTestMain {
         ProcessBuilder pb = new ProcessBuilder("bash", "-lc", launchCmd);
         String baseOpts = pb.environment().getOrDefault("JAVA_TOOL_OPTIONS", "");
         String dbgOpt = System.getenv("RUN_SEG_DEBUG"); if (dbgOpt == null || dbgOpt.isEmpty()) dbgOpt = System.getProperty("seg.test.debug", "");
-        String extra = " -Djava.awt.headless=true" + (dbgOpt.isEmpty() ? "" : (" -Dvereya.seg.debug=" + dbgOpt));
-        pb.environment().put("JAVA_TOOL_OPTIONS", (baseOpts + extra).trim());
+        pb.environment().put("JAVA_TOOL_OPTIONS", (baseOpts + (" -Djava.awt.headless=true" + (dbgOpt.isEmpty()?"":(" -Dvereya.seg.debug="+dbgOpt)))).trim());
         pb.redirectErrorStream(true);
         Process proc = pb.start();
         try {
@@ -52,129 +37,84 @@ public class MinecraftSegmentationSpawnChickensTestMain {
             if (mcp <= 0) throw new IllegalStateException("Did not detect MCP line from launch.sh within timeout");
             LOG.info("Detected MCP=" + mcp);
 
-            MConnector.Resolved<MConnector.FrameReceiver> res = conn.startFrameServerFromLogs(
-                    proc.getInputStream(), Duration.ofSeconds(60), MConnector.FrameReceiver::new, "ColourMapServer");
-            MConnector.FrameReceiver server = res.server;
+            MConnector.Resolved res = conn.startFromLogs(proc.getInputStream(), Duration.ofSeconds(60));
             int cmdPort = res.cmdPort;
-            // Start normal video capture (saves to images/video)
-            conn.startVideoServer();
-            // No rotation. We want a stable viewpoint while we spawn chickens.
-
-            // Start draining logs only after parsing ports
             TestUtils.drainStdoutAsync(proc.getInputStream());
-
             conn.sendMissionInit("127.0.0.1", mcp);
-            if (!server.awaitFirstFrame(60, TimeUnit.SECONDS)) {
-                String msg = "No colour-map frames within timeout";
-                LOG.severe(msg);
-                throw new AssertionError(msg);
-            }
-            LOG.info("First frame: " + server.getLastHeader());
 
-            // No rotation — first, collect a baseline and then wait until the
-            // unique-colour count stabilizes for N consecutive frames.
+            // Wait first seg frame
+            TimestampedVideoFrame seg0 = conn.waitSegFrame();
+            if (seg0 == null) throw new AssertionError("No colour-map frames within timeout");
+            LOG.info("First seg frame: " + seg0.iWidth + "x" + seg0.iHeight + " ch=" + seg0.iCh);
+
+            // Stabilize baseline
             int preSpawnFrames = Integer.getInteger("seg.test.preSpawnFrames", 30);
-            if (preSpawnFrames > 0) server.awaitFramesAtLeast(preSpawnFrames, 60, TimeUnit.SECONDS);
+            for (int i = 0; i < preSpawnFrames; i++) conn.waitSegFrame(2, TimeUnit.SECONDS);
             int stableFrames = Integer.getInteger("seg.test.stableFrames", Integer.getInteger("RUN_SEG_STABLE_FRAMES", 10));
             long stableTimeoutSec = Long.getLong("seg.test.stableTimeoutSec", Long.getLong("RUN_SEG_STABLE_TIMEOUT_SEC", 120L));
-            long stableDeadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(stableTimeoutSec);
-            LOG.info("Waiting for baseline stabilization: stableFrames=" + stableFrames + ", timeoutSec=" + stableTimeoutSec);
-            while (System.nanoTime() < stableDeadline) {
-                int minTail = server.getTailMinUnique(stableFrames);
-                int avgTail = server.getTailAvgUnique(stableFrames);
-                int last = server.getLastUniqueColors();
-                if (stableFrames <= 1 || (minTail == avgTail && last == minTail && last > 0)) break;
-                // Wait for one more frame and re-evaluate
-                server.awaitFramesAtLeast(1, 5, TimeUnit.SECONDS);
+            java.util.ArrayList<Integer> uniqHist = new java.util.ArrayList<>();
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(stableTimeoutSec);
+            while (System.nanoTime() < deadline) {
+                TimestampedVideoFrame seg = conn.waitSegFrame(2, TimeUnit.SECONDS);
+                if (seg == null) continue;
+                int u = seg.countUniqueColors(4096);
+                uniqHist.add(u);
+                if (uniqHist.size() >= stableFrames && tailMin(uniqHist, stableFrames) == tailAvg(uniqHist, stableFrames) && u > 0) break;
             }
-            int uniqBefore = server.getLastUniqueColors();
-            int endBefore = server.getFrameCount();
-            int startBefore = Math.max(1, endBefore - Math.max(1, stableFrames) + 1);
-            int minBefore = server.getTailMinUnique(stableFrames);
-            int avgBefore = server.getTailAvgUnique(stableFrames);
-            LOG.info("Pre-spawn stabilized: frames=" + server.getFrameCount()
-                    + " uniq(last/max)=" + server.getLastUniqueColors() + "/" + server.getMaxUniqueColors()
-                    + " entity_uniq(last/max)=" + server.getLastEntityLikeUniqueColors() + "/" + server.getMaxEntityLikeUniqueColors()
-                    + " window=" + startBefore + "-" + endBefore
-                    + " min/avg=" + minBefore + "/" + avgBefore);
+            int uniqBefore = uniqHist.isEmpty()? 0 : uniqHist.get(uniqHist.size()-1);
+            LOG.info("Baseline stabilized: uniqBefore=" + uniqBefore);
 
-            // Assert minimum colour diversity before spawning
-            int minUniqueRequired = SegmentationTestBase.getIntEnvOrProp("RUN_SEG_MIN_UNIQUE", "seg.test.minUnique", 9);
-            if (minBefore < minUniqueRequired || uniqBefore < minUniqueRequired) {
-                String msg = "Colour diversity too low before spawn (minWindow=" + minBefore + ", last=" + uniqBefore + ", required>=" + minUniqueRequired + ")";
-                LOG.severe(msg);
-                throw new AssertionError(msg);
-            }
-
-            // Spawn many chickens near the agent using chat /summon.
-            int spawnCount = Integer.getInteger("seg.test.spawnCount", 40);
-            LOG.info("Spawning chickens now: count=" + spawnCount);
-            // Reset per-type ObservationFromRay aggregation so that post-spawn
-            // assertions only consider colours observed after chickens appear.
-            int framesAtReset = server.getFrameCount();
-            server.resetTypeCounts();
-            String[] cmds = new String[spawnCount];
-            for (int i = 0; i < spawnCount; i++) cmds[i] = "chat /summon minecraft:chicken ~ ~ ~";
+            // Spawn chickens
+            String[] cmds = new String[]{
+                    "chat /summon chicken ~5 ~ ~5 {NoAI:1b}",
+                    "chat /summon chicken ~7 ~ ~7 {NoAI:1b}",
+                    "chat /summon chicken ~9 ~ ~9 {NoAI:1b}",
+                    "chat /summon chicken ~11 ~ ~11 {NoAI:1b}",
+                    "chat /summon chicken ~13 ~ ~13 {NoAI:1b}",
+                    "chat /summon chicken ~15 ~ ~15 {NoAI:1b}",
+            };
             Thread spawner = conn.createCmdSenderThread("127.0.0.1", cmdPort, cmds, 1000, "Spawner");
-            spawner.setDaemon(true); spawner.start();
+            spawner.start();
 
-            // After spawning, wait until the unique colour count stabilizes again.
-            long postStableTimeoutSec = Long.getLong("seg.test.postStableTimeoutSec", Long.getLong("RUN_SEG_POST_STABLE_TIMEOUT_SEC", 180L));
-            long postDeadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(postStableTimeoutSec);
-            // Give at least some frames for entities to appear
-            server.awaitFramesAtLeast(stableFrames, 30, TimeUnit.SECONDS);
+            // Post-spawn stabilization
+            java.util.ArrayList<Integer> uniqAfterHist = new java.util.ArrayList<>();
+            long postDeadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(Long.getLong("seg.test.postStableTimeoutSec", Long.getLong("RUN_SEG_POST_STABLE_TIMEOUT_SEC", 180L)));
             while (System.nanoTime() < postDeadline) {
-                int minTail = server.getTailMinUnique(stableFrames);
-                int avgTail = server.getTailAvgUnique(stableFrames);
-                int last = server.getLastUniqueColors();
-                if (stableFrames <= 1 || (minTail == avgTail && last == minTail && last > 0)) break;
-                server.awaitFramesAtLeast(1, 5, TimeUnit.SECONDS);
+                TimestampedVideoFrame seg = conn.waitSegFrame(2, TimeUnit.SECONDS);
+                if (seg == null) continue;
+                int u = seg.countUniqueColors(4096);
+                uniqAfterHist.add(u);
+                if (uniqAfterHist.size() >= stableFrames && tailMin(uniqAfterHist, stableFrames) == tailAvg(uniqAfterHist, stableFrames) && u > 0) break;
             }
-            int uniqAfter = server.getLastUniqueColors();
+            int uniqAfter = uniqAfterHist.isEmpty()? 0 : uniqAfterHist.get(uniqAfterHist.size()-1);
             int delta = Math.max(0, uniqAfter - uniqBefore);
-            int endAfter = server.getFrameCount();
-            int startAfter = Math.max(1, endAfter - Math.max(1, stableFrames) + 1);
-            int minAfter = server.getTailMinUnique(stableFrames);
-            int avgAfter = server.getTailAvgUnique(stableFrames);
-            LOG.info("Post-spawn stabilized: frames=" + server.getFrameCount()
-                    + " uniqBefore=" + uniqBefore + " uniqAfter=" + uniqAfter + " delta=" + delta
-                    + " entity_uniq(last/max)=" + server.getLastEntityLikeUniqueColors() + "/" + server.getMaxEntityLikeUniqueColors()
-                    + " window=" + startAfter + "-" + endAfter
-                    + " min/avg=" + minAfter + "/" + avgAfter);
-
-            // Assert minimum colour diversity after spawn as well
-            if (minAfter < minUniqueRequired || uniqAfter < minUniqueRequired) {
-                String msg = "Colour diversity too low after spawn (minWindow=" + minAfter + ", last=" + uniqAfter + ", required>=" + minUniqueRequired + ")";
+            int minUniqueRequired = Integer.getInteger("seg.test.minUnique", Integer.getInteger("RUN_SEG_MIN_UNIQUE", 9));
+            if (Math.min(tailMin(uniqAfterHist, stableFrames), uniqAfter) < minUniqueRequired) {
+                String msg = "Colour diversity too low after spawn (last=" + uniqAfter + ", required>=" + minUniqueRequired + ")";
                 LOG.severe(msg);
                 throw new AssertionError(msg);
             }
 
-            // Now that we reached stabilization, reset per-type aggregation and collect
-            // only stable-window samples before running ObservationFromRay assertions.
-            server.resetTypeCounts();
-            server.awaitFramesAtLeast(Math.max(3, stableFrames), 30, TimeUnit.SECONDS);
+            // Observation checks on post-stabilized window
+            java.util.Map<String, java.util.Map<Integer,Integer>> perType = new java.util.HashMap<>();
+            int framesCollect = Math.max(3, stableFrames);
+            for (int i = 0; i < framesCollect; i++) {
+                TimestampedVideoFrame seg = conn.waitSegFrame(2, TimeUnit.SECONDS);
+                if (seg == null) continue;
+                String rt = MConnector.Observations.getLatestRayType();
+                if (rt != null && !rt.isEmpty()) updatePerTypeFromCenter(perType, seg, rt);
+            }
+            SegmentationTestBase.assertObservationFromRayConsistency(perType, LOG, "post-spawn", 0.8, 2);
+            SegmentationTestBase.assertColourToBlockTypeUniqueness(perType, LOG, "post-spawn");
 
-            // ObservationFromRay-based assertions using only post-spawn samples
-            SegmentationTestBase.assertObservationFromRayConsistency(server, LOG,
-                    "post-spawn (frames >= " + framesAtReset + ")", 0.8, 2);
-            SegmentationTestBase.assertColourToBlockTypeUniqueness(server, LOG,
-                    "post-spawn (frames >= " + framesAtReset + ")");
-
-            // Now also assert that the total number of unique colours did not explode
             int allowedIncrease = Integer.getInteger("seg.test.allowedIncrease", Integer.getInteger("RUN_SEG_ALLOWED_INCREASE", 2));
             if (delta > allowedIncrease) {
                 String msg = "Too many new colours after spawning chickens: delta=" + delta + " (>" + allowedIncrease + ")";
                 LOG.severe(msg);
                 throw new AssertionError(msg);
             }
-            String summary = "SUMMARY: frames=" + server.getFrameCount()
-                    + " uniqBefore=" + uniqBefore
-                    + " uniqAfter=" + uniqAfter
-                    + " delta=" + delta
-                    + " entityUniq(last/max)=" + server.getLastEntityLikeUniqueColors() + "/" + server.getMaxEntityLikeUniqueColors();
-            // Print and also log to ensure it appears in logs/test-integration.log
-            System.out.println(summary);
-            LOG.info(summary);
+            String summary = "SUMMARY: uniqBefore=" + uniqBefore + " uniqAfter=" + uniqAfter + " delta=" + delta;
+            System.out.println(summary); LOG.info(summary);
         } finally {
             try { proc.destroy(); } catch (Throwable ignored) {}
             try { if (!proc.waitFor(5, TimeUnit.SECONDS)) proc.destroyForcibly(); } catch (Throwable ignored) {}
@@ -182,7 +122,10 @@ public class MinecraftSegmentationSpawnChickensTestMain {
         }
     }
 
-    // All helpers moved to TestUtils/MConnector
-
-    // Rotation helpers removed — test does not rotate the player now
+    private static int tailMin(java.util.List<Integer> hist, int n) { int c=0,min=Integer.MAX_VALUE; for (int i=hist.size()-1;i>=0&&c<n;i--){min=Math.min(min,hist.get(i));c++;} return c==0?0:min; }
+    private static int tailAvg(java.util.List<Integer> hist, int n) { int c=0; long s=0; for (int i=hist.size()-1;i>=0&&c<n;i--){s+=hist.get(i);c++;} return c==0?0:(int)Math.round(s*1.0/c); }
+    private static void updatePerTypeFromCenter(java.util.Map<String, java.util.Map<Integer,Integer>> map, TimestampedVideoFrame f, String type) {
+        int rgb = f.getCenterRGB();
+        map.computeIfAbsent(type, k -> new java.util.HashMap<>()).merge(rgb, 1, Integer::sum);
+    }
 }

@@ -78,50 +78,7 @@ public final class TestUtils {
         t.setDaemon(true); t.start();
     }
 
-    public static int waitForMissionControlPort(InputStream stdout, Duration timeout) throws IOException {
-        BufferedReader br = new BufferedReader(new InputStreamReader(stdout, StandardCharsets.UTF_8));
-        String line; long deadline = System.nanoTime() + timeout.toNanos();
-        while (System.nanoTime() < deadline && (line = br.readLine()) != null) {
-            LOG.info(line);
-            int idx = line.indexOf("MCP: "); if (idx >= 0) {
-                String tail = line.substring(idx + 5).trim(); StringBuilder sb = new StringBuilder();
-                for (int i = 0; i < tail.length(); i++) { char c = tail.charAt(i); if (Character.isDigit(c)) sb.append(c); else break; }
-                if (sb.length() > 0) return Integer.parseInt(sb.toString());
-            }
-        }
-        return -1;
-    }
-
-    public static Ports waitForAgentPorts(InputStream stdout, Duration timeout) throws IOException {
-        long deadline = System.nanoTime() + timeout.toNanos();
-        BufferedReader br = new BufferedReader(new InputStreamReader(stdout, StandardCharsets.UTF_8));
-        StringBuilder acc = new StringBuilder(); int colour = -1, obs = -1, rew = -1, com = -1;
-        while (System.nanoTime() < deadline) {
-            if (!br.ready()) { try { Thread.sleep(50); } catch (InterruptedException ignored) {} continue; }
-            String line = br.readLine(); if (line == null) break; acc.append(line).append('\n');
-            colour = tryParseTag(acc, "AgentColourMapPort", colour);
-            obs = tryParseTag(acc, "AgentObservationsPort", obs);
-            rew = tryParseTag(acc, "AgentRewardsPort", rew);
-            int posCom = acc.indexOf("->com("); if (posCom >= 0) {
-                int posListen = acc.indexOf("Listening for messages on port ", posCom);
-                if (posListen > 0) {
-                    int start = posListen + "Listening for messages on port ".length(); int end = start;
-                    while (end < acc.length() && Character.isDigit(acc.charAt(end))) end++;
-                    try { com = Integer.parseInt(acc.substring(start, end)); } catch (Exception ignored) {}
-                }
-            }
-            if (colour > 0 && obs > 0 && rew > 0 && com > 0) return new Ports(colour, obs, rew, com);
-            if (acc.length() > 200000) acc.delete(0, acc.length() - 100000);
-        }
-        return new Ports(colour, obs, rew, com);
-    }
-    private static int tryParseTag(StringBuilder acc, String tag, int current) {
-        if (current > 0) return current; String open = "<" + tag + ">"; String close = "</" + tag + ">";
-        int i = acc.indexOf(open); if (i >= 0) { int j = acc.indexOf(close, i); if (j > i) { String val = acc.substring(i + open.length(), j).trim(); try { return Integer.parseInt(val); } catch (Exception ignored) {} } }
-        return current;
-    }
-
-    public static class Ports { public final int colourPort, obsPort, rewPort, comPort; public Ports(int c,int o,int r,int m){colourPort=c;obsPort=o;rewPort=r;comPort=m;} }
+    // MCP/Agent ports parsing moved to MConnector to avoid duplication.
 
     // Simple drain server for observation/reward sockets; accepts length-prefixed payloads and discards them.
     public static class DrainServer implements Runnable {
@@ -141,69 +98,7 @@ public final class TestUtils {
         @Override public void run(){ try(ServerSocket ss=new ServerSocket(port)){ ss.setReuseAddress(true); while(!stop){ try(Socket s=ss.accept()){ s.setTcpNoDelay(true); InputStream in=s.getInputStream(); while(!stop){ int len = readIntBE(in); if(len<=0||len>10_000_000) break; byte[] msg = readFully(in, len); String txt = new String(msg, StandardCharsets.UTF_8); LOG.info("[CTRL] "+txt); } } catch(Throwable t){} } } catch(IOException e){ e.printStackTrace(); } }
     }
 
-    public static class ObservationsServer implements Runnable {
-        final int port;
-        public static volatile String latestRayType = null;
-        public static volatile Double latestRayDistance = null;
-        private static volatile Double latestYaw = null;
-        private static volatile Double latestPitch = null;
-        private static volatile long latestRayTimestampNs = 0L;
-        volatile boolean stop=false;
-        public ObservationsServer(int port){this.port=port;}
-        @Override public void run(){ try(ServerSocket ss=new ServerSocket(port)){ ss.setReuseAddress(true); while(!stop){ try(Socket s=ss.accept()){ s.setTcpNoDelay(true); InputStream in=s.getInputStream(); while(!stop){ int len = readIntBE(in); if(len<=0||len>50_000_000) break; byte[] payload = readFully(in, len); String txt = new String(payload, StandardCharsets.UTF_8); parseObservation(txt); } } catch(Throwable t){} } } catch(IOException e){ e.printStackTrace(); } }
-        private static void parseObservation(String txt){
-            try{
-                JSONObject o = new JSONObject(txt);
-                // Log raw observation payload
-                LOG.info("[OBS-RAW] " + txt);
-                String t = findRayType(o); if(t!=null && !t.isEmpty()) { latestRayType=t; latestRayTimestampNs = System.nanoTime(); }
-                Double yaw = findDoubleByKeys(o, new String[]{"yaw", "Yaw"}); if (yaw != null && !yaw.isNaN() && Double.isFinite(yaw)) latestYaw = yaw;
-                Double pitch = findDoubleByKeys(o, new String[]{"pitch", "Pitch"}); if (pitch != null && !pitch.isNaN() && Double.isFinite(pitch)) latestPitch = pitch;
-                // Try multiple likely keys for ray distance
-                Double dist = findDoubleByKeys(o, new String[]{"distance","Distance","dist","ray_distance","range","hitdistance","HitDistance"});
-                if (dist != null && !dist.isNaN() && Double.isFinite(dist)) latestRayDistance = dist;
-                // Log all hits (types/blocks) we can find in the JSON
-                logAllHits(o);
-            }catch(Throwable ignored){}
-        }
-        private static void logAllHits(Object o){
-            if(o instanceof JSONObject jo){
-                String type = null, block = null;
-                try { if (jo.has("type") && jo.opt("type") instanceof String) type = jo.optString("type", null); } catch(Throwable ignored){}
-                try { if (jo.has("block") && jo.opt("block") instanceof String) block = jo.optString("block", null); } catch(Throwable ignored){}
-                if (type != null || block != null) {
-                    Double dist = findDoubleByKeys(jo, new String[]{"distance","Distance","dist","ray_distance","range","hitdistance","HitDistance"});
-                    Double x = findDoubleByKeys(jo, new String[]{"x","X"});
-                    Double y = findDoubleByKeys(jo, new String[]{"y","Y"});
-                    Double z = findDoubleByKeys(jo, new String[]{"z","Z"});
-                    String msg = String.format(java.util.Locale.ROOT,
-                            "OBS-HIT type=%s block=%s dist=%s pos=(%s,%s,%s) yaw=%s pitch=%s",
-                            type==null?"":type,
-                            block==null?"":block,
-                            dist==null?"":String.format(java.util.Locale.ROOT, "%.3f", dist),
-                            x==null?"":String.format(java.util.Locale.ROOT, "%.3f", x),
-                            y==null?"":String.format(java.util.Locale.ROOT, "%.3f", y),
-                            z==null?"":String.format(java.util.Locale.ROOT, "%.3f", z),
-                            latestYaw==null?"":String.format(java.util.Locale.ROOT, "%.2f", latestYaw),
-                            latestPitch==null?"":String.format(java.util.Locale.ROOT, "%.2f", latestPitch));
-                    LOG.info(msg);
-                }
-                for(String key: jo.keySet()){
-                    logAllHits(jo.opt(key));
-                }
-            } else if (o instanceof org.json.JSONArray arr){
-                for(int i=0;i<arr.length();i++) logAllHits(arr.opt(i));
-            }
-        }
-        private static String findRayType(Object o){ if(o instanceof JSONObject jo){ Object ray=jo.opt("Ray"); String t=findRayType(ray); if(t!=null) return t; if(jo.has("type") && jo.opt("type") instanceof String) return jo.optString("type", null); if(jo.has("block") && jo.opt("block") instanceof String) return jo.optString("block", null); for(String key: jo.keySet()){ t=findRayType(jo.opt(key)); if(t!=null) return t; } } else if(o instanceof org.json.JSONArray arr){ for(int i=0;i<arr.length();i++){ String t=findRayType(arr.opt(i)); if(t!=null) return t; } } return null; }
-        private static Double findDoubleByKeys(Object o, String[] keys){ for(String k: keys){ Double d = findDouble(o, k); if(d!=null) return d; } return null; }
-        private static Double findDouble(Object o, String keyName){ if(o instanceof JSONObject jo){ for(String key: jo.keySet()){ Object v = jo.opt(key); if(key.equalsIgnoreCase(keyName)){ if(v instanceof Number n) return n.doubleValue(); try{ return Double.parseDouble(String.valueOf(v)); }catch(Throwable ignored){} } Double nested = findDouble(v, keyName); if(nested!=null) return nested; } } else if(o instanceof org.json.JSONArray arr){ for(int i=0;i<arr.length();i++){ Double nested = findDouble(arr.opt(i), keyName); if(nested!=null) return nested; } } return null; }
-        public static String getLatestRayType(){ return latestRayType; }
-        public static double getLatestYaw(){ Double d=latestYaw; return d==null? Double.NaN : d; }
-        public static double getLatestPitch(){ Double d=latestPitch; return d==null? Double.NaN : d; }
-        public static Double getLatestRayDistance(){ return latestRayDistance; }
-        public static long getLatestRayTimestampNs(){ return latestRayTimestampNs; }
-    }
+    // ObservationsServer moved to MConnector.ObservationsServer; no longer defined here.
 
     // Small helpers for reading the frame streams
     public static int readIntBE(InputStream in) throws IOException { byte[] b = readFully(in, 4); return ByteBuffer.wrap(b).order(ByteOrder.BIG_ENDIAN).getInt(); }

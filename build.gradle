@@ -1,7 +1,7 @@
 plugins {
 	id 'java'
 	id 'base'
-	id 'fabric-loom' version '1.13-SNAPSHOT'
+	id 'fabric-loom' version '1.6-SNAPSHOT'
 	id 'maven-publish'
 	id("com.github.bjornvester.xjc") version "1.6.0"
 }
@@ -149,6 +149,17 @@ tasks.register('runSegTest', JavaExec) {
     def missionArg = project.findProperty('mission') ?: 'mission.xml'
     args missionArg
     // Allow headless when needed; avoid forcing seg debug mode
+    environment 'JAVA_TOOL_OPTIONS', ((System.getenv('JAVA_TOOL_OPTIONS') ?: '') + ' -Djava.awt.headless=true').trim()
+}
+
+// Spawn-chickens segmentation experiment (no rotation; spawns many chickens via chat /summon)
+tasks.register('runSegSpawnTest', JavaExec) {
+    group = 'verification'
+    description = 'Launches Minecraft and spawns many chickens to measure entity colour diversity.'
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'io.singularitynet.tests.MinecraftSegmentationSpawnChickensTestMain'
+    def missionArg = project.findProperty('mission') ?: 'mission.xml'
+    args missionArg
     environment 'JAVA_TOOL_OPTIONS', ((System.getenv('JAVA_TOOL_OPTIONS') ?: '') + ' -Djava.awt.headless=true').trim()
 }
 

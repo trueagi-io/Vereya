@@ -169,11 +169,68 @@ public final class MConnector {
         int cmd = resolveCmdPort(ports);
         this.colourmapServer = new VideoServer(effectiveColourPort, 3, FrameType.COLOUR_MAP, (frame) -> {
             colourQueue.offer(frame);
-            // Save segmentation PNG
+            // Save segmentation PNG and capture per-frame metrics with latest ObservationFromRay
             ensureDirsInitialized();
             int idx = segCounter.incrementAndGet();
-            Path out = segSaveDir.resolve(String.format("frame_%05d.png", idx));
-            try { savePng(frame._pixels, frame.iWidth, frame.iHeight, frame.iCh, out); } catch (Throwable ignored) {}
+            Path outPng = segSaveDir.resolve(String.format("frame_%05d.png", idx));
+            try { savePng(frame._pixels, frame.iWidth, frame.iHeight, frame.iCh, outPng); } catch (Throwable ignored) {}
+
+            long tsFrameNs = (long) (frame.timestamp * 1_000_000_000.0);
+            String rayType = Observations.getLatestRayType();
+            Double rayDist = Observations.getLatestRayDistance();
+            double yaw = Observations.getLatestYaw();
+            double pitch = Observations.getLatestPitch();
+            long tsObsNs = Observations.getLatestRayTimestampNs();
+            long deltaObsMs = (tsObsNs > 0L) ? ((tsFrameNs - tsObsNs) / 1_000_000L) : 0L;
+
+            int uniq = 0; int center = 0; int cr = 0, cg = 0, cb = 0;
+            try { uniq = frame.countUniqueColors(4096); } catch (Throwable ignored) {}
+            try {
+                center = frame.getCenterRGB();
+                cr = (center >> 16) & 0xFF;
+                cg = (center >> 8) & 0xFF;
+                cb = (center) & 0xFF;
+            } catch (Throwable ignored) {}
+
+            // Write observation sidecar to aid debugging and correlation
+            try {
+                org.json.JSONObject obs = lastObservation.get();
+                if (obs != null) {
+                    Path outObs = segSaveDir.resolve(String.format("frame_%05d.obs.json", idx));
+                    org.json.JSONObject wrapper = new org.json.JSONObject();
+                    wrapper.put("ts_frame_ns", tsFrameNs);
+                    wrapper.put("ts_obs_latest_ns", tsObsNs);
+                    wrapper.put("observation", obs);
+                    Files.writeString(outObs, wrapper.toString(), StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+                }
+            } catch (Throwable ignored) {}
+
+            // Append a line to metrics.csv with per-frame stats
+            try {
+                Path metrics = segSaveDir.resolve("metrics.csv");
+                boolean writeHeader = Files.notExists(metrics);
+                StringBuilder sb = new StringBuilder();
+                if (writeHeader) {
+                    sb.append("frame_idx,timestamp_ns,unique_colors,center_rgb_hex,center_r,center_g,center_b,obs_type,obs_distance,obs_yaw,obs_pitch,obs_ts_ns,delta_obs_ms,width,height\n");
+                }
+                sb.append(idx).append(',')
+                  .append(tsFrameNs).append(',')
+                  .append(uniq).append(',')
+                  .append(String.format("#%06X", center & 0xFFFFFF)).append(',')
+                  .append(cr).append(',')
+                  .append(cg).append(',')
+                  .append(cb).append(',')
+                  .append(rayType == null ? "" : rayType.replace(',', ';')).append(',')
+                  .append(rayDist == null ? "" : String.format(java.util.Locale.ROOT, "%.3f", rayDist)).append(',')
+                  .append(Double.isNaN(yaw) ? "" : String.format(java.util.Locale.ROOT, "%.3f", yaw)).append(',')
+                  .append(Double.isNaN(pitch) ? "" : String.format(java.util.Locale.ROOT, "%.3f", pitch)).append(',')
+                  .append(tsObsNs).append(',')
+                  .append(deltaObsMs).append(',')
+                  .append(frame.iWidth).append(',')
+                  .append(frame.iHeight)
+                  .append('\n');
+                Files.writeString(metrics, sb.toString(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+            } catch (Throwable ignored) {}
         });
         this.colourThread = this.colourmapServer.start();
         return new Resolved(ports, effectiveColourPort, cmd);

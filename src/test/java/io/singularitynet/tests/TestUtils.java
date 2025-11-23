@@ -22,9 +22,16 @@ public final class TestUtils {
         try {
             Path log = Paths.get("logs", "test-integration.log");
             try { Files.deleteIfExists(log); } catch (Exception ignored) {}
+            // Clean image/obs/video dirs to avoid cross-run confusion when counting
             Path segDir = Paths.get("images", "seg");
+            Path obsDir = Paths.get("images", "obs");
+            Path vidDir = Paths.get("images", "video");
             if (Files.exists(segDir)) deleteRecursive(segDir);
+            if (Files.exists(obsDir)) deleteRecursive(obsDir);
+            if (Files.exists(vidDir)) deleteRecursive(vidDir);
             try { Files.createDirectories(segDir); } catch (Exception ignored) {}
+            try { Files.createDirectories(obsDir); } catch (Exception ignored) {}
+            try { Files.createDirectories(vidDir); } catch (Exception ignored) {}
         } catch (Throwable ignored) {}
     }
 

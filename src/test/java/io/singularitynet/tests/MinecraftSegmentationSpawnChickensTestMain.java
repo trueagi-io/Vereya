@@ -49,6 +49,8 @@ public class MinecraftSegmentationSpawnChickensTestMain {
 
             // Stabilize baseline
             int preSpawnFrames = Integer.getInteger("seg.test.preSpawnFrames", 30);
+            int minPreSpawnFrames = Integer.getInteger("seg.test.minPreSpawnFrames", Integer.getInteger("RUN_SEG_MIN_PRESPAWN_FRAMES", 50));
+            preSpawnFrames = Math.max(preSpawnFrames, minPreSpawnFrames);
             for (int i = 0; i < preSpawnFrames; i++) conn.waitSegFrame(2, TimeUnit.SECONDS);
             int stableFrames = Integer.getInteger("seg.test.stableFrames", Integer.getInteger("RUN_SEG_STABLE_FRAMES", 10));
             long stableTimeoutSec = Long.getLong("seg.test.stableTimeoutSec", Long.getLong("RUN_SEG_STABLE_TIMEOUT_SEC", 120L));
@@ -64,14 +66,16 @@ public class MinecraftSegmentationSpawnChickensTestMain {
             int uniqBefore = uniqHist.isEmpty()? 0 : uniqHist.get(uniqHist.size()-1);
             LOG.info("Baseline stabilized: uniqBefore=" + uniqBefore);
 
-            // Spawn chickens
+            // Spawn chickens one block in front of the player using local (caret) coordinates and keep them stationary (NoAI).
+            // ^ ^ ^1 means forward by 1 block relative to the executing player's facing.
             String[] cmds = new String[]{
-                    "chat /summon chicken ~5 ~ ~5 {NoAI:1b}",
-                    "chat /summon chicken ~7 ~ ~7 {NoAI:1b}",
-                    "chat /summon chicken ~9 ~ ~9 {NoAI:1b}",
-                    "chat /summon chicken ~11 ~ ~11 {NoAI:1b}",
-                    "chat /summon chicken ~13 ~ ~13 {NoAI:1b}",
-                    "chat /summon chicken ~15 ~ ~15 {NoAI:1b}",
+                    // Slight left/right offsets; place between 3 and 4 blocks ahead.
+                    "chat /summon chicken ^-0.5 ^ ^3.0 {NoAI:1b}",
+                    "chat /summon chicken ^0.5 ^ ^3.0 {NoAI:1b}",
+                    "chat /summon chicken ^-0.5 ^ ^3.5 {NoAI:1b}",
+                    "chat /summon chicken ^0.5 ^ ^3.5 {NoAI:1b}",
+                    "chat /summon chicken ^-0.5 ^ ^4.0 {NoAI:1b}",
+                    "chat /summon chicken ^0.5 ^ ^4.0 {NoAI:1b}",
             };
             Thread spawner = conn.createCmdSenderThread("127.0.0.1", cmdPort, cmds, 1000, "Spawner");
             spawner.start();

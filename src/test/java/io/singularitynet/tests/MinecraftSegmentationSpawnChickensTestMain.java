@@ -117,6 +117,31 @@ public class MinecraftSegmentationSpawnChickensTestMain {
                 LOG.severe(msg);
                 throw new AssertionError(msg);
             }
+
+            // Sanity: ensure we actually saved a meaningful number of frames.
+            int minSaved = Integer.getInteger("seg.test.minSavedFrames", 50);
+            String base = System.getProperty("seg.test.saveDir", "images/seg");
+            java.nio.file.Path baseDir = java.nio.file.Paths.get(base);
+            java.nio.file.Path latestRun = null;
+            try {
+                java.util.Optional<java.nio.file.Path> last = java.nio.file.Files.list(baseDir)
+                        .filter(p -> java.nio.file.Files.isDirectory(p) && p.getFileName().toString().startsWith("run-"))
+                        .max(java.util.Comparator.comparing(java.nio.file.Path::toString));
+                if (last.isPresent()) latestRun = last.get();
+            } catch (Throwable ignored) {}
+            if (latestRun != null) {
+                long saved = 0;
+                try {
+                    saved = java.nio.file.Files.list(latestRun)
+                            .filter(p -> p.getFileName().toString().endsWith(".png"))
+                            .count();
+                } catch (Throwable ignored) {}
+                if (saved < minSaved) {
+                    String msg = "Too few saved segmentation frames: count=" + saved + " (<" + minSaved + ") in " + latestRun;
+                    LOG.severe(msg);
+                    throw new AssertionError(msg);
+                }
+            }
             String summary = "SUMMARY: uniqBefore=" + uniqBefore + " uniqAfter=" + uniqAfter + " delta=" + delta;
             System.out.println(summary); LOG.info(summary);
         } finally {

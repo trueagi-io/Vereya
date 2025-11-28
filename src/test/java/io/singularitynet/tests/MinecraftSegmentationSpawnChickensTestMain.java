@@ -71,11 +71,11 @@ public class MinecraftSegmentationSpawnChickensTestMain {
             String[] cmds = new String[]{
                     // Slight left/right offsets; place between 3 and 4 blocks ahead.
                     "chat /summon chicken ^-0.5 ^ ^3.0 {NoAI:1b}",
-                    "chat /summon chicken ^0.5 ^ ^3.0 {NoAI:1b}",
-                    "chat /summon chicken ^-0.5 ^ ^3.5 {NoAI:1b}",
-                    "chat /summon chicken ^0.5 ^ ^3.5 {NoAI:1b}",
-                    "chat /summon chicken ^-0.5 ^ ^4.0 {NoAI:1b}",
-                    "chat /summon chicken ^0.5 ^ ^4.0 {NoAI:1b}",
+                    // "chat /summon chicken ^0.5 ^ ^3.0 {NoAI:1b}",
+                    // "chat /summon chicken ^-0.5 ^ ^3.5 {NoAI:1b}",
+                    // "chat /summon chicken ^0.5 ^ ^3.5 {NoAI:1b}",
+                    // "chat /summon chicken ^-0.5 ^ ^4.0 {NoAI:1b}",
+                    // "chat /summon chicken ^0.5 ^ ^4.0 {NoAI:1b}",
             };
             Thread spawner = conn.createCmdSenderThread("127.0.0.1", cmdPort, cmds, 1000, "Spawner");
             spawner.start();

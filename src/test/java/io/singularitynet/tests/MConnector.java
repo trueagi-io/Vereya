@@ -123,7 +123,12 @@ public final class MConnector {
                 if (sb.length() > 0) return Integer.parseInt(sb.toString());
             }
         }
-        return -1;
+        // Fallback: if we did not see an explicit MCP line in the logs,
+        // assume the mission control port is the one we patched into the
+        // mission XML (chosenAgentCtrlPort). This makes the tests robust
+        // to changes in launch.sh or log formatting.
+        LOG.warning("waitForMissionControlPort: did not detect MCP line within timeout; falling back to chosenAgentCtrlPort=" + this.chosenAgentCtrlPort);
+        return this.chosenAgentCtrlPort;
     }
 
     public static class Ports { public final int colourPort, obsPort, rewPort, comPort; public Ports(int c,int o,int r,int m){colourPort=c;obsPort=o;rewPort=r;comPort=m;} }

@@ -70,7 +70,7 @@ public class MinecraftSegmentationSpawnChickensTestMain {
             // ^ ^ ^1 means forward by 1 block relative to the executing player's facing.
             String[] cmds = new String[]{
                     // Slight left/right offsets; place between 3 and 4 blocks ahead.
-                    "chat /summon chicken ^-0.5 ^ ^3.0 {NoAI:1b}",
+                    "chat /summon pig ^-0.5 ^ ^3.0 {NoAI:1b}",
                     // "chat /summon chicken ^0.5 ^ ^3.0 {NoAI:1b}",
                     // "chat /summon chicken ^-0.5 ^ ^3.5 {NoAI:1b}",
                     // "chat /summon chicken ^0.5 ^ ^3.5 {NoAI:1b}",

@@ -31,3 +31,10 @@ bin/
 # fabric
 
 run/
+
+# misc
+
+net/
+src2/
+src3/
+images/

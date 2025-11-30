@@ -161,6 +161,22 @@ tasks.register('runSegSpawnTest', JavaExec) {
     def missionArg = project.findProperty('mission') ?: 'mission.xml'
     args missionArg
     environment 'JAVA_TOOL_OPTIONS', ((System.getenv('JAVA_TOOL_OPTIONS') ?: '') + ' -Djava.awt.headless=true').trim()
+    // Ensure the mod jar is freshly built and installed into the local
+    // ~/.minecraft mods directory before running the spawn test.
+    dependsOn 'build'
+    doFirst {
+        def home = System.getProperty('user.home')
+        def mcModsDir = file("${home}/.minecraft/mods")
+        if (!mcModsDir.exists()) {
+            mcModsDir.mkdirs()
+        }
+        // Use the remapped jar that Fabric Loader expects.
+        def remapJarTask = tasks.named('remapJar').get()
+        def srcJar = remapJarTask.archiveFile.get().asFile
+        def destJar = new File(mcModsDir, srcJar.name)
+        logger.lifecycle("runSegSpawnTest: copying ${srcJar} -> ${destJar}")
+        ant.copy(file: srcJar, tofile: destJar)
+    }
 }
 
 gradle.taskGraph.whenReady {taskGraph ->

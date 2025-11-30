@@ -13,6 +13,8 @@ import net.minecraft.client.render.VertexFormatElement;
 import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.texture.SpriteAtlasTexture;
 import net.minecraft.entity.Entity;
+import net.minecraft.entity.EntityType;
+import net.minecraft.registry.Registries;
 import net.minecraft.util.Identifier;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -26,6 +28,8 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 /*
  Short description
@@ -113,6 +117,11 @@ public class TextureHelper {
     private static volatile int pendingB = 0;
     // Track last texture bound to help choose pending colour when a shader is set
     private static volatile Identifier lastBoundTexture = null;
+    // Map GL texture ids back to Identifiers so that bindings which only see
+    // an integer (eg GlStateManager._bindTexture or setShaderTexture(int,int))
+    // can still be associated with logical texture paths for logging and
+    // segmentation colour selection.
+    private static final ConcurrentMap<Integer, Identifier> glIdToIdentifier = new ConcurrentHashMap<>();
 
     // Debug: 0=off, 1=magenta, 2=UV debug, 3=frag debug
     private static volatile int segmentationDebugLevel = 0;
@@ -140,7 +149,7 @@ public class TextureHelper {
         lastChunkOffsetY = y;
         lastChunkOffsetZ = z;
         if (isProducingColourMap && colourmapFrame) {
-            LOGGER.debug("TextureHelper: captured ChunkOffset from vanilla -> ({}, {}, {})", x, y, z);
+            LOGGER.info("TextureHelper: captured ChunkOffset from vanilla -> ({}, {}, {})", x, y, z);
         }
     }
 
@@ -150,7 +159,7 @@ public class TextureHelper {
 
     public static void setSegmentationDebugMode(boolean on) {
         segmentationDebugLevel = on ? 1 : 0;
-        LOGGER.debug("TextureHelper: segmentation debug mode set to {} (level={})", on, segmentationDebugLevel);
+        LOGGER.info("TextureHelper: segmentation debug mode set to {} (level={})", on, segmentationDebugLevel);
     }
 
     public static boolean isSegmentationDebugMode() {
@@ -159,7 +168,7 @@ public class TextureHelper {
 
     public static void setSegmentationDebugLevel(int level) {
         segmentationDebugLevel = level;
-        LOGGER.debug("TextureHelper: segmentation debug level set to {}", segmentationDebugLevel);
+        LOGGER.info("TextureHelper: segmentation debug level set to {}", segmentationDebugLevel);
     }
 
     public static int getSegmentationDebugLevel() {
@@ -183,7 +192,7 @@ public class TextureHelper {
 
     public static void setIsProducingColourMap(boolean usemap) {
         isProducingColourMap = usemap;
-        LOGGER.debug("TextureHelper: setIsProducingColourMap({})", usemap);
+        LOGGER.info("TextureHelper: setIsProducingColourMap({})", usemap);
     }
 
     public static boolean isProducingColourMap() {
@@ -193,20 +202,78 @@ public class TextureHelper {
     /** Controls whether segmentation respects texture opacity (cutouts). */
     public static void setRespectOpacity(boolean respect) {
         respectOpacity = respect;
-        LOGGER.debug("TextureHelper: respectOpacity set to {}", respect);
+        LOGGER.info("TextureHelper: respectOpacity set to {}", respect);
     }
 
     public static boolean isRespectOpacity() { return respectOpacity; }
 
     /**
-     * Set preferred mob colours, keyed by entity type string.
+     * Set preferred mob colours.
+     * <p>
+     * Accepts keys in several legacy forms used by Malmo missions and
+     * normalises them to the canonical registry id of the entity type,
+     * e.g.:
+     * <ul>
+     *     <li>"minecraft:pig"</li>
+     *     <li>"Pig"</li>
+     *     <li>"entity.minecraft.pig"</li>
+     * </ul>
+     * so that lookups in {@link #getColourForEntity(Entity)} (which uses the
+     * registry id) find the configured colour consistently.
      */
     public static void setMobColours(Map<String, Integer> mobColours) {
         if (mobColours == null || mobColours.isEmpty()) {
             idealMobColours = null;
-        } else {
-            idealMobColours = new HashMap<>(mobColours);
+            return;
         }
+
+        Map<String, Integer> resolved = new HashMap<>();
+        for (Map.Entry<String, Integer> e : mobColours.entrySet()) {
+            String rawKey = e.getKey();
+            Integer colour = e.getValue();
+            if (rawKey == null || rawKey.isEmpty() || colour == null) {
+                continue;
+            }
+
+            String normalised = null;
+            // 1) If the key already looks like a namespaced id, keep it.
+            try {
+                Identifier id = Identifier.tryParse(rawKey);
+                if (id != null && id.getNamespace() != null && !id.getNamespace().isEmpty()) {
+                    normalised = id.toString();
+                }
+            } catch (Throwable ignored) {}
+
+            // 2) Try to interpret legacy keys like "Pig" or "entity.minecraft.pig".
+            if (normalised == null) {
+                String needle = rawKey.trim();
+                String needleLower = needle.toLowerCase(java.util.Locale.ROOT);
+                for (EntityType<?> type : Registries.ENTITY_TYPE) {
+                    Identifier id = Registries.ENTITY_TYPE.getId(type);
+                    if (id == null) continue;
+                    String regId = id.toString();                // "minecraft:pig"
+                    String regPath = id.getPath();               // "pig"
+                    String transKey = type.getTranslationKey();  // "entity.minecraft.pig"
+
+                    if (needle.equalsIgnoreCase(regId)
+                            || needle.equalsIgnoreCase(regPath)
+                            || needleLower.equals(transKey.toLowerCase(java.util.Locale.ROOT))) {
+                        normalised = regId;
+                        break;
+                    }
+                }
+            }
+
+            // 3) Fallback: keep the raw key so mission-specific strings
+            // still work if they already match getColourForEntity's key.
+            if (normalised == null) {
+                normalised = rawKey;
+            }
+
+            resolved.put(normalised, colour);
+        }
+
+        idealMobColours = resolved.isEmpty() ? null : resolved;
     }
 
     /**
@@ -225,12 +292,16 @@ public class TextureHelper {
         if (colourmapFrame && isProducingColourMap) {
             if (entity != null) {
                 try {
-                    LOGGER.debug("TextureHelper: rendering entity type={} id={}", entity.getType().toString(), entity.getId());
+                    LOGGER.info("TextureHelper: rendering entity type={} id={}", entity.getType().toString(), entity.getId());
                 } catch (Throwable t) {
-                    LOGGER.debug("TextureHelper: rendering entity (id unavailable)");
+                    LOGGER.info("TextureHelper: rendering entity (id unavailable)");
                 }
             }
         }
+    }
+
+    public static Entity getCurrentEntity() {
+        return currentEntity;
     }
 
     public static void setStrictEntityDraw(boolean on) { strictEntityDraw = on; }
@@ -239,8 +310,6 @@ public class TextureHelper {
     public static boolean isStrictBlockDraw() { return strictBlockDraw; }
 
     public static boolean hasCurrentEntity() { return currentEntity != null; }
-
-    public static Entity getCurrentEntity() { return currentEntity; }
 
     /**
      * Force pending uniform colour to the stable per-entity colour for the
@@ -252,14 +321,6 @@ public class TextureHelper {
         pendingR = (col >> 16) & 0xFF;
         pendingG = (col >> 8) & 0xFF;
         pendingB = (col) & 0xFF;
-        if (colourmapFrame && isProducingColourMap && entity != null) {
-            try {
-                if (entity.getType().toString().contains("chicken")) {
-                    LOGGER.info("SegDebug: setPendingColourForEntity chicken -> pendingR={} pendingG={} pendingB={}",
-                            pendingR, pendingG, pendingB);
-                }
-            } catch (Throwable ignored) {}
-        }
     }
 
     /** Sets pending colour to the current entity's stable colour, if any. */
@@ -432,42 +493,88 @@ public class TextureHelper {
         }
     }
 
+    /** Returns true if this texture should be allowed to influence segmentation colours. */
+    public static boolean isSegmentationAllowedTexture(Identifier id) {
+        if (id == null || id.getPath() == null) return false;
+        String path = id.getPath();
+        boolean isAtlas = SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE.equals(id)
+                || path.contains("textures/atlas/");
+        boolean isEntity = path.startsWith("textures/entity/");
+        boolean isBlock = path.startsWith("textures/block/");
+        if (isAtlas || isEntity || isBlock) {
+            return true;
+        }
+        // Misc textures explicitly mapped by the mission (eg sun/moon) are also allowed.
+        if (miscTexturesToColours != null && miscTexturesToColours.containsKey(path)) {
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Register a mapping from an OpenGL texture id to its logical Identifier.
+     * Called from TextureManager when a texture is first created/registered.
+     */
+    public static void registerTextureGlId(Identifier id, int glId) {
+        if (id == null || glId <= 0) return;
+        glIdToIdentifier.put(glId, id);
+        // Optional debug; disabled by default to keep runs fast.
+        if (segmentationDebugLevel > 1 && LOGGER.isInfoEnabled()) {
+            LOGGER.info("SegTexMap: glId={} -> id={}", glId, id.toString());
+        }
+    }
+
+    /** Look up the Identifier previously registered for a GL texture id. */
+    public static Identifier lookupTextureByGlId(int glId) {
+        if (glId <= 0) return null;
+        return glIdToIdentifier.get(glId);
+    }
+
+    /**
+     * Entry point for hooks that only know the GL id of the texture being
+     * bound (eg GlStateManager._bindTexture or setShaderTexture(int,int)).
+     * Attempts to recover the corresponding Identifier; if unavailable,
+     * logs an unmapped bind so we can spot gaps in coverage.
+     */
+    public static void onTextureBoundGlId(int glId) {
+        Identifier id = lookupTextureByGlId(glId);
+        if (id != null) {
+            onTextureBound(id);
+        } else if (segmentationDebugLevel > 0 && LOGGER.isInfoEnabled()) {
+            LOGGER.info("SegTexBind: id=<unmapped> glId={} segFrame={} isProducing={} hasEntity={} drawingBlock={} currentBlockType={}",
+                    glId,
+                    colourmapFrame,
+                    isProducingColourMap,
+                    hasCurrentEntity(),
+                    isDrawingBlock(),
+                    currentBlockType);
+        }
+    }
+
     public static void onTextureBound(int unit, Identifier id) {
-        if (!isProducingColourMap || !colourmapFrame) {
-            lastBoundTexture = id;
-            return;
-        }
         lastBoundTexture = id;
-        if (id != null && "minecraft".equals(id.getNamespace()) && id.getPath() != null && id.getPath().startsWith("dynamic/light_map")) {
-            return;
+        // Debug: record texture binds only when segmentation debug is enabled; this
+        // is very verbose and slows tests down if left on by default.
+        if (segmentationDebugLevel > 0 && LOGGER.isInfoEnabled()) {
+            String tex = (id != null) ? id.toString() : "<null>";
+            LOGGER.info("SegTexBind: id={} segFrame={} isProducing={} hasEntity={} drawingBlock={} currentBlockType={}",
+                    tex,
+                    colourmapFrame,
+                    isProducingColourMap,
+                    hasCurrentEntity(),
+                    isDrawingBlock(),
+                    currentBlockType);
         }
-        if (id != null && "minecraft".equals(id.getNamespace()) && id.getPath() != null) {
-            if (colourmapFrame) {
-                String p = id.getPath();
-                if ("textures/environment/clouds.png".equals(p) ||
-                    "textures/environment/sun.png".equals(p) ||
-                    "textures/environment/moon_phases.png".equals(p)) {
-                    LOGGER.debug("TextureHelper: ignoring env texture {} bind during segmentation pass", p);
-                    return;
-                }
-            }
+        // Only drive segmentation colours when a colour-map frame is active.
+        if (!isProducingColourMap || !colourmapFrame) {
+            return;
         }
         int col = 0;
         boolean isAtlas = (SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE.equals(id) ||
                 (id != null && id.getPath() != null && id.getPath().contains("textures/atlas/")));
+        boolean isEntityTex = (id != null && id.getPath() != null && id.getPath().startsWith("textures/entity/"));
+        boolean isBlockTexPath = (id != null && id.getPath() != null && id.getPath().startsWith("textures/block/"));
         int misc = getColourForTexture(id);
-
-        // Diagnostic: track chicken texture binds that occur without an active entity.
-        if (id != null
-                && "minecraft".equals(id.getNamespace())
-                && id.getPath() != null
-                && id.getPath().startsWith("textures/entity/chicken/")
-                && !hasCurrentEntity()
-                && !isStrictEntityDraw()) {
-            LOGGER.info("Segmentation: chicken texture bound with NO current entity; isAtlas={} miscColour={} pendingBefore=({}, {}, {})",
-                    isAtlas, misc, pendingR, pendingG, pendingB);
-        }
-
         if (hasCurrentEntity() || strictEntityDraw) {
             // While rendering an entity, keep entity colour fully stable regardless of binds
             col = getColourForEntity(currentEntity) & 0x00FFFFFF;
@@ -475,7 +582,7 @@ public class TextureHelper {
         } else if (misc != -1) {
             col = misc & 0x00FFFFFF;
             segOtherBinds++;
-        } else if (id != null && id.getPath() != null && id.getPath().startsWith("textures/entity/")) {
+        } else if (isEntityTex) {
             // Fallback: if an entity texture is bound but currentEntity isn't set yet,
             // derive a stable high-range colour from the entity type encoded in the path.
             int fallback = getFallbackEntityColourFromTexture(id);
@@ -485,7 +592,7 @@ public class TextureHelper {
             } else {
                 col = -1;
             }
-        } else {
+        } else if (isBlockTexPath || isAtlas || isDrawingBlock() || strictBlockDraw || (currentBlockType != null && !currentBlockType.isEmpty())) {
             // For block/world draws: prefer stable per-type colour whenever we know the current block type.
             if (isDrawingBlock() || strictBlockDraw || (currentBlockType != null && !currentBlockType.isEmpty())) {
                 setPendingColourForCurrentBlock();
@@ -500,6 +607,15 @@ public class TextureHelper {
                 }
             }
             if (isAtlas) segAtlasBinds++; else segOtherBinds++;
+        } else {
+            // Non-entity, non-block, non-misc textures (eg lightmaps, some UI
+            // and post-process passes) should not introduce new colours into
+            // the segmentation buffer. Leave the pending colour unchanged and
+            // skip any uniform updates for this bind.
+            if (LOGGER.isInfoEnabled()) {
+                LOGGER.info("TextureHelper: ignoring non-world texture {} bind during segmentation pass", id != null ? id.toString() : "<null>");
+            }
+            return;
         }
         if (col == -1) {
             pendingR = -1;
@@ -510,55 +626,8 @@ public class TextureHelper {
             pendingG = (col >> 8) & 0xFF;
             pendingB = (col) & 0xFF;
         }
-        if (LOGGER.isDebugEnabled()) {
-            LOGGER.debug("Texture bound {} -> pending colour R:{} G:{} B:{}", id != null ? id.toString() : "<null>", pendingR, pendingG, pendingB);
-        }
-        ShaderProgram active = RenderSystem.getShader();
-        if (active != null) {
-            try {
-                active.bind();
-            } catch (Throwable t) {
-                LOGGER.warn("onTextureBound: active.bind failed: {}", t.toString());
-            }
-            GlUniform r = active.getUniform("entityColourR");
-            GlUniform g = active.getUniform("entityColourG");
-            GlUniform b = active.getUniform("entityColourB");
-            GlUniform dbg = active.getUniform("debugMode");
-            GlUniform alpha = active.getUniform("respectAlpha");
-            if (r != null && g != null && b != null) {
-                r.set(pendingR);
-                g.set(pendingG);
-                b.set(pendingB);
-                r.upload();
-                g.upload();
-                b.upload();
-                LOGGER.debug("Applied pending colour to ACTIVE program {} -> R:{} G:{} B:{}", active.getName(), pendingR, pendingG, pendingB);
-            } else {
-                LOGGER.debug("Active program {} lacks annotate uniforms; will defer to swap handler", active.getName());
-            }
-        if (dbg != null) {
-            dbg.set(segmentationDebugLevel);
-            dbg.upload();
-            LOGGER.debug("Applied debugMode={} to ACTIVE program {}", segmentationDebugLevel, active.getName());
-        }
-        if (alpha != null) {
-            alpha.set(respectOpacity ? 1 : 0);
-            alpha.upload();
-            LOGGER.debug("Applied respectAlpha={} to ACTIVE program {}", (respectOpacity ? 1 : 0), active.getName());
-        }
-        GlUniform grid = active.getUniform("atlasGrid");
-        if (grid != null) {
-            int atlasGrid = 32; // classic coarse grid (used only by debug or fallback paths)
-            grid.set(atlasGrid);
-            grid.upload();
-            LOGGER.debug("Applied atlasGrid={} to ACTIVE program {}", atlasGrid, active.getName());
-        }
-        GlUniform lod = active.getUniform("atlasLod");
-        if (lod != null) {
-            lod.set(8);
-            lod.upload();
-            LOGGER.debug("Applied atlasLod={} to ACTIVE program {}", 8, active.getName());
-        }
+        if (segmentationDebugLevel > 0 && LOGGER.isInfoEnabled()) {
+            LOGGER.info("Texture bound {} -> pending colour R:{} G:{} B:{}", id != null ? id.toString() : "<null>", pendingR, pendingG, pendingB);
         }
     }
 
@@ -579,13 +648,14 @@ public class TextureHelper {
             }
             GlUniform r = active.getUniform("entityColourR");
             GlUniform g = active.getUniform("entityColourG");
-        GlUniform b = active.getUniform("entityColourB");
-        if (r != null && g != null && b != null) {
-            r.set(-1);
-            g.set(-1);
-            b.set(-1);
-            LOGGER.debug("Applied block-atlas override to ACTIVE program {} -> R:-1 G:-1 B:-1", active.getName());
-        }
+            GlUniform b = active.getUniform("entityColourB");
+            if (r != null && g != null && b != null) {
+            
+                r.set(-1);
+                g.set(-1);
+                b.set(-1);
+                LOGGER.info("Applied block-atlas override to ACTIVE program {} -> R:-1 G:-1 B:-1", active.getName());
+            }
         }
     }
 
@@ -595,6 +665,58 @@ public class TextureHelper {
 
     public static int[] getPendingColourRGB() {
         return new int[]{pendingR, pendingG, pendingB};
+    }
+
+    /**
+     * Apply a solid, per-entity colour directly to a shader program,
+     * bypassing texture/atlas heuristics. Used by draw hooks to ensure
+     * that an entity (and all of its feature layers) renders with a
+     * single segmentation colour.
+     */
+    public static void applySolidEntityColourToProgram(ShaderProgram program, Entity entity) {
+        if (program == null || entity == null) return;
+        int argb = getColourForEntity(entity);
+        int rgb = argb & 0x00FFFFFF;
+        int r = (rgb >> 16) & 0xFF;
+        int g = (rgb >> 8) & 0xFF;
+        int b = (rgb) & 0xFF;
+        try {
+            program.bind();
+        } catch (Throwable t) {
+            LOGGER.warn("applySolidEntityColourToProgram: program.bind failed: {}", t.toString());
+        }
+        GlUniform ur = program.getUniform("entityColourR");
+        GlUniform ug = program.getUniform("entityColourG");
+        GlUniform ub = program.getUniform("entityColourB");
+        GlUniform dbg = program.getUniform("debugMode");
+        GlUniform alpha = program.getUniform("respectAlpha");
+        GlUniform grid = program.getUniform("atlasGrid");
+        GlUniform lod = program.getUniform("atlasLod");
+        if (ur != null && ug != null && ub != null) {
+            ur.set(r);
+            ug.set(g);
+            ub.set(b);
+            ur.upload();
+            ug.upload();
+            ub.upload();
+            LOGGER.info("Applied SOLID entity colour to PROGRAM {} -> R:{} G:{} B:{}", program.getName(), r, g, b);
+        }
+        if (dbg != null) {
+            dbg.set(segmentationDebugLevel);
+            dbg.upload();
+        }
+        if (alpha != null) {
+            alpha.set(respectOpacity ? 1 : 0);
+            alpha.upload();
+        }
+        if (grid != null) {
+            grid.set(32);
+            grid.upload();
+        }
+        if (lod != null) {
+            lod.set(8);
+            lod.upload();
+        }
     }
 
     /** If the last bound texture is the block atlas and we know the current block type,
@@ -615,11 +737,6 @@ public class TextureHelper {
 
     public static void applyPendingColourToProgram(ShaderProgram program) {
         if (program == null) return;
-        try {
-            program.bind();
-        } catch (Throwable t) {
-            LOGGER.warn("applyPendingColourToProgram: program.bind failed: {}", t.toString());
-        }
         if (isProducingColourMap && colourmapFrame) {
             // Strongly prefer stable colours per entity/block at draw time.
             if (hasCurrentEntity() || strictEntityDraw) {
@@ -649,51 +766,8 @@ public class TextureHelper {
                     // Ensure blocks keep their per-type colour even if a late bind overwrote pending to -1
                     setPendingColourForCurrentBlock();
                 }
-
-                // Diagnostic: log when we are about to apply a colour for the chicken texture
-                // but no current entity is set. This helps track overwrites of the chicken's ID.
-                if (p != null
-                        && p.startsWith("textures/entity/chicken/")
-                        && !hasCurrentEntity()
-                        && !isStrictEntityDraw()) {
-                    LOGGER.info("Segmentation: applyPendingColourToProgram for CHICKEN with NO current entity; pending=({}, {}, {})",
-                            pendingR, pendingG, pendingB);
-                }
             }
         } catch (Throwable ignored) {}
-        GlUniform r = program.getUniform("entityColourR");
-        GlUniform g = program.getUniform("entityColourG");
-        GlUniform b = program.getUniform("entityColourB");
-        GlUniform dbg = program.getUniform("debugMode");
-        GlUniform alpha = program.getUniform("respectAlpha");
-        GlUniform grid = program.getUniform("atlasGrid");
-        if (r != null && g != null && b != null) {
-            r.set(pendingR);
-            g.set(pendingG);
-            b.set(pendingB);
-            r.upload();
-            g.upload();
-            b.upload();
-            LOGGER.debug("Applied pending colour to PROGRAM {} -> R:{} G:{} B:{}", program.getName(), pendingR, pendingG, pendingB);
-        } else {
-            LOGGER.warn("Program {} missing annotate uniforms; colours not applied", program.getName());
-        }
-        if (dbg != null) {
-            dbg.set(segmentationDebugLevel);
-            dbg.upload();
-            LOGGER.debug("Applied debugMode={} to PROGRAM {}", segmentationDebugLevel, program.getName());
-        }
-        if (alpha != null) {
-            alpha.set(respectOpacity ? 1 : 0);
-            alpha.upload();
-            LOGGER.debug("Applied respectAlpha={} to PROGRAM {}", (respectOpacity ? 1 : 0), program.getName());
-        }
-        if (grid != null) {
-            int atlasGrid = 32;
-            grid.set(atlasGrid);
-            grid.upload();
-            LOGGER.debug("Applied atlasGrid={} to PROGRAM {}", atlasGrid, program.getName());
-        }
     }
 
     private static void ensureInitialised() {
@@ -816,7 +890,7 @@ public class TextureHelper {
                 segmentationFbo.delete();
             }
             segmentationFbo = new SimpleFramebuffer(width, height, true, MinecraftClient.IS_SYSTEM_MAC);
-            LOGGER.debug("TextureHelper: created/updated segmentation FBO {} size {}x{}", segmentationFbo.fbo, width, height);
+            LOGGER.info("TextureHelper: created/updated segmentation FBO {} size {}x{}", segmentationFbo.fbo, width, height);
         }
     }
 
@@ -830,7 +904,7 @@ public class TextureHelper {
                 segmentationFbo.delete();
             } catch (Throwable ignored) {}
             segmentationFbo = null;
-            LOGGER.debug("TextureHelper: destroyed segmentation FBO");
+            LOGGER.info("TextureHelper: destroyed segmentation FBO");
         }
     }
 
@@ -843,205 +917,28 @@ public class TextureHelper {
     private static final int[] PREV_VIEWPORT = new int[4];
     private static int prevProgram = 0;
 
-    // Debug probe for tracking which draw first changes a specific pixel
-    private static final int DEBUG_PROBE_X = 770;
-    private static final int DEBUG_PROBE_Y = 250; // screen-space, origin at top-left
-    private static int debugProbeLastSample = -1;
-    private static int debugProbeDrawIndex = 0;
-    // Separate toggle for probe so we don't have to enable shader debug visuals.
-    private static final boolean SEG_PROBE_FORCED =
-            Boolean.parseBoolean(System.getProperty("vereya.seg.probe", "false"));
+    // Debug stats: number of draw calls that used the segmentation shaders
+    // during the current segmentation pass.
+    private static int segDrawCallsRenderSystem = 0;
+    private static int segDrawCallsGlState = 0;
 
-    // Optional region probe around the chicken pixel to see if an entity render
-    // changes any pixels at all within that window.
-    private static final int DEBUG_REGION_RADIUS = 30;
-    private static int regionProbeX0 = -1;
-    private static int regionProbeY0 = -1;
-    private static int regionProbeW = 0;
-    private static int regionProbeH = 0;
-    private static int[] regionProbeBefore = null;
-
-    private static boolean isProbeEnabled() {
-        // Either explicitly enabled via -Dvereya.seg.probe=true or via high debug level.
-        if (segmentationFbo == null) return false;
-        if (SEG_PROBE_FORCED) return true;
-        return segmentationDebugLevel >= 3;
+    public static void resetSegDrawStats() {
+        segDrawCallsRenderSystem = 0;
+        segDrawCallsGlState = 0;
     }
 
-    private static boolean isRegionProbeEnabled() {
-        return SEG_PROBE_FORCED && segmentationFbo != null;
-    }
-
-    /** Snapshot the entire segmentation FBO before an entity render. */
-    public static void beginEntityRegionProbe() {
-        if (!isProducingColourMap || !colourmapFrame) return;
-        if (!isRegionProbeEnabled()) return;
-        try {
-            int width = segmentationFbo.textureWidth;
-            int height = segmentationFbo.textureHeight;
-            if (width <= 0 || height <= 0) return;
-            int x0 = 0;
-            int y0 = 0;
-            int w = width;
-            int h = height;
-            regionProbeX0 = x0;
-            regionProbeY0 = y0;
-            regionProbeW = w;
-            regionProbeH = h;
-            java.nio.ByteBuffer buf = org.lwjgl.BufferUtils.createByteBuffer(w * h * 4);
-            GL11.glPixelStorei(GL11.GL_PACK_ALIGNMENT, 1);
-            int prevFb = GL11.glGetInteger(GL30.GL_READ_FRAMEBUFFER_BINDING);
-            try {
-                GlStateManager._glBindFramebuffer(GlConst.GL_READ_FRAMEBUFFER, segmentationFbo.fbo);
-                // As with the single-pixel probe, treat y indices as matching buffer rows.
-                GL11.glReadPixels(x0, y0, w, h, GL12.GL_BGRA, GL11.GL_UNSIGNED_BYTE, buf);
-            } finally {
-                GlStateManager._glBindFramebuffer(GlConst.GL_READ_FRAMEBUFFER, prevFb);
-            }
-            regionProbeBefore = new int[w * h];
-            for (int i = 0; i < w * h; i++) {
-                int sample = 0;
-                for (int k = 0; k < 4; k++) {
-                    sample |= (buf.get(i * 4 + k) & 0xFF) << (k * 8);
-                }
-                regionProbeBefore[i] = sample;
-            }
-            LOGGER.info("SegDebug: entity region probe begin at x0={}, y0={}, w={}, h={}", x0, y0, w, h);
-        } catch (Throwable t) {
-            LOGGER.warn("SegDebug: entity region probe begin failed: {}", t.toString());
-            regionProbeBefore = null;
-        }
-    }
-
-    /** Compare region snapshot after an entity render to see how many pixels changed. */
-    public static void endEntityRegionProbe(net.minecraft.entity.Entity entity) {
-        if (!isRegionProbeEnabled()) return;
-        if (regionProbeBefore == null || regionProbeW <= 0 || regionProbeH <= 0) return;
-        try {
-            int w = regionProbeW;
-            int h = regionProbeH;
-            int x0 = regionProbeX0;
-            int y0 = regionProbeY0;
-            java.nio.ByteBuffer buf = org.lwjgl.BufferUtils.createByteBuffer(w * h * 4);
-            GL11.glPixelStorei(GL11.GL_PACK_ALIGNMENT, 1);
-            int prevFb = GL11.glGetInteger(GL30.GL_READ_FRAMEBUFFER_BINDING);
-            try {
-                GlStateManager._glBindFramebuffer(GlConst.GL_READ_FRAMEBUFFER, segmentationFbo.fbo);
-                GL11.glReadPixels(x0, y0, w, h, GL12.GL_BGRA, GL11.GL_UNSIGNED_BYTE, buf);
-            } finally {
-                GlStateManager._glBindFramebuffer(GlConst.GL_READ_FRAMEBUFFER, prevFb);
-            }
-            int changed = 0;
-            int firstOld = 0;
-            int firstNew = 0;
-            for (int i = 0; i < w * h; i++) {
-                int sample = 0;
-                for (int k = 0; k < 4; k++) {
-                    sample |= (buf.get(i * 4 + k) & 0xFF) << (k * 8);
-                }
-                if (sample != regionProbeBefore[i]) {
-                    changed++;
-                    if (changed == 1) {
-                        firstOld = regionProbeBefore[i];
-                        firstNew = sample;
-                    }
-                }
-            }
-            int oldB = firstOld & 0xFF;
-            int oldG = (firstOld >>> 8) & 0xFF;
-            int oldR = (firstOld >>> 16) & 0xFF;
-            int oldA = (firstOld >>> 24) & 0xFF;
-            int newB = firstNew & 0xFF;
-            int newG = (firstNew >>> 8) & 0xFF;
-            int newR = (firstNew >>> 16) & 0xFF;
-            int newA = (firstNew >>> 24) & 0xFF;
-            String ent = (entity != null) ? (entity.getType().toString() + "#" + entity.getId()) : "<null>";
-            LOGGER.info("SegDebug: entity region probe end for {}: changedPixels={} (of {}), firstDiff 0x{} (R={},G={},B={},A={}) -> 0x{} (R={},G={},B={},A={})",
-                    ent, changed, w * h,
-                    Integer.toHexString(firstOld), oldR, oldG, oldB, oldA,
-                    Integer.toHexString(firstNew), newR, newG, newB, newA);
-        } catch (Throwable t) {
-            LOGGER.warn("SegDebug: entity region probe end failed: {}", t.toString());
-        } finally {
-            regionProbeBefore = null;
-            regionProbeW = regionProbeH = 0;
-        }
-    }
-
-    /** Called once per GL drawElements during the segmentation pass. */
-    public static void onSegmentationDrawCall() {
-        if (!isProducingColourMap || !colourmapFrame) {
-            return;
-        }
-        debugProbeDrawIndex++;
-        if (!isProbeEnabled()) {
-            return;
-        }
-        try {
-            // Ensure we are sampling from the segmentation FBO.
-            int fb = GL11.glGetInteger(GL30.GL_READ_FRAMEBUFFER_BINDING);
-            if (fb != segmentationFbo.fbo) {
-                return;
-            }
-            int width = segmentationFbo.textureWidth;
-            int height = segmentationFbo.textureHeight;
-            if (width <= 0 || height <= 0) {
-                return;
-            }
-            int px = DEBUG_PROBE_X;
-            int py = DEBUG_PROBE_Y;
-            if (px < 0 || px >= width || py < 0 || py >= height) {
-                return;
-            }
-            // PNG/Gimp coordinates are top-left; our saved PNG loop writes
-            // FBO row 0 (bottom) into image row 0 (top), so numerically the
-            // row indices match the buffer order. Therefore we sample using
-            // the same Y index without flipping.
-            int glY = py;
-            java.nio.ByteBuffer buf = org.lwjgl.BufferUtils.createByteBuffer(4);
-            GL11.glPixelStorei(GL11.GL_PACK_ALIGNMENT, 1);
-            GL11.glReadPixels(px, glY, 1, 1, GL12.GL_BGRA, GL11.GL_UNSIGNED_BYTE, buf);
-            int sample = 0;
-            for (int k = 0; k < 4; k++) {
-                sample |= (buf.get(k) & 0xFF) << (k * 8);
-            }
-            // BGRA layout from GL12.GL_BGRA
-            int b = sample & 0xFF;
-            int g = (sample >>> 8) & 0xFF;
-            int r = (sample >>> 16) & 0xFF;
-            int a = (sample >>> 24) & 0xFF;
-            if (debugProbeLastSample == -1) {
-                debugProbeLastSample = sample;
-                LOGGER.info("SegDebug: initial probe sample at (x={}, y={}) -> 0x{} (R={}, G={}, B={}, A={}) (drawIndex={})",
-                        px, py, Integer.toHexString(sample), r, g, b, a, debugProbeDrawIndex);
-            } else if (sample != debugProbeLastSample) {
-                Identifier tex = lastBoundTexture;
-                String texStr = tex != null ? tex.toString() : "<none>";
-                int prevB = debugProbeLastSample & 0xFF;
-                int prevG = (debugProbeLastSample >>> 8) & 0xFF;
-                int prevR = (debugProbeLastSample >>> 16) & 0xFF;
-                int prevA = (debugProbeLastSample >>> 24) & 0xFF;
-                LOGGER.info("SegDebug: probe change at drawIndex={} from 0x{} (R={}, G={}, B={}, A={}) to 0x{} (R={}, G={}, B={}, A={}), lastTex={}, hasEntity={} strictEntityDraw={} pending=({}, {}, {})",
-                        debugProbeDrawIndex,
-                        Integer.toHexString(debugProbeLastSample), prevR, prevG, prevB, prevA,
-                        Integer.toHexString(sample), r, g, b, a,
-                        texStr,
-                        hasCurrentEntity(),
-                        isStrictEntityDraw(),
-                        pendingR, pendingG, pendingB);
-                debugProbeLastSample = sample;
-            }
-        } catch (Throwable t) {
-            LOGGER.warn("SegDebug: probe read failed: {}", t.toString());
-        }
+    public static void recordSegDraw(boolean viaRenderSystem) {
+        if (viaRenderSystem) segDrawCallsRenderSystem++;
+        else segDrawCallsGlState++;
     }
 
     public static void beginSegmentationPass() {
         if (segmentationFbo != null) {
+            resetSegDrawStats();
             segAtlasBinds = segEntityBinds = segOtherBinds = 0;
             segProgramSwapsUV = segProgramSwapsNoUV = 0;
             try {
-                LOGGER.debug("TextureHelper: beginSegPass (debugLevel={}) FBO={} size={}x{}", segmentationDebugLevel,
+                LOGGER.info("TextureHelper: beginSegPass (debugLevel={}) FBO={} size={}x{}", segmentationDebugLevel,
                         segmentationFbo.fbo,
                         segmentationFbo.textureWidth,
                         segmentationFbo.textureHeight);
@@ -1117,9 +1014,9 @@ public class TextureHelper {
                     GL11.glReadPixels(0, 0, 1, 1, GL12.GL_BGRA, GL11.GL_UNSIGNED_BYTE, px);
                     int sample = 0;
                     for (int k = 0; k < 4; k++) sample |= (px.get(k) & 0xFF);
-                    LOGGER.debug("TextureHelper: post-clear 1x1 BGRA sample_or={} (0 implies clear not applied)", sample);
+                    LOGGER.info("TextureHelper: post-clear 1x1 BGRA sample_or={} (0 implies clear not applied)", sample);
                 } else {
-                    LOGGER.debug("TextureHelper: post-clear read skipped; READ_FB={} not seg FBO {}", fb, segmentationFbo.fbo);
+                    LOGGER.info("TextureHelper: post-clear read skipped; READ_FB={} not seg FBO {}", fb, segmentationFbo.fbo);
                 }
             } catch (Throwable t) {
                 LOGGER.warn("TextureHelper: post-clear read failed: {}", t.toString());
@@ -1129,7 +1026,7 @@ public class TextureHelper {
                 prevDepth = GL11.glIsEnabled(GL11.GL_DEPTH_TEST);
                 prevScissor = GL11.glIsEnabled(GL11.GL_SCISSOR_TEST);
                 prevStencil = GL11.glIsEnabled(GL11.GL_STENCIL_TEST);
-                LOGGER.debug("TextureHelper: beginSegPass before state -> BLEND={} DEPTH={} SCISSOR={} STENCIL={}", prevBlend, prevDepth, prevScissor, prevStencil);
+                LOGGER.info("TextureHelper: beginSegPass before state -> BLEND={} DEPTH={} SCISSOR={} STENCIL={}", prevBlend, prevDepth, prevScissor, prevStencil);
                 GL11.glDisable(GL11.GL_BLEND);
                 GL11.glDisable(GL11.GL_SCISSOR_TEST);
                 GL11.glDisable(GL11.GL_STENCIL_TEST);
@@ -1143,7 +1040,7 @@ public class TextureHelper {
                 boolean scissorAfter = GL11.glIsEnabled(GL11.GL_SCISSOR_TEST);
                 boolean stencilAfter = GL11.glIsEnabled(GL11.GL_STENCIL_TEST);
                 boolean cullAfter = GL11.glIsEnabled(GL11.GL_CULL_FACE);
-                LOGGER.debug("TextureHelper: beginSegPass after state -> BLEND={} DEPTH={} SCISSOR={} STENCIL={} CULL={}", blendAfter, depthAfter, scissorAfter, stencilAfter, cullAfter);
+                LOGGER.info("TextureHelper: beginSegPass after state -> BLEND={} DEPTH={} SCISSOR={} STENCIL={} CULL={}", blendAfter, depthAfter, scissorAfter, stencilAfter, cullAfter);
             } catch (Throwable t) {
                 LOGGER.warn("TextureHelper: beginSegPass state mutate failed: {}", t.toString());
             }
@@ -1158,14 +1055,10 @@ public class TextureHelper {
                 } catch (Throwable t) {
                     LOGGER.warn("TextureHelper: query RASTERIZER_DISCARD failed: {}", t.toString());
                 }
-                LOGGER.debug("TextureHelper: beginSegPass -> DRAW_FB={} READ_FB={} DRAW_BUF={} READ_BUF={} RASTERIZER_DISCARD={}", drawFb, readFb, drawBuf, readBuf, rd);
+                LOGGER.info("TextureHelper: beginSegPass -> DRAW_FB={} READ_FB={} DRAW_BUF={} READ_BUF={} RASTERIZER_DISCARD={}", drawFb, readFb, drawBuf, readBuf, rd);
             } catch (Throwable t) {
                 LOGGER.warn("TextureHelper: beginSegPass state query failed: {}", t.toString());
             }
-
-            // Reset debug probe state for this segmentation frame.
-            debugProbeLastSample = -1;
-            debugProbeDrawIndex = 0;
         }
     }
 
@@ -1175,37 +1068,13 @@ public class TextureHelper {
                 GlStateManager._glBindFramebuffer(GlConst.GL_READ_FRAMEBUFFER, segmentationFbo.fbo);
                 GL11.glReadBuffer(GL30.GL_COLOR_ATTACHMENT0);
                 GL11.glPixelStorei(GL11.GL_PACK_ALIGNMENT, 1);
-                // Legacy sample at (0,0) for sanity
-                java.nio.ByteBuffer px0 = org.lwjgl.BufferUtils.createByteBuffer(4);
-                GL11.glReadPixels(0, 0, 1, 1, GL12.GL_BGRA, GL11.GL_UNSIGNED_BYTE, px0);
-                int sample0 = 0;
-                for (int k = 0; k < 4; k++) sample0 |= (px0.get(k) & 0xFF) << (k * 8);
-                LOGGER.debug("TextureHelper: endSegPass 1x1 BGRA sample_or={} (0 implies black)", sample0);
-
-                // Debug: also report final colour at the probe pixel (using top-left style coords).
-                try {
-                    int width = segmentationFbo.textureWidth;
-                    int height = segmentationFbo.textureHeight;
-                    int px = DEBUG_PROBE_X;
-                    int py = DEBUG_PROBE_Y;
-                    if (width > 0 && height > 0 && px >= 0 && px < width && py >= 0 && py < height) {
-                        int glY = py;
-                        java.nio.ByteBuffer buf = org.lwjgl.BufferUtils.createByteBuffer(4);
-                        GL11.glReadPixels(px, glY, 1, 1, GL12.GL_BGRA, GL11.GL_UNSIGNED_BYTE, buf);
-                        int s = 0;
-                        for (int k = 0; k < 4; k++) s |= (buf.get(k) & 0xFF) << (k * 8);
-                        int fb = s & 0xFF;
-                        int fg = (s >>> 8) & 0xFF;
-                        int fr = (s >>> 16) & 0xFF;
-                        int fa = (s >>> 24) & 0xFF;
-                        LOGGER.info("SegDebug: final probe sample at (x={}, y={}) -> 0x{} (R={}, G={}, B={}, A={})",
-                                px, py, Integer.toHexString(s), fr, fg, fb, fa);
-                    }
-                } catch (Throwable tProbe) {
-                    LOGGER.warn("SegDebug: final probe read failed: {}", tProbe.toString());
-                }
-
-                LOGGER.debug("TextureHelper: seg frame binds -> atlas={} entity={} other={}, program swaps -> withUV={} withoutUV={} ", segAtlasBinds, segEntityBinds, segOtherBinds, segProgramSwapsUV, segProgramSwapsNoUV);
+                java.nio.ByteBuffer px = org.lwjgl.BufferUtils.createByteBuffer(4);
+                GL11.glReadPixels(0, 0, 1, 1, GL12.GL_BGRA, GL11.GL_UNSIGNED_BYTE, px);
+                int sample = 0;
+                for (int k = 0; k < 4; k++) sample |= (px.get(k) & 0xFF);
+                LOGGER.info("TextureHelper: endSegPass 1x1 BGRA sample_or={} (0 implies black)", sample);
+                LOGGER.info("TextureHelper: seg frame binds -> atlas={} entity={} other={}, program swaps -> withUV={} withoutUV={} ", segAtlasBinds, segEntityBinds, segOtherBinds, segProgramSwapsUV, segProgramSwapsNoUV);
+                LOGGER.info("TextureHelper: seg frame draw calls -> RenderSystem.drawElements={} GlStateManager._drawElements={}", segDrawCallsRenderSystem, segDrawCallsGlState);
             } catch (Throwable t) {
                 LOGGER.warn("TextureHelper: endSegPass sample failed: {}", t.toString());
             }
@@ -1244,7 +1113,7 @@ public class TextureHelper {
                 } catch (Throwable t) {
                     LOGGER.warn("TextureHelper: query RASTERIZER_DISCARD at endSegPass failed: {}", t.toString());
                 }
-                LOGGER.debug("TextureHelper: endSegPass -> DRAW_FB={} READ_FB={} DRAW_BUF={} READ_BUF={} RASTERIZER_DISCARD={}", drawFb, readFb, drawBuf, readBuf, rd);
+                LOGGER.info("TextureHelper: endSegPass -> DRAW_FB={} READ_FB={} DRAW_BUF={} READ_BUF={} RASTERIZER_DISCARD={}", drawFb, readFb, drawBuf, readBuf, rd);
             } catch (Throwable t) {
                 LOGGER.warn("TextureHelper: endSegPass state query failed: {}", t.toString());
             }

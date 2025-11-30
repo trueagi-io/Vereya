@@ -5,9 +5,6 @@ import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.entity.EntityRenderer;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityType;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -22,8 +19,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(EntityRenderer.class)
 public abstract class EntityRendererMixin<T extends Entity> {
 
-    private static final Logger LOGGER = LogManager.getLogger(EntityRendererMixin.class);
-
     @Inject(method = "render(Lnet/minecraft/entity/Entity;FFLnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumerProvider;I)V",
             at = @At("HEAD"))
     private void vereya$markCurrentEntity(T entity,
@@ -37,9 +32,6 @@ public abstract class EntityRendererMixin<T extends Entity> {
             TextureHelper.setCurrentEntity(entity);
             TextureHelper.setPendingColourForEntity(entity);
             TextureHelper.setStrictEntityDraw(true);
-            if (entity.getType() == EntityType.CHICKEN) {
-                LOGGER.info("Segmentation: renderer HEAD for chicken yaw={} tickDelta={}", yaw, tickDelta);
-            }
         }
     }
 
@@ -53,9 +45,6 @@ public abstract class EntityRendererMixin<T extends Entity> {
                                            int light,
                                            CallbackInfo ci) {
         if (TextureHelper.isProducingColourMap() && TextureHelper.colourmapFrame) {
-            if (entity.getType() == EntityType.CHICKEN) {
-                LOGGER.info("Segmentation: renderer TAIL for chicken");
-            }
             TextureHelper.setCurrentEntity(null);
             TextureHelper.setStrictEntityDraw(false);
         }

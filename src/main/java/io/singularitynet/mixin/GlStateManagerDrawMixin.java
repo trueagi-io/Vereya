@@ -21,6 +21,7 @@ public abstract class GlStateManagerDrawMixin {
         if (!TextureHelper.isProducingColourMap() || !TextureHelper.colourmapFrame) {
             return;
         }
+        TextureHelper.recordSegDraw(false);
         ShaderProgram program = com.mojang.blaze3d.systems.RenderSystem.getShader();
         if (program == null) {
             return;
@@ -30,8 +31,9 @@ public abstract class GlStateManagerDrawMixin {
         GlUniform g = program.getUniform("entityColourG");
         GlUniform b = program.getUniform("entityColourB");
         if (r != null && g != null && b != null) {
-            // Downgraded to debug to avoid per-draw log spam.
-            LOGGER.debug("GlStateManagerDrawMixin: applying colour R:{} G:{} B:{}", pending[0], pending[1], pending[2]);
+            if (TextureHelper.getSegmentationDebugLevel() > 0) {
+                LOGGER.info("GlStateManagerDrawMixin: applying colour R:{} G:{} B:{}", pending[0], pending[1], pending[2]);
+            }
             r.set(pending[0]);
             g.set(pending[1]);
             b.set(pending[2]);
@@ -59,9 +61,6 @@ public abstract class GlStateManagerDrawMixin {
             lod.set(8);
             lod.upload();
         }
-
-        // Debug: track which draw calls affect the segmentation probe pixel.
-        TextureHelper.onSegmentationDrawCall();
     }
 
     // Note: No _drawArrays injection (1.20.4 GlStateManager has no such target).

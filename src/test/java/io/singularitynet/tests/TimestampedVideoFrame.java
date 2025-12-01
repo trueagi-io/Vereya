@@ -68,6 +68,30 @@ public final class TimestampedVideoFrame {
     public int getHeight() { return iHeight; }
     public int getChannels() { return iCh; }
 
+    /**
+     * Sum of pixel values interpreted as unsigned.
+     * For depth frames (DEPTH_MAP, 2 channels) this treats the payload as
+     * little-endian uint16 values and returns the sum of all depth samples.
+     * For other frame types it sums the underlying bytes as unsigned 8-bit.
+     */
+    public long sumUnsigned() {
+        if (frametype == FrameType.DEPTH_MAP && iCh == 2) {
+            int pixels = (iWidth > 0 && iHeight > 0) ? (iWidth * iHeight) : (_pixels.length / 2);
+            ByteBuffer bb = ByteBuffer.wrap(_pixels).order(ByteOrder.LITTLE_ENDIAN);
+            long sum = 0L;
+            for (int i = 0; i < pixels && bb.remaining() >= 2; i++) {
+                int u16 = bb.getShort() & 0xFFFF;
+                sum += u16;
+            }
+            return sum;
+        }
+        long sum = 0L;
+        for (byte b : _pixels) {
+            sum += (b & 0xFF);
+        }
+        return sum;
+    }
+
     public int getRGB(int x, int y) {
         if (_pixels == null || iCh < 3 || iWidth <= 0 || iHeight <= 0) return 0;
         int cx = Math.max(0, Math.min(iWidth - 1, x));

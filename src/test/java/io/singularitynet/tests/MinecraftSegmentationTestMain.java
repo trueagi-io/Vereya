@@ -101,6 +101,25 @@ public class MinecraftSegmentationTestMain {
             SegmentationTestBase.assertObservationFromRayConsistency(perType, LOG, "main", 0.8, 2);
             SegmentationTestBase.assertColourToBlockTypeUniqueness(perType, LOG, "main");
             LOG.info("PASS: segmentation had non-black/diverse colours; per-type consistent and colour->type unique");
+
+            // Additionally verify that depth frames are being produced and saved
+            // correctly when depth support is enabled in the mission. This
+            // ensures that the segmentation pass does not interfere with the
+            // normal depth buffer.
+            TimestampedVideoFrame depthFrame = conn.waitDepthFrame(30, TimeUnit.SECONDS);
+            if (depthFrame == null) {
+                throw new AssertionError("No depth frames received within timeout during segmentation test");
+            }
+            LOG.info("Depth frame during segmentation test: " + depthFrame.iWidth + "x" + depthFrame.iHeight +
+                    " ch=" + depthFrame.iCh + " type=" + depthFrame.frametype);
+            if (depthFrame.iCh != 2) {
+                throw new AssertionError("Expected depth frame with 2 channels (uint16), got " + depthFrame.iCh);
+            }
+            long depthSum = depthFrame.sumUnsigned();
+            LOG.info("Depth frame sum of uint16 values (seg test) = " + depthSum);
+            if (depthSum == 0L) {
+                throw new AssertionError("Depth frame appears to be all zeros during segmentation test");
+            }
         } finally {
             try { proc.destroy(); } catch (Throwable ignored) {}
             try { if (!proc.waitFor(5, TimeUnit.SECONDS)) proc.destroyForcibly(); } catch (Throwable ignored) {}

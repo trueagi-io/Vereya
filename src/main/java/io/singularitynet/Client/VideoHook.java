@@ -121,6 +121,9 @@ public class VideoHook {
             case COLOUR_MAP:
                 this.texChannels = 3; // BGR for segmentation
                 break;
+            case DEPTH_MAP:
+                this.texChannels = 2; // 2-byte depth encoding (uint16 per pixel)
+                break;
             default:
                 this.texChannels = 4; // BGRA for standard video
                 break;

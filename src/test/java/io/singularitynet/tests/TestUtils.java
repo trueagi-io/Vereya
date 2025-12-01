@@ -121,6 +121,7 @@ public final class TestUtils {
     public static String patchAgentRewardsPort(String xml, int port) { return xml.replaceAll("(<AgentRewardsPort>)(\\d+)(</AgentRewardsPort>)", "$1" + port + "$3"); }
     public static String patchClientCommandsPort(String xml, int port) { return xml.replaceAll("(<ClientCommandsPort>)(\\d+)(</ClientCommandsPort>)", "$1" + port + "$3"); }
     public static String patchAgentVideoPort(String xml, int port) { return xml.replaceAll("(<AgentVideoPort>)(\\d+)(</AgentVideoPort>)", "$1" + port + "$3"); }
+    public static String patchAgentDepthPort(String xml, int port) { return xml.replaceAll("(<AgentDepthPort>)(\\d+)(</AgentDepthPort>)", "$1" + port + "$3"); }
 
     /** Ensure a <VideoProducer> exists under AgentHandlers. If missing, insert one with width/height
      * copied from ColourMapProducer when available, otherwise 1280x960. */
@@ -147,6 +148,35 @@ public final class TestUtils {
         }
         // Fallback: append at end
         return xml + videoXml;
+    }
+
+    /** Ensure a <DepthProducer> exists under AgentHandlers. If missing, insert one with width/height
+     * copied from ColourMapProducer when available, otherwise 1280x960. */
+    public static String ensureDepthProducer(String xml) {
+        if (xml.contains("<DepthProducer")) return xml;
+        int w = 1280, h = 960;
+        try {
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile(
+                    "<ColourMapProducer[\\s\\S]*?<Width>(\\d+)</Width>[\\s\\S]*?<Height>(\\d+)</Height>[\\s\\S]*?</ColourMapProducer>").matcher(xml);
+            if (m.find()) {
+                w = Integer.parseInt(m.group(1));
+                h = Integer.parseInt(m.group(2));
+            }
+        } catch (Throwable ignored) {}
+        String depthXml = String.format("<DepthProducer><Width>%d</Width><Height>%d</Height></DepthProducer>", w, h);
+        // Prefer inserting immediately after ColourMapProducer, else before </AgentHandlers>
+        int idx = xml.indexOf("</ColourMapProducer>");
+        if (idx >= 0) {
+            StringBuilder sb = new StringBuilder(xml);
+            sb.insert(idx + "</ColourMapProducer>".length(), depthXml);
+            return sb.toString();
+        }
+        int ahClose = xml.indexOf("</AgentHandlers>");
+        if (ahClose >= 0) {
+            return new StringBuilder(xml).insert(ahClose, depthXml).toString();
+        }
+        // Fallback: append at end
+        return xml + depthXml;
     }
 
     /** Ensure ColourMapProducer has respectOpacity="true" attribute to cut out transparent texels. */

@@ -32,7 +32,7 @@ public abstract class GlStateManagerDrawMixin {
         GlUniform b = program.getUniform("entityColourB");
         if (r != null && g != null && b != null) {
             if (TextureHelper.getSegmentationDebugLevel() > 0) {
-                LOGGER.info("GlStateManagerDrawMixin: applying colour R:{} G:{} B:{}", pending[0], pending[1], pending[2]);
+                LOGGER.trace("GlStateManagerDrawMixin: applying colour R:{} G:{} B:{}", pending[0], pending[1], pending[2]);
             }
             r.set(pending[0]);
             g.set(pending[1]);
@@ -62,6 +62,4 @@ public abstract class GlStateManagerDrawMixin {
             lod.upload();
         }
     }
-
-    // Note: No _drawArrays injection (1.20.4 GlStateManager has no such target).
 }

@@ -32,18 +32,16 @@ public abstract class BlockRenderManagerMixin {
                                          boolean cull,
                                          Random random,
                                          CallbackInfo ci) {
-        try {
-            Identifier id = Registries.BLOCK.getId(state.getBlock());
-            if (id != null) {
-                TextureHelper.setCurrentBlockType(id.toString());
-                if (TextureHelper.isProducingColourMap() && TextureHelper.colourmapFrame) {
-                    TextureHelper.setDrawingBlock(true);
-                    TextureHelper.setStrictBlockDraw(true);
-                    // Set a stable per-type colour for the block being drawn
-                    TextureHelper.setPendingColourForCurrentBlock();
-                }
+        Identifier id = Registries.BLOCK.getId(state.getBlock());
+        if (id != null) {
+            TextureHelper.setCurrentBlockType(id.toString());
+            if (TextureHelper.isProducingColourMap() && TextureHelper.colourmapFrame) {
+                TextureHelper.setDrawingBlock(true);
+                TextureHelper.setStrictBlockDraw(true);
+                // Set a stable per-type colour for the block being drawn
+                TextureHelper.setPendingColourForCurrentBlock();
             }
-        } catch (Throwable ignored) {}
+        }
     }
 
     @Inject(method = "renderBlock", at = @At("TAIL"))

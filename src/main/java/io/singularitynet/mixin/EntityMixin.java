@@ -23,9 +23,9 @@ public class EntityMixin {
                 if(reason == Entity.RemovalReason.DISCARDED){
                     mob.setDespawnCounter(0);
                     c.cancel();
-                    LOGGER.info("cancelled removal of entity " + mob.getUuidAsString());
+                    LOGGER.trace("cancelled removal of entity " + mob.getUuidAsString());
                 } else {
-                    LOGGER.info("removed entity " + mob.getUuidAsString());
+                    LOGGER.trace("removed entity " + mob.getUuidAsString());
                 }
             }
         }

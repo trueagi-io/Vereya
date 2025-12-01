@@ -53,7 +53,7 @@ public abstract class RenderSystemDrawMixin {
         GlUniform b = program.getUniform("entityColourB");
         if (r != null && g != null && b != null) {
             if (TextureHelper.getSegmentationDebugLevel() > 0) {
-                LOGGER.info("RenderSystemDrawMixin: applying colour R:{} G:{} B:{}", pending[0], pending[1], pending[2]);
+                LOGGER.trace("RenderSystemDrawMixin: applying colour R:{} G:{} B:{}", pending[0], pending[1], pending[2]);
             }
             r.set(pending[0]);
             g.set(pending[1]);

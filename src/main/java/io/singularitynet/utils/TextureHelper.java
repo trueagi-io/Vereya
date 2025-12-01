@@ -157,7 +157,7 @@ public class TextureHelper {
         lastChunkOffsetY = y;
         lastChunkOffsetZ = z;
         if (isProducingColourMap && colourmapFrame) {
-            LOGGER.info("TextureHelper: captured ChunkOffset from vanilla -> ({}, {}, {})", x, y, z);
+            LOGGER.trace("TextureHelper: captured ChunkOffset from vanilla -> ({}, {}, {})", x, y, z);
         }
     }
 
@@ -167,7 +167,7 @@ public class TextureHelper {
 
     public static void setSegmentationDebugMode(boolean on) {
         segmentationDebugLevel = on ? 1 : 0;
-        LOGGER.info("TextureHelper: segmentation debug mode set to {} (level={})", on, segmentationDebugLevel);
+        LOGGER.trace("TextureHelper: segmentation debug mode set to {} (level={})", on, segmentationDebugLevel);
     }
 
     public static boolean isSegmentationDebugMode() {
@@ -176,7 +176,7 @@ public class TextureHelper {
 
     public static void setSegmentationDebugLevel(int level) {
         segmentationDebugLevel = level;
-        LOGGER.info("TextureHelper: segmentation debug level set to {}", segmentationDebugLevel);
+        LOGGER.trace("TextureHelper: segmentation debug level set to {}", segmentationDebugLevel);
     }
 
     public static int getSegmentationDebugLevel() {
@@ -200,7 +200,7 @@ public class TextureHelper {
 
     public static void setIsProducingColourMap(boolean usemap) {
         isProducingColourMap = usemap;
-        LOGGER.info("TextureHelper: setIsProducingColourMap({})", usemap);
+        LOGGER.trace("TextureHelper: setIsProducingColourMap({})", usemap);
     }
 
     public static boolean isProducingColourMap() {
@@ -210,7 +210,7 @@ public class TextureHelper {
     /** Controls whether segmentation respects texture opacity (cutouts). */
     public static void setRespectOpacity(boolean respect) {
         respectOpacity = respect;
-        LOGGER.info("TextureHelper: respectOpacity set to {}", respect);
+        LOGGER.trace("TextureHelper: respectOpacity set to {}", respect);
     }
 
     public static boolean isRespectOpacity() { return respectOpacity; }
@@ -299,11 +299,7 @@ public class TextureHelper {
         currentEntity = entity;
         if (colourmapFrame && isProducingColourMap) {
             if (entity != null) {
-                try {
-                    LOGGER.info("TextureHelper: rendering entity type={} id={}", entity.getType().toString(), entity.getId());
-                } catch (Throwable t) {
-                    LOGGER.info("TextureHelper: rendering entity (id unavailable)");
-                }
+                LOGGER.trace("TextureHelper: rendering entity type={} id={}", entity.getType().toString(), entity.getId());
             }
         }
     }
@@ -528,7 +524,7 @@ public class TextureHelper {
         glIdToIdentifier.put(glId, id);
         // Optional debug; disabled by default to keep runs fast.
         if (segmentationDebugLevel > 1 && LOGGER.isInfoEnabled()) {
-            LOGGER.info("SegTexMap: glId={} -> id={}", glId, id.toString());
+            LOGGER.trace("SegTexMap: glId={} -> id={}", glId, id.toString());
         }
     }
 
@@ -549,7 +545,7 @@ public class TextureHelper {
         if (id != null) {
             onTextureBound(id);
         } else if (segmentationDebugLevel > 0 && LOGGER.isInfoEnabled()) {
-            LOGGER.info("SegTexBind: id=<unmapped> glId={} segFrame={} isProducing={} hasEntity={} drawingBlock={} currentBlockType={}",
+            LOGGER.trace("SegTexBind: id=<unmapped> glId={} segFrame={} isProducing={} hasEntity={} drawingBlock={} currentBlockType={}",
                     glId,
                     colourmapFrame,
                     isProducingColourMap,
@@ -565,7 +561,7 @@ public class TextureHelper {
         // is very verbose and slows tests down if left on by default.
         if (segmentationDebugLevel > 0 && LOGGER.isInfoEnabled()) {
             String tex = (id != null) ? id.toString() : "<null>";
-            LOGGER.info("SegTexBind: id={} segFrame={} isProducing={} hasEntity={} drawingBlock={} currentBlockType={}",
+            LOGGER.trace("SegTexBind: id={} segFrame={} isProducing={} hasEntity={} drawingBlock={} currentBlockType={}",
                     tex,
                     colourmapFrame,
                     isProducingColourMap,
@@ -621,7 +617,7 @@ public class TextureHelper {
             // the segmentation buffer. Leave the pending colour unchanged and
             // skip any uniform updates for this bind.
             if (LOGGER.isInfoEnabled()) {
-                LOGGER.info("TextureHelper: ignoring non-world texture {} bind during segmentation pass", id != null ? id.toString() : "<null>");
+                LOGGER.trace("TextureHelper: ignoring non-world texture {} bind during segmentation pass", id != null ? id.toString() : "<null>");
             }
             return;
         }
@@ -635,7 +631,7 @@ public class TextureHelper {
             pendingB = (col) & 0xFF;
         }
         if (segmentationDebugLevel > 0 && LOGGER.isInfoEnabled()) {
-            LOGGER.info("Texture bound {} -> pending colour R:{} G:{} B:{}", id != null ? id.toString() : "<null>", pendingR, pendingG, pendingB);
+            LOGGER.trace("Texture bound {} -> pending colour R:{} G:{} B:{}", id != null ? id.toString() : "<null>", pendingR, pendingG, pendingB);
         }
     }
 
@@ -649,11 +645,7 @@ public class TextureHelper {
         pendingB = -1;
         ShaderProgram active = RenderSystem.getShader();
         if (active != null) {
-            try {
-                active.bind();
-            } catch (Throwable t) {
-                LOGGER.warn("setPendingForBlockAtlas: active.bind failed: {}", t.toString());
-            }
+            active.bind();
             GlUniform r = active.getUniform("entityColourR");
             GlUniform g = active.getUniform("entityColourG");
             GlUniform b = active.getUniform("entityColourB");
@@ -662,7 +654,7 @@ public class TextureHelper {
                 r.set(-1);
                 g.set(-1);
                 b.set(-1);
-                LOGGER.info("Applied block-atlas override to ACTIVE program {} -> R:-1 G:-1 B:-1", active.getName());
+                LOGGER.trace("Applied block-atlas override to ACTIVE program {} -> R:-1 G:-1 B:-1", active.getName());
             }
         }
     }
@@ -688,11 +680,7 @@ public class TextureHelper {
         int r = (rgb >> 16) & 0xFF;
         int g = (rgb >> 8) & 0xFF;
         int b = (rgb) & 0xFF;
-        try {
-            program.bind();
-        } catch (Throwable t) {
-            LOGGER.warn("applySolidEntityColourToProgram: program.bind failed: {}", t.toString());
-        }
+        program.bind();
         GlUniform ur = program.getUniform("entityColourR");
         GlUniform ug = program.getUniform("entityColourG");
         GlUniform ub = program.getUniform("entityColourB");
@@ -707,7 +695,7 @@ public class TextureHelper {
             ur.upload();
             ug.upload();
             ub.upload();
-            LOGGER.info("Applied SOLID entity colour to PROGRAM {} -> R:{} G:{} B:{}", program.getName(), r, g, b);
+            LOGGER.trace("Applied SOLID entity colour to PROGRAM {} -> R:{} G:{} B:{}", program.getName(), r, g, b);
         }
         if (dbg != null) {
             dbg.set(segmentationDebugLevel);
@@ -730,17 +718,15 @@ public class TextureHelper {
     /** If the last bound texture is the block atlas and we know the current block type,
      * override the pending RGB to a stable per-type colour. */
     public static void updateAtlasOverrideColourForCurrentBlock() {
-        try {
-            if (lastBoundTexture == null) return;
-            boolean isAtlas = SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE.equals(lastBoundTexture)
-                    || (lastBoundTexture.getPath() != null && lastBoundTexture.getPath().contains("textures/atlas/"));
-            if (!isAtlas) return;
-            if (currentBlockType == null || currentBlockType.isEmpty()) return;
-            int rgb = getColourForBlockType(currentBlockType) & 0x00FFFFFF;
-            pendingR = (rgb >> 16) & 0xFF;
-            pendingG = (rgb >> 8) & 0xFF;
-            pendingB = (rgb) & 0xFF;
-        } catch (Throwable ignored) {}
+        if (lastBoundTexture == null) return;
+        boolean isAtlas = SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE.equals(lastBoundTexture)
+                || (lastBoundTexture.getPath() != null && lastBoundTexture.getPath().contains("textures/atlas/"));
+        if (!isAtlas) return;
+        if (currentBlockType == null || currentBlockType.isEmpty()) return;
+        int rgb = getColourForBlockType(currentBlockType) & 0x00FFFFFF;
+        pendingR = (rgb >> 16) & 0xFF;
+        pendingG = (rgb >> 8) & 0xFF;
+        pendingB = (rgb) & 0xFF;
     }
 
     public static void applyPendingColourToProgram(ShaderProgram program) {
@@ -758,24 +744,22 @@ public class TextureHelper {
         }
         // Additional hardening: if the last bound texture indicates an entity and
         // we don't have currentEntity, avoid atlas fallback by hashing the path.
-        try {
-            Identifier last = lastBoundTexture;
-            if (isProducingColourMap && colourmapFrame && last != null) {
-                String p = last.getPath();
-                boolean pendIsAtlas = (pendingR < 0 || pendingG < 0 || pendingB < 0);
-                if (p != null && p.startsWith("textures/entity/") && !hasCurrentEntity() && pendIsAtlas) {
-                    int fb = getFallbackEntityColourFromTexture(last);
-                    if (fb != -1) {
-                        pendingR = (fb >> 16) & 0xFF;
-                        pendingG = (fb >> 8) & 0xFF;
-                        pendingB = (fb) & 0xFF;
-                    }
-                } else if ((SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE.equals(last) || (p != null && p.contains("textures/atlas/"))) && (isDrawingBlock() || currentBlockType != null)) {
-                    // Ensure blocks keep their per-type colour even if a late bind overwrote pending to -1
-                    setPendingColourForCurrentBlock();
+        Identifier last = lastBoundTexture;
+        if (isProducingColourMap && colourmapFrame && last != null) {
+            String p = last.getPath();
+            boolean pendIsAtlas = (pendingR < 0 || pendingG < 0 || pendingB < 0);
+            if (p != null && p.startsWith("textures/entity/") && !hasCurrentEntity() && pendIsAtlas) {
+                int fb = getFallbackEntityColourFromTexture(last);
+                if (fb != -1) {
+                    pendingR = (fb >> 16) & 0xFF;
+                    pendingG = (fb >> 8) & 0xFF;
+                    pendingB = (fb) & 0xFF;
                 }
+            } else if ((SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE.equals(last) || (p != null && p.contains("textures/atlas/"))) && (isDrawingBlock() || currentBlockType != null)) {
+                // Ensure blocks keep their per-type colour even if a late bind overwrote pending to -1
+                setPendingColourForCurrentBlock();
             }
-        } catch (Throwable ignored) {}
+        }
     }
 
     private static void ensureInitialised() {
@@ -898,7 +882,7 @@ public class TextureHelper {
                 segmentationFbo.delete();
             }
             segmentationFbo = new SimpleFramebuffer(width, height, true, MinecraftClient.IS_SYSTEM_MAC);
-            LOGGER.info("TextureHelper: created/updated segmentation FBO {} size {}x{}", segmentationFbo.fbo, width, height);
+            LOGGER.trace("TextureHelper: created/updated segmentation FBO {} size {}x{}", segmentationFbo.fbo, width, height);
         }
     }
 
@@ -908,11 +892,9 @@ public class TextureHelper {
      */
     public static synchronized void destroySegmentationFramebuffer() {
         if (segmentationFbo != null) {
-            try {
-                segmentationFbo.delete();
-            } catch (Throwable ignored) {}
+            segmentationFbo.delete();
             segmentationFbo = null;
-            LOGGER.info("TextureHelper: destroyed segmentation FBO");
+            LOGGER.trace("TextureHelper: destroyed segmentation FBO");
         }
     }
 
@@ -945,53 +927,31 @@ public class TextureHelper {
             resetSegDrawStats();
             segAtlasBinds = segEntityBinds = segOtherBinds = 0;
             segProgramSwapsUV = segProgramSwapsNoUV = 0;
-            try {
-                LOGGER.info("TextureHelper: beginSegPass (debugLevel={}) FBO={} size={}x{}", segmentationDebugLevel,
-                        segmentationFbo.fbo,
-                        segmentationFbo.textureWidth,
-                        segmentationFbo.textureHeight);
-            } catch (Throwable t) {
-                LOGGER.warn("TextureHelper: logging beginSegPass failed: {}", t.toString());
-            }
+            LOGGER.trace("TextureHelper: beginSegPass (debugLevel={}) FBO={} size={}x{}", segmentationDebugLevel,
+                    segmentationFbo.fbo,
+                    segmentationFbo.textureWidth,
+                    segmentationFbo.textureHeight);
             // Capture GL state before we mutate it
-            try {
-                prevProgram = GL11.glGetInteger(GL20.GL_CURRENT_PROGRAM);
-                prevBlend = GL11.glIsEnabled(GL11.GL_BLEND);
-                prevDepth = GL11.glIsEnabled(GL11.GL_DEPTH_TEST);
-                prevScissor = GL11.glIsEnabled(GL11.GL_SCISSOR_TEST);
-                prevStencil = GL11.glIsEnabled(GL11.GL_STENCIL_TEST);
-                prevCull = GL11.glIsEnabled(GL11.GL_CULL_FACE);
-                prevDrawFb = GL11.glGetInteger(GL30.GL_DRAW_FRAMEBUFFER_BINDING);
-                prevReadFb = GL11.glGetInteger(GL30.GL_READ_FRAMEBUFFER_BINDING);
-                prevDrawBuf = GL11.glGetInteger(GL11.GL_DRAW_BUFFER);
-                prevReadBuf = GL11.glGetInteger(GL11.GL_READ_BUFFER);
-                GL11.glGetIntegerv(GL11.GL_VIEWPORT, PREV_VIEWPORT);
-            } catch (Throwable ignored) {}
+            prevProgram = GL11.glGetInteger(GL20.GL_CURRENT_PROGRAM);
+            prevBlend = GL11.glIsEnabled(GL11.GL_BLEND);
+            prevDepth = GL11.glIsEnabled(GL11.GL_DEPTH_TEST);
+            prevScissor = GL11.glIsEnabled(GL11.GL_SCISSOR_TEST);
+            prevStencil = GL11.glIsEnabled(GL11.GL_STENCIL_TEST);
+            prevCull = GL11.glIsEnabled(GL11.GL_CULL_FACE);
+            prevDrawFb = GL11.glGetInteger(GL30.GL_DRAW_FRAMEBUFFER_BINDING);
+            prevReadFb = GL11.glGetInteger(GL30.GL_READ_FRAMEBUFFER_BINDING);
+            prevDrawBuf = GL11.glGetInteger(GL11.GL_DRAW_BUFFER);
+            prevReadBuf = GL11.glGetInteger(GL11.GL_READ_BUFFER);
+            GL11.glGetIntegerv(GL11.GL_VIEWPORT, PREV_VIEWPORT);
 
             segmentationFbo.beginWrite(true);
-            try {
-                GlStateManager._glBindFramebuffer(GlConst.GL_DRAW_FRAMEBUFFER, segmentationFbo.fbo);
-                GlStateManager._glBindFramebuffer(GlConst.GL_READ_FRAMEBUFFER, segmentationFbo.fbo);
-            } catch (Throwable t) {
-                LOGGER.warn("TextureHelper: explicit FBO bind failed: {}", t.toString());
-            }
-            try {
-                GL30.glDrawBuffer(GL30.GL_COLOR_ATTACHMENT0);
-                GL11.glReadBuffer(GL30.GL_COLOR_ATTACHMENT0);
-                GL11.glViewport(0, 0, segmentationFbo.textureWidth, segmentationFbo.textureHeight);
-                try {
-                    GL11.glDisable(GL30.GL_RASTERIZER_DISCARD);
-                } catch (Throwable t) {
-                    LOGGER.warn("TextureHelper: disable RASTERIZER_DISCARD failed: {}", t.toString());
-                }
-                try {
-                    GL11.glDisable(GL11.GL_COLOR_LOGIC_OP);
-                } catch (Throwable t) {
-                    LOGGER.warn("TextureHelper: disable COLOR_LOGIC_OP at beginSegPass failed: {}", t.toString());
-                }
-            } catch (Throwable t) {
-                LOGGER.warn("TextureHelper: beginSegPass draw/read buffer or viewport set failed: {}", t.toString());
-            }
+            GlStateManager._glBindFramebuffer(GlConst.GL_DRAW_FRAMEBUFFER, segmentationFbo.fbo);
+            GlStateManager._glBindFramebuffer(GlConst.GL_READ_FRAMEBUFFER, segmentationFbo.fbo);
+            GL30.glDrawBuffer(GL30.GL_COLOR_ATTACHMENT0);
+            GL11.glReadBuffer(GL30.GL_COLOR_ATTACHMENT0);
+            GL11.glViewport(0, 0, segmentationFbo.textureWidth, segmentationFbo.textureHeight);
+            GL11.glDisable(GL30.GL_RASTERIZER_DISCARD);
+            GL11.glDisable(GL11.GL_COLOR_LOGIC_OP);
             try {
                 if (segmentationDebugLevel == 1) {
                     GL11.glClearColor(1f, 0f, 1f, 1f);
@@ -1014,117 +974,77 @@ public class TextureHelper {
             } catch (Throwable t) {
                 LOGGER.warn("TextureHelper: manual clear failed: {}", t.toString());
             }
-            try {
-                int fb = GL11.glGetInteger(GL30.GL_READ_FRAMEBUFFER_BINDING);
-                if (fb == segmentationFbo.fbo) {
-                    java.nio.ByteBuffer px = org.lwjgl.BufferUtils.createByteBuffer(4);
-                    GL11.glPixelStorei(GL11.GL_PACK_ALIGNMENT, 1);
-                    GL11.glReadPixels(0, 0, 1, 1, GL12.GL_BGRA, GL11.GL_UNSIGNED_BYTE, px);
-                    int sample = 0;
-                    for (int k = 0; k < 4; k++) sample |= (px.get(k) & 0xFF);
-                    LOGGER.info("TextureHelper: post-clear 1x1 BGRA sample_or={} (0 implies clear not applied)", sample);
-                } else {
-                    LOGGER.info("TextureHelper: post-clear read skipped; READ_FB={} not seg FBO {}", fb, segmentationFbo.fbo);
-                }
-            } catch (Throwable t) {
-                LOGGER.warn("TextureHelper: post-clear read failed: {}", t.toString());
+            int fb = GL11.glGetInteger(GL30.GL_READ_FRAMEBUFFER_BINDING);
+            if (fb == segmentationFbo.fbo) {
+                java.nio.ByteBuffer px = org.lwjgl.BufferUtils.createByteBuffer(4);
+                GL11.glPixelStorei(GL11.GL_PACK_ALIGNMENT, 1);
+                GL11.glReadPixels(0, 0, 1, 1, GL12.GL_BGRA, GL11.GL_UNSIGNED_BYTE, px);
+                int sample = 0;
+                for (int k = 0; k < 4; k++) sample |= (px.get(k) & 0xFF);
+                LOGGER.trace("TextureHelper: post-clear 1x1 BGRA sample_or={} (0 implies clear not applied)", sample);
+            } else {
+                LOGGER.trace("TextureHelper: post-clear read skipped; READ_FB={} not seg FBO {}", fb, segmentationFbo.fbo);
             }
-            try {
-                prevBlend = GL11.glIsEnabled(GL11.GL_BLEND);
-                prevDepth = GL11.glIsEnabled(GL11.GL_DEPTH_TEST);
-                prevScissor = GL11.glIsEnabled(GL11.GL_SCISSOR_TEST);
-                prevStencil = GL11.glIsEnabled(GL11.GL_STENCIL_TEST);
-                LOGGER.info("TextureHelper: beginSegPass before state -> BLEND={} DEPTH={} SCISSOR={} STENCIL={}", prevBlend, prevDepth, prevScissor, prevStencil);
-                GL11.glDisable(GL11.GL_BLEND);
-                GL11.glDisable(GL11.GL_SCISSOR_TEST);
-                GL11.glDisable(GL11.GL_STENCIL_TEST);
-                GL11.glDisable(GL11.GL_CULL_FACE);
-                GL11.glColorMask(true, true, true, true);
-                if (segmentationDebugLevel != 0) {
-                    GL11.glDisable(GL11.GL_DEPTH_TEST);
-                }
-                boolean blendAfter = GL11.glIsEnabled(GL11.GL_BLEND);
-                boolean depthAfter = GL11.glIsEnabled(GL11.GL_DEPTH_TEST);
-                boolean scissorAfter = GL11.glIsEnabled(GL11.GL_SCISSOR_TEST);
-                boolean stencilAfter = GL11.glIsEnabled(GL11.GL_STENCIL_TEST);
-                boolean cullAfter = GL11.glIsEnabled(GL11.GL_CULL_FACE);
-                LOGGER.info("TextureHelper: beginSegPass after state -> BLEND={} DEPTH={} SCISSOR={} STENCIL={} CULL={}", blendAfter, depthAfter, scissorAfter, stencilAfter, cullAfter);
-            } catch (Throwable t) {
-                LOGGER.warn("TextureHelper: beginSegPass state mutate failed: {}", t.toString());
+            prevBlend = GL11.glIsEnabled(GL11.GL_BLEND);
+            prevDepth = GL11.glIsEnabled(GL11.GL_DEPTH_TEST);
+            prevScissor = GL11.glIsEnabled(GL11.GL_SCISSOR_TEST);
+            prevStencil = GL11.glIsEnabled(GL11.GL_STENCIL_TEST);
+            LOGGER.trace("TextureHelper: beginSegPass before state -> BLEND={} DEPTH={} SCISSOR={} STENCIL={}", prevBlend, prevDepth, prevScissor, prevStencil);
+            GL11.glDisable(GL11.GL_BLEND);
+            GL11.glDisable(GL11.GL_SCISSOR_TEST);
+            GL11.glDisable(GL11.GL_STENCIL_TEST);
+            GL11.glDisable(GL11.GL_CULL_FACE);
+            GL11.glColorMask(true, true, true, true);
+            if (segmentationDebugLevel != 0) {
+                GL11.glDisable(GL11.GL_DEPTH_TEST);
             }
-            try {
-                int drawFb = GL11.glGetInteger(GL30.GL_DRAW_FRAMEBUFFER_BINDING);
-                int readFb = GL11.glGetInteger(GL30.GL_READ_FRAMEBUFFER_BINDING);
-                int drawBuf = GL11.glGetInteger(GL11.GL_DRAW_BUFFER);
-                int readBuf = GL11.glGetInteger(GL11.GL_READ_BUFFER);
-                boolean rd = false;
-                try {
-                    rd = GL11.glIsEnabled(GL30.GL_RASTERIZER_DISCARD);
-                } catch (Throwable t) {
-                    LOGGER.warn("TextureHelper: query RASTERIZER_DISCARD failed: {}", t.toString());
-                }
-                LOGGER.info("TextureHelper: beginSegPass -> DRAW_FB={} READ_FB={} DRAW_BUF={} READ_BUF={} RASTERIZER_DISCARD={}", drawFb, readFb, drawBuf, readBuf, rd);
-            } catch (Throwable t) {
-                LOGGER.warn("TextureHelper: beginSegPass state query failed: {}", t.toString());
-            }
+            boolean blendAfter = GL11.glIsEnabled(GL11.GL_BLEND);
+            boolean depthAfter = GL11.glIsEnabled(GL11.GL_DEPTH_TEST);
+            boolean scissorAfter = GL11.glIsEnabled(GL11.GL_SCISSOR_TEST);
+            boolean stencilAfter = GL11.glIsEnabled(GL11.GL_STENCIL_TEST);
+            boolean cullAfter = GL11.glIsEnabled(GL11.GL_CULL_FACE);
+            LOGGER.trace("TextureHelper: beginSegPass after state -> BLEND={} DEPTH={} SCISSOR={} STENCIL={} CULL={}", blendAfter, depthAfter, scissorAfter, stencilAfter, cullAfter);
+            int drawFb = GL11.glGetInteger(GL30.GL_DRAW_FRAMEBUFFER_BINDING);
+            int readFb = GL11.glGetInteger(GL30.GL_READ_FRAMEBUFFER_BINDING);
+            int drawBuf = GL11.glGetInteger(GL11.GL_DRAW_BUFFER);
+            int readBuf = GL11.glGetInteger(GL11.GL_READ_BUFFER);
+            boolean rd = GL11.glIsEnabled(GL30.GL_RASTERIZER_DISCARD);
+            LOGGER.trace("TextureHelper: beginSegPass -> DRAW_FB={} READ_FB={} DRAW_BUF={} READ_BUF={} RASTERIZER_DISCARD={}", drawFb, readFb, drawBuf, readBuf, rd);
         }
     }
 
     public static void endSegmentationPass() {
         if (segmentationFbo != null) {
-            try {
-                GlStateManager._glBindFramebuffer(GlConst.GL_READ_FRAMEBUFFER, segmentationFbo.fbo);
-                GL11.glReadBuffer(GL30.GL_COLOR_ATTACHMENT0);
-                GL11.glPixelStorei(GL11.GL_PACK_ALIGNMENT, 1);
-                java.nio.ByteBuffer px = org.lwjgl.BufferUtils.createByteBuffer(4);
-                GL11.glReadPixels(0, 0, 1, 1, GL12.GL_BGRA, GL11.GL_UNSIGNED_BYTE, px);
-                int sample = 0;
-                for (int k = 0; k < 4; k++) sample |= (px.get(k) & 0xFF);
-                LOGGER.info("TextureHelper: endSegPass 1x1 BGRA sample_or={} (0 implies black)", sample);
-                LOGGER.info("TextureHelper: seg frame binds -> atlas={} entity={} other={}, program swaps -> withUV={} withoutUV={} ", segAtlasBinds, segEntityBinds, segOtherBinds, segProgramSwapsUV, segProgramSwapsNoUV);
-                LOGGER.info("TextureHelper: seg frame draw calls -> RenderSystem.drawElements={} GlStateManager._drawElements={}", segDrawCallsRenderSystem, segDrawCallsGlState);
-            } catch (Throwable t) {
-                LOGGER.warn("TextureHelper: endSegPass sample failed: {}", t.toString());
-            }
+            GlStateManager._glBindFramebuffer(GlConst.GL_READ_FRAMEBUFFER, segmentationFbo.fbo);
+            GL11.glReadBuffer(GL30.GL_COLOR_ATTACHMENT0);
+            GL11.glPixelStorei(GL11.GL_PACK_ALIGNMENT, 1);
+            java.nio.ByteBuffer px = org.lwjgl.BufferUtils.createByteBuffer(4);
+            GL11.glReadPixels(0, 0, 1, 1, GL12.GL_BGRA, GL11.GL_UNSIGNED_BYTE, px);
+            int sample = 0;
+            for (int k = 0; k < 4; k++) sample |= (px.get(k) & 0xFF);
+            LOGGER.trace("TextureHelper: endSegPass 1x1 BGRA sample_or={} (0 implies black)", sample);
+            LOGGER.trace("TextureHelper: seg frame binds -> atlas={} entity={} other={}, program swaps -> withUV={} withoutUV={} ", segAtlasBinds, segEntityBinds, segOtherBinds, segProgramSwapsUV, segProgramSwapsNoUV);
+            LOGGER.trace("TextureHelper: seg frame draw calls -> RenderSystem.drawElements={} GlStateManager._drawElements={}", segDrawCallsRenderSystem, segDrawCallsGlState);
             segmentationFbo.endWrite();
-            try { GL20.glUseProgram(prevProgram); } catch (Throwable ignored) {}
-            try {
-                if (prevBlend) GL11.glEnable(GL11.GL_BLEND); else GL11.glDisable(GL11.GL_BLEND);
-                if (prevScissor) GL11.glEnable(GL11.GL_SCISSOR_TEST); else GL11.glDisable(GL11.GL_SCISSOR_TEST);
-                if (prevStencil) GL11.glEnable(GL11.GL_STENCIL_TEST); else GL11.glDisable(GL11.GL_STENCIL_TEST);
-                if (prevDepth) GL11.glEnable(GL11.GL_DEPTH_TEST); else GL11.glDisable(GL11.GL_DEPTH_TEST);
-                if (prevCull) GL11.glEnable(GL11.GL_CULL_FACE); else GL11.glDisable(GL11.GL_CULL_FACE);
-                // Restore framebuffer bindings, draw/read buffers and viewport
-                try {
-                    GlStateManager._glBindFramebuffer(GlConst.GL_DRAW_FRAMEBUFFER, prevDrawFb);
-                    GlStateManager._glBindFramebuffer(GlConst.GL_READ_FRAMEBUFFER, prevReadFb);
-                    GL11.glDrawBuffer(prevDrawBuf);
-                    GL11.glReadBuffer(prevReadBuf);
-                    GL11.glViewport(PREV_VIEWPORT[0], PREV_VIEWPORT[1], PREV_VIEWPORT[2], PREV_VIEWPORT[3]);
-                } catch (Throwable ignored) {}
-                try {
-                    GL11.glDisable(GL30.GL_RASTERIZER_DISCARD);
-                } catch (Throwable t) {
-                    LOGGER.warn("TextureHelper: disable RASTERIZER_DISCARD at endSegPass failed: {}", t.toString());
-                }
-            } catch (Throwable t) {
-                LOGGER.warn("TextureHelper: endSegPass restore state failed: {}", t.toString());
-            }
-            try {
-                int drawFb = GL11.glGetInteger(GL30.GL_DRAW_FRAMEBUFFER_BINDING);
-                int readFb = GL11.glGetInteger(GL30.GL_READ_FRAMEBUFFER_BINDING);
-                int drawBuf = GL11.glGetInteger(GL11.GL_DRAW_BUFFER);
-                int readBuf = GL11.glGetInteger(GL11.GL_READ_BUFFER);
-                boolean rd = false;
-                try {
-                    rd = GL11.glIsEnabled(GL30.GL_RASTERIZER_DISCARD);
-                } catch (Throwable t) {
-                    LOGGER.warn("TextureHelper: query RASTERIZER_DISCARD at endSegPass failed: {}", t.toString());
-                }
-                LOGGER.info("TextureHelper: endSegPass -> DRAW_FB={} READ_FB={} DRAW_BUF={} READ_BUF={} RASTERIZER_DISCARD={}", drawFb, readFb, drawBuf, readBuf, rd);
-            } catch (Throwable t) {
-                LOGGER.warn("TextureHelper: endSegPass state query failed: {}", t.toString());
-            }
+            GL20.glUseProgram(prevProgram);
+            if (prevBlend) GL11.glEnable(GL11.GL_BLEND); else GL11.glDisable(GL11.GL_BLEND);
+            if (prevScissor) GL11.glEnable(GL11.GL_SCISSOR_TEST); else GL11.glDisable(GL11.GL_SCISSOR_TEST);
+            if (prevStencil) GL11.glEnable(GL11.GL_STENCIL_TEST); else GL11.glDisable(GL11.GL_STENCIL_TEST);
+            if (prevDepth) GL11.glEnable(GL11.GL_DEPTH_TEST); else GL11.glDisable(GL11.GL_DEPTH_TEST);
+            if (prevCull) GL11.glEnable(GL11.GL_CULL_FACE); else GL11.glDisable(GL11.GL_CULL_FACE);
+            // Restore framebuffer bindings, draw/read buffers and viewport
+            GlStateManager._glBindFramebuffer(GlConst.GL_DRAW_FRAMEBUFFER, prevDrawFb);
+            GlStateManager._glBindFramebuffer(GlConst.GL_READ_FRAMEBUFFER, prevReadFb);
+            GL11.glDrawBuffer(prevDrawBuf);
+            GL11.glReadBuffer(prevReadBuf);
+            GL11.glViewport(PREV_VIEWPORT[0], PREV_VIEWPORT[1], PREV_VIEWPORT[2], PREV_VIEWPORT[3]);
+            GL11.glDisable(GL30.GL_RASTERIZER_DISCARD);
+            int drawFb = GL11.glGetInteger(GL30.GL_DRAW_FRAMEBUFFER_BINDING);
+            int readFb = GL11.glGetInteger(GL30.GL_READ_FRAMEBUFFER_BINDING);
+            int drawBuf = GL11.glGetInteger(GL11.GL_DRAW_BUFFER);
+            int readBuf = GL11.glGetInteger(GL11.GL_READ_BUFFER);
+            boolean rd = GL11.glIsEnabled(GL30.GL_RASTERIZER_DISCARD);
+            LOGGER.trace("TextureHelper: endSegPass -> DRAW_FB={} READ_FB={} DRAW_BUF={} READ_BUF={} RASTERIZER_DISCARD={}", drawFb, readFb, drawBuf, readBuf, rd);
         }
     }
 

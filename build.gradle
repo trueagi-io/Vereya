@@ -150,6 +150,22 @@ tasks.register('runSegTest', JavaExec) {
     args missionArg
     // Allow headless when needed; avoid forcing seg debug mode
     environment 'JAVA_TOOL_OPTIONS', ((System.getenv('JAVA_TOOL_OPTIONS') ?: '') + ' -Djava.awt.headless=true').trim()
+    // Ensure the mod jar is freshly built and installed into the local
+    // ~/.minecraft mods directory before running the segmentation test.
+    dependsOn 'build'
+    doFirst {
+        def home = System.getProperty('user.home')
+        def mcModsDir = file("${home}/.minecraft/mods")
+        if (!mcModsDir.exists()) {
+            mcModsDir.mkdirs()
+        }
+        // Use the remapped jar that Fabric Loader expects.
+        def remapJarTask = tasks.named('remapJar').get()
+        def srcJar = remapJarTask.archiveFile.get().asFile
+        def destJar = new File(mcModsDir, srcJar.name)
+        logger.lifecycle("runSegTest: copying ${srcJar} -> ${destJar}")
+        ant.copy(file: srcJar, tofile: destJar)
+    }
 }
 
 // Spawn-chickens segmentation experiment (no rotation; spawns many chickens via chat /summon)

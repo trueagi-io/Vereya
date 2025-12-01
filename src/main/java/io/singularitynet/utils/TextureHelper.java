@@ -36,19 +36,28 @@ import java.util.concurrent.ConcurrentMap;
  -----------------
  TextureHelper coordinates colour-map (segmentation) rendering:
  - State: tracks if colour-map mode is active, and the entity currently being
-   rendered. Holds colour maps for entities (mob types) and miscellaneous
-   textures (eg sun/moon) configured by the mission.
+   rendered, as well as the current block type. Holds colour maps for entities
+   (mob types) and miscellaneous textures (eg sun/moon) configured by the
+   mission.
  - Mixins:
-   * EntityRenderDispatcherMixin sets/clears the current entity around each
-     entity render call.
-   * TextureManagerMixin hooks after texture binding and calls
-     onTextureBound(id), which activates the annotate shader and sets uniforms
-     to output a flat colour.
+   * WorldRendererColourmapMixin runs an extra world render per frame into an
+     off-screen framebuffer while colour-map mode is active.
+   * EntityRenderDispatcherMixin / EntityRendererMixin set and clear the
+     current entity and strict-entity flags around entity render calls so that
+     all of a mob's draws share a single per-entity colour.
+   * TextureManagerMixin, RenderSystemTextureMixin,
+     RenderSystemTextureGlMixin and GlStateManagerBindTextureMixin hook texture
+     binding (by Identifier and by GL id) and call onTextureBound(...), which
+     updates pending colours and debug stats.
+   * RenderSystemDrawMixin and GlStateManagerDrawMixin run at drawElements
+     time during the segmentation pass and push the pending RGB and related
+     uniforms into the active annotate shader program.
  - Shader: annotate.vsh/annotate.fsh is loaded once. Uniforms entityColourR/G/B
-   are set to:
+   are set per draw to:
      * a solid RGB for entities (from map or deterministic fallback),
-     * a solid RGB for known misc textures,
-     * or -1 to signal the block atlas path (shader uses UVs to derive colour).
+     * a solid RGB for known misc textures, or
+     * -1 to signal the atlas/texture-hash path for blocks and other fallback
+       geometry.
  - Extensibility: use setMobColours and setMiscTextureColours with keys:
      * mob/entity: by entity type string from mission config,
      * misc textures: by Identifier path, e.g. "textures/environment/sun.png".
@@ -66,8 +75,7 @@ import java.util.concurrent.ConcurrentMap;
 //
 // NOTE: This is a lightweight, Fabric-compatible scaffold that mirrors the public
 // API used by ColourMapProducerImplementation. The actual render pipeline
-// interception (eg binding custom shaders) is handled elsewhere in Malmo; here we
-// just expose state and mappings so other hooks/mixins can query them.
+// interception (eg binding custom shaders) is handled elsewhere in mixins.
 public class TextureHelper {
     private static final Logger LOGGER = LogManager.getLogger(TextureHelper.class);
     // Indicates whether a colour-map render pass is active this frame.

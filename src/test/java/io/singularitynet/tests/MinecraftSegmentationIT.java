@@ -13,7 +13,6 @@ public class MinecraftSegmentationIT {
     void launchesAndReceivesSegmentationFrames() throws Exception {
         assumeTrue("1".equals(System.getenv().getOrDefault("RUN_SEG_TEST", "0")),
                 "Set RUN_SEG_TEST=1 to run this integration test.");
-        MinecraftSegmentationTestMain.main(new String[]{ System.getProperty("mission", "mission.xml") });
+        MinecraftSegmentationTestMain.main(new String[]{ System.getProperty("mission", "src/test/resources/mission.xml") });
     }
 }
-

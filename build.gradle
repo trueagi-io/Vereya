@@ -72,14 +72,11 @@ processResources {
 	}
 }
 
-// Use default source sets; compile all sources with Java 21 for main, and recompile mixins to Java 17 below for packaging.
-
 // Compile main sources for Java 21 (Minecraft 1.21)
 tasks.named('compileJava', JavaCompile) {
     options.release = 21
 }
 
-// Default jar packaging (includes main outputs). No mixin bytecode rewrite needed under modern loader.
 
 java {
 	// Loom will automatically attach sourcesJar to a RemapSourcesJar task and to the "build" task

@@ -21,7 +21,7 @@ public class MinecraftDepthTestMain {
 
     public static void main(String[] args) throws Exception {
         TestUtils.cleanupPreviousArtifacts();
-        String missionPath = args.length > 0 ? args[0] : "mission.xml";
+        String missionPath = args.length > 0 ? args[0] : "src/test/resources/mission.xml";
         File launch = new File("launch.sh");
         if (!launch.canExecute()) {
             throw new FileNotFoundException("launch.sh not found or not executable: " + launch.getAbsolutePath());

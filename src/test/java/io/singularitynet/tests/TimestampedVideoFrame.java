@@ -27,6 +27,9 @@ public final class TimestampedVideoFrame {
     public final int iWidth;
     public final int iCh;
 
+    /** Optional sequential index assigned by test harness when saving frames. */
+    public int debugIndex = -1;
+
     public TimestampedVideoFrame(TimestampedByteVector message, FrameType frametype) {
         this.timestamp = message.getTimestampSeconds();
         this.frametype = frametype;

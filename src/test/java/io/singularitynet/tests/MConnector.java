@@ -51,6 +51,11 @@ public final class MConnector {
     private final java.util.concurrent.atomic.AtomicInteger videoCounter = new java.util.concurrent.atomic.AtomicInteger();
     private final java.util.concurrent.atomic.AtomicInteger obsCounter = new java.util.concurrent.atomic.AtomicInteger();
     private final java.util.concurrent.atomic.AtomicInteger depthCounter = new java.util.concurrent.atomic.AtomicInteger();
+    // Command sending
+    private Thread cmdThread;
+    private final java.util.concurrent.BlockingQueue<String> cmdQueue = new java.util.concurrent.LinkedBlockingQueue<>();
+    private volatile int effectiveCmdPort = -1;
+    private volatile boolean cmdWorkerStarted = false;
 
     public MConnector(String missionXml) throws IOException {
         this.missionXmlOriginal = missionXml;
@@ -191,11 +196,14 @@ public final class MConnector {
             LOG.info("Parsed AgentDepthPort=" + effectiveDepthPort);
         }
         int cmd = resolveCmdPort(ports);
+        this.effectiveCmdPort = (cmd > 0 ? cmd : getChosenCmdPort());
+        startCmdWorkerIfNeeded("127.0.0.1");
         this.colourmapServer = new VideoServer(effectiveColourPort, 3, FrameType.COLOUR_MAP, (frame) -> {
             colourQueue.offer(frame);
             // Save segmentation PNG and capture per-frame metrics with latest ObservationFromRay
             ensureDirsInitialized();
             int idx = segCounter.incrementAndGet();
+            frame.debugIndex = idx;
             Path outPng = segSaveDir.resolve(String.format("frame_%05d.png", idx));
             try { savePng(frame._pixels, frame.iWidth, frame.iHeight, frame.iCh, outPng); } catch (Throwable ignored) {}
 
@@ -285,7 +293,6 @@ public final class MConnector {
         static void parseObservation(String txt) {
             try {
                 JSONObject obj = new JSONObject(txt);
-                LOG.info("[OBS-RAW] " + txt);
                 latestRayType = null;
                 latestRayDistance = null;
                 latestRayTimestampNs = 0L;
@@ -316,6 +323,58 @@ public final class MConnector {
     public org.json.JSONObject getParticularObservation(String key) { org.json.JSONObject o = lastObservation.get(); return o == null ? null : o.optJSONObject(key); }
 
     public void sendMissionInit(String host, int mcpPort) throws IOException { try (Socket s = new Socket()) { s.setTcpNoDelay(true); s.connect(new InetSocketAddress(host, mcpPort), 5000); OutputStream out = s.getOutputStream(); out.write(missionXmlPatched.getBytes(StandardCharsets.UTF_8)); out.write('\n'); out.flush(); } }
+    /** Queue a single agent command to be sent asynchronously on the background command thread. */
+    public void sendCommand(String command) {
+        if (command == null || command.isEmpty()) return;
+        cmdQueue.offer(command);
+    }
+
+    private synchronized void startCmdWorkerIfNeeded(String host) {
+        if (cmdWorkerStarted) return;
+        cmdWorkerStarted = true;
+        cmdThread = new Thread(() -> runCmdLoop(host), "MConnectorCmdWorker");
+        cmdThread.setDaemon(true);
+        cmdThread.start();
+    }
+
+    private void runCmdLoop(String host) {
+        final long retrySleepMs = 1000L;
+        final long betweenCmdSleepMs = 300L;
+        while (true) {
+            String cmd;
+            try {
+                cmd = cmdQueue.take();
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+            int port = this.effectiveCmdPort;
+            if (port <= 0) {
+                LOG.warning("CmdWorker: effective command port not set; dropping command '" + cmd + "'");
+                continue;
+            }
+            long deadline = System.currentTimeMillis() + 60_000L;
+            boolean sent = false;
+            while (!sent && System.currentTimeMillis() < deadline) {
+                try (Socket s = new Socket()) {
+                    s.setTcpNoDelay(true);
+                    s.connect(new InetSocketAddress(host, port), 2000);
+                    OutputStream out = s.getOutputStream();
+                    out.write((cmd + "\n").getBytes(StandardCharsets.UTF_8));
+                    out.flush();
+                    LOG.info("CmdWorker: sent command '" + cmd + "' on port " + port);
+                    sent = true;
+                } catch (Exception e) {
+                    try { Thread.sleep(retrySleepMs); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); return; }
+                }
+            }
+            if (!sent) {
+                LOG.warning("CmdWorker: failed to send command within timeout to port " + port + " cmd='" + cmd + "'");
+            }
+            try { Thread.sleep(betweenCmdSleepMs); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); return; }
+        }
+    }
+
     public Thread createCmdSenderThread(String host, int cmdPort, String[] cmds, int delayMs, String name) { TestUtils.CmdSender sender = new TestUtils.CmdSender(host, cmdPort, cmds, delayMs); Thread t = new Thread(sender, name != null ? name : "CmdSender"); t.setDaemon(true); return t; }
     public static Thread createCmdThread(String host, int cmdPort, String[] cmds, int delayMs, String name) { TestUtils.CmdSender sender = new TestUtils.CmdSender(host, cmdPort, cmds, delayMs); Thread t = new Thread(sender, name != null ? name : "CmdSender"); t.setDaemon(true); return t; }
 

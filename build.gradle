@@ -42,8 +42,12 @@ dependencies {
 	implementation 'jakarta.xml.bind:jakarta.xml.bind-api:3.0.1'
 	implementation 'jakarta.annotation:jakarta.annotation-api:2.0.0'
 	implementation 'jakarta.activation:jakarta.activation-api:2.0.1'
-	implementation 'org.json:json:20230227'
-	compileOnly 'com.mojang:authlib'
+    implementation 'org.json:json:20230227'
+    compileOnly 'com.mojang:authlib'
+
+    // Tests / integration harness
+    testImplementation platform('org.junit:junit-bom:5.10.2')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
 
 	xjc "org.glassfish.jaxb:jaxb-runtime:3.0.2"
 	xjc 'org.glassfish.jaxb:jaxb-xjc:3.0.1'
@@ -68,10 +72,11 @@ processResources {
 	}
 }
 
-tasks.withType(JavaCompile).configureEach {
-	// Minecraft 1.21-rc1 uses Java 21.
-	it.options.release = 21
+// Compile main sources for Java 21 (Minecraft 1.21)
+tasks.named('compileJava', JavaCompile) {
+    options.release = 21
 }
+
 
 java {
 	// Loom will automatically attach sourcesJar to a RemapSourcesJar task and to the "build" task
@@ -124,7 +129,67 @@ classes {
 
 
 xjc {
-	xjcVersion.set("3.0.0")
+    xjcVersion.set("3.0.0")
+}
+
+tasks.test {
+    useJUnitPlatform()
+}
+
+// Convenience task to run the integration harness
+tasks.register('runSegTest', JavaExec) {
+    group = 'verification'
+    description = 'Launches Minecraft via ./launch.sh and validates segmentation frames.'
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'io.singularitynet.tests.MinecraftSegmentationTestMain'
+    // Allow overriding mission path via -Pmission=path/to/mission.xml
+    def missionArg = project.findProperty('mission') ?: 'mission.xml'
+    args missionArg
+    // Allow headless when needed; avoid forcing seg debug mode
+    environment 'JAVA_TOOL_OPTIONS', ((System.getenv('JAVA_TOOL_OPTIONS') ?: '') + ' -Djava.awt.headless=true').trim()
+    // Ensure the mod jar is freshly built and installed into the local
+    // ~/.minecraft mods directory before running the segmentation test.
+    dependsOn 'build'
+    doFirst {
+        def home = System.getProperty('user.home')
+        def mcModsDir = file("${home}/.minecraft/mods")
+        if (!mcModsDir.exists()) {
+            mcModsDir.mkdirs()
+        }
+        // Use the remapped jar that Fabric Loader expects.
+        def remapJarTask = tasks.named('remapJar').get()
+        def srcJar = remapJarTask.archiveFile.get().asFile
+        def destJar = new File(mcModsDir, srcJar.name)
+        logger.lifecycle("runSegTest: copying ${srcJar} -> ${destJar}")
+        ant.copy(file: srcJar, tofile: destJar)
+    }
+}
+
+// Spawn-chickens segmentation experiment (no rotation; spawns many chickens via chat /summon)
+tasks.register('runSegSpawnTest', JavaExec) {
+    group = 'verification'
+    description = 'Launches Minecraft and spawns many chickens to measure entity colour diversity.'
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'io.singularitynet.tests.MinecraftSegmentationSpawnChickensTestMain'
+    def missionArg = project.findProperty('mission') ?: 'mission.xml'
+    args missionArg
+    environment 'JAVA_TOOL_OPTIONS', ((System.getenv('JAVA_TOOL_OPTIONS') ?: '') + ' -Djava.awt.headless=true').trim()
+    // Ensure the mod jar is freshly built and installed into the local
+    // ~/.minecraft mods directory before running the spawn test.
+    dependsOn 'build'
+    doFirst {
+        def home = System.getProperty('user.home')
+        def mcModsDir = file("${home}/.minecraft/mods")
+        if (!mcModsDir.exists()) {
+            mcModsDir.mkdirs()
+        }
+        // Use the remapped jar that Fabric Loader expects.
+        def remapJarTask = tasks.named('remapJar').get()
+        def srcJar = remapJarTask.archiveFile.get().asFile
+        def destJar = new File(mcModsDir, srcJar.name)
+        logger.lifecycle("runSegSpawnTest: copying ${srcJar} -> ${destJar}")
+        ant.copy(file: srcJar, tofile: destJar)
+    }
 }
 
 gradle.taskGraph.whenReady {taskGraph ->

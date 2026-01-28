@@ -419,6 +419,18 @@ public class TextureHelper {
         return 0xFF000000 | (col & 0x00FFFFFF);
     }
 
+    public static boolean setPendingColourForMiscTexture(Identifier id) {
+        int col = getColourForTexture(id);
+        if (col == -1) {
+            return false;
+        }
+        int rgb = col & 0x00FFFFFF;
+        pendingR = (rgb >> 16) & 0xFF;
+        pendingG = (rgb >> 8) & 0xFF;
+        pendingB = (rgb) & 0xFF;
+        return true;
+    }
+
     /**
      * Best-effort fallback: derive a stable per-entity colour from a bound
      * entity texture path when we don't have the current entity.

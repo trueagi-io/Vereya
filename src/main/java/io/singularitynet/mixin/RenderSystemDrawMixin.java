@@ -30,19 +30,22 @@ public abstract class RenderSystemDrawMixin {
             // Rendering an entity: force a stable per-entity colour
             TextureHelper.setPendingColourForCurrentEntity();
         } else {
-            // No current entity: try entity fallback from last bound texture; else atlas
+            // No current entity: try misc textures (eg clouds), then entity fallback, else atlas
             net.minecraft.util.Identifier last = TextureHelper.getLastBoundTexture();
-            boolean fallbackApplied = false;
-            if (last != null) {
-                String p = last.getPath();
-                if (p != null && p.startsWith("textures/entity/")) {
-                    // Let applyPendingColourToProgram resolve fallback to a stable colour
-                    // by leaving pending untouched here; it will pick up last-bound id.
-                    fallbackApplied = true;
+            boolean miscApplied = TextureHelper.setPendingColourForMiscTexture(last);
+            if (!miscApplied) {
+                boolean fallbackApplied = false;
+                if (last != null) {
+                    String p = last.getPath();
+                    if (p != null && p.startsWith("textures/entity/")) {
+                        // Let applyPendingColourToProgram resolve fallback to a stable colour
+                        // by leaving pending untouched here; it will pick up last-bound id.
+                        fallbackApplied = true;
+                    }
                 }
+                // Default to atlas fallback colours for blocks/non-entity draws
+                if (!fallbackApplied) TextureHelper.setPendingForBlockAtlas();
             }
-            // Default to atlas fallback colours for blocks/non-entity draws
-            if (!fallbackApplied) TextureHelper.setPendingForBlockAtlas();
         }
         ShaderProgram program = RenderSystem.getShader();
         if (program == null) {

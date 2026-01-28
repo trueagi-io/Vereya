@@ -56,6 +56,7 @@ public class ColourMapProducerImplementation extends HandlerBase implements IVid
 
         miscColours.put("textures/environment/sun.png", 0xFFFF00);
         miscColours.put("textures/environment/moon_phases.png", 0xFFFFFF);
+        miscColours.put("textures/environment/clouds.png", 0xC0C0C0);
         return true;
     }
 

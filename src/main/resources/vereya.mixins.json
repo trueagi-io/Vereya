@@ -26,6 +26,8 @@
     "ServerPlayNetworkHandlerMixin",
     "WorldRendererColourmapMixin",
     "WorldRendererSkyMixin",
+    "WorldRendererWeatherMixin",
+    "ParticleManagerRenderMixin",
     "TextureManagerMixin",
     "RenderSystemTextureMixin",
     "RenderSystemTextureGlMixin",

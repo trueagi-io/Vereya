@@ -26,6 +26,9 @@ public abstract class GlStateManagerDrawMixin {
         if (program == null) {
             return;
         }
+        if (TextureHelper.isRenderingParticles()) {
+            TextureHelper.setPendingColourForParticles();
+        }
         int[] pending = TextureHelper.getPendingColourRGB();
         GlUniform r = program.getUniform("entityColourR");
         GlUniform g = program.getUniform("entityColourG");

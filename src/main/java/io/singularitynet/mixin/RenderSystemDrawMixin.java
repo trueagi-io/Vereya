@@ -24,7 +24,9 @@ public abstract class RenderSystemDrawMixin {
         TextureHelper.recordSegDraw(true);
         // If drawing blocks and we know the current block type, force a stable
         // per-type colour regardless of the last bound texture.
-        if (TextureHelper.hasCurrentEntity()) {
+        if (TextureHelper.isRenderingParticles()) {
+            TextureHelper.setPendingColourForParticles();
+        } else if (TextureHelper.hasCurrentEntity()) {
             // Rendering an entity: force a stable per-entity colour
             TextureHelper.setPendingColourForCurrentEntity();
         } else {

@@ -49,18 +49,32 @@ public class VideoProducerImplementation extends HandlerBase implements IVideoPr
     @Override
     public int getWidth()
     {
+        int framebufferWidth = getFramebufferWidth();
+        if (framebufferWidth > 0) {
+            return framebufferWidth;
+        }
         return this.videoParams.getWidth();
     }
 
     @Override
-    public int getHeight() { return this.videoParams.getHeight(); }
+    public int getHeight() {
+        int framebufferHeight = getFramebufferHeight();
+        if (framebufferHeight > 0) {
+            return framebufferHeight;
+        }
+        return this.videoParams.getHeight();
+    }
 
     private int[] writeRGBFrame(ByteBuffer buffer)
     {
         Framebuffer framebuffer = MinecraftClient.getInstance().getFramebuffer();
-        int i = framebuffer.textureWidth;
-        int j = framebuffer.textureHeight;
-        GlStateManager._readPixels(0, 0, i, j, GL_BGRA, GL11.GL_UNSIGNED_BYTE, buffer);
+        int i = framebuffer != null ? framebuffer.textureWidth : Math.max(1, getWidth());
+        int j = framebuffer != null ? framebuffer.textureHeight : Math.max(1, getHeight());
+        int requiredBytes = i * j * 4;
+        if (buffer != null && buffer.capacity() >= requiredBytes) {
+            buffer.clear();
+            GlStateManager._readPixels(0, 0, i, j, GL_BGRA, GL11.GL_UNSIGNED_BYTE, buffer);
+        }
         int[] sizes = new int[2];
         sizes[0] = i;
         sizes[1] = j;
@@ -80,4 +94,14 @@ public class VideoProducerImplementation extends HandlerBase implements IVideoPr
 
     @Override
     public void cleanup() {}
+
+    private int getFramebufferWidth() {
+        Framebuffer framebuffer = MinecraftClient.getInstance().getFramebuffer();
+        return framebuffer != null ? framebuffer.textureWidth : 0;
+    }
+
+    private int getFramebufferHeight() {
+        Framebuffer framebuffer = MinecraftClient.getInstance().getFramebuffer();
+        return framebuffer != null ? framebuffer.textureHeight : 0;
+    }
 }

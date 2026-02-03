@@ -44,6 +44,18 @@ public abstract class BlockRenderManagerMixin {
         }
     }
 
+    @Inject(method = "renderDamage", at = @At("HEAD"), cancellable = true)
+    private void vereya$skipBlockDamageOverlay(BlockState state,
+                                               BlockPos pos,
+                                               BlockRenderView world,
+                                               MatrixStack matrices,
+                                               VertexConsumer vertexConsumer,
+                                               CallbackInfo ci) {
+        if (TextureHelper.isProducingColourMap() && TextureHelper.colourmapFrame) {
+            ci.cancel();
+        }
+    }
+
     @Inject(method = "renderBlock", at = @At("TAIL"))
     private void vereya$clearBlockFlag(BlockState state,
                                        BlockPos pos,

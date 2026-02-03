@@ -56,6 +56,7 @@ public class ColourMapProducerImplementation extends HandlerBase implements IVid
 
         miscColours.put("textures/environment/sun.png", 0xFFFF00);
         miscColours.put("textures/environment/moon_phases.png", 0xFFFFFF);
+        miscColours.put("textures/environment/clouds.png", 0xC0C0C0);
         return true;
     }
 
@@ -66,11 +67,19 @@ public class ColourMapProducerImplementation extends HandlerBase implements IVid
 
     @Override
     public int getWidth() {
+        int framebufferWidth = getFramebufferWidth();
+        if (framebufferWidth > 0) {
+            return framebufferWidth;
+        }
         return this.cmParams != null ? this.cmParams.getWidth() : 0;
     }
 
     @Override
     public int getHeight() {
+        int framebufferHeight = getFramebufferHeight();
+        if (framebufferHeight > 0) {
+            return framebufferHeight;
+        }
         return this.cmParams != null ? this.cmParams.getHeight() : 0;
     }
 
@@ -169,19 +178,20 @@ public class ColourMapProducerImplementation extends HandlerBase implements IVid
     }
 
     private Framebuffer ensureFramebuffer() {
-        int width = getWidth();
-        int height = getHeight();
-        if (width <= 0 || height <= 0) {
-            Framebuffer main = MinecraftClient.getInstance().getFramebuffer();
-            if (main != null) {
-                width = main.textureWidth;
-                height = main.textureHeight;
-            }
-        }
-        width = Math.max(1, width);
-        height = Math.max(1, height);
+        int width = Math.max(1, getWidth());
+        int height = Math.max(1, getHeight());
         TextureHelper.ensureSegmentationFramebuffer(width, height);
         return TextureHelper.getSegmentationFramebuffer();
+    }
+
+    private int getFramebufferWidth() {
+        Framebuffer framebuffer = MinecraftClient.getInstance().getFramebuffer();
+        return framebuffer != null ? framebuffer.textureWidth : 0;
+    }
+
+    private int getFramebufferHeight() {
+        Framebuffer framebuffer = MinecraftClient.getInstance().getFramebuffer();
+        return framebuffer != null ? framebuffer.textureHeight : 0;
     }
 
     private ByteBuffer ensureReadbackBuffer(int byteCount) {

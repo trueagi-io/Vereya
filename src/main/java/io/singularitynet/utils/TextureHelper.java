@@ -123,6 +123,10 @@ public class TextureHelper {
     private static volatile int pendingR = 0;
     private static volatile int pendingG = 0;
     private static volatile int pendingB = 0;
+    // Flag set while ParticleManager is rendering particles during segmentation.
+    private static volatile boolean renderingParticles = false;
+    // Fixed RGB used for all particles in segmentation output.
+    private static final int PARTICLE_RGB = 0x0000FF;
     // Track last texture bound to help choose pending colour when a shader is set
     private static volatile Identifier lastBoundTexture = null;
     // Map GL texture ids back to Identifiers so that bindings which only see
@@ -214,6 +218,14 @@ public class TextureHelper {
     }
 
     public static boolean isRespectOpacity() { return respectOpacity; }
+
+    public static void setRenderingParticles(boolean rendering) {
+        renderingParticles = rendering;
+    }
+
+    public static boolean isRenderingParticles() {
+        return renderingParticles;
+    }
 
     /**
      * Set preferred mob colours.
@@ -352,6 +364,12 @@ public class TextureHelper {
         }
     }
 
+    public static void setPendingColourForParticles() {
+        pendingR = (PARTICLE_RGB >> 16) & 0xFF;
+        pendingG = (PARTICLE_RGB >> 8) & 0xFF;
+        pendingB = (PARTICLE_RGB) & 0xFF;
+    }
+
     private static int getColourForBlockType(String blockType) {
         if (blockType == null || blockType.isEmpty()) return 0xFF444444;
         // Derive 3 decorrelated bytes from the string hash; then clamp to mid-range (32..223)
@@ -399,6 +417,18 @@ public class TextureHelper {
         Integer col = miscTexturesToColours.get(id.getPath());
         if (col == null) return -1;
         return 0xFF000000 | (col & 0x00FFFFFF);
+    }
+
+    public static boolean setPendingColourForMiscTexture(Identifier id) {
+        int col = getColourForTexture(id);
+        if (col == -1) {
+            return false;
+        }
+        int rgb = col & 0x00FFFFFF;
+        pendingR = (rgb >> 16) & 0xFF;
+        pendingG = (rgb >> 8) & 0xFF;
+        pendingB = (rgb) & 0xFF;
+        return true;
     }
 
     /**
@@ -573,6 +603,10 @@ public class TextureHelper {
         if (!isProducingColourMap || !colourmapFrame) {
             return;
         }
+        if (renderingParticles) {
+            setPendingColourForParticles();
+            return;
+        }
         int col = 0;
         boolean isAtlas = (SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE.equals(id) ||
                 (id != null && id.getPath() != null && id.getPath().contains("textures/atlas/")));
@@ -732,8 +766,10 @@ public class TextureHelper {
     public static void applyPendingColourToProgram(ShaderProgram program) {
         if (program == null) return;
         if (isProducingColourMap && colourmapFrame) {
-            // Strongly prefer stable colours per entity/block at draw time.
-            if (hasCurrentEntity() || strictEntityDraw) {
+            if (isRenderingParticles()) {
+                setPendingColourForParticles();
+            } else if (hasCurrentEntity() || strictEntityDraw) {
+                // Strongly prefer stable colours per entity/block at draw time.
                 setPendingColourForCurrentEntity();
             } else if (isDrawingBlock() || strictBlockDraw) {
                 setPendingColourForCurrentBlock();
@@ -744,20 +780,22 @@ public class TextureHelper {
         }
         // Additional hardening: if the last bound texture indicates an entity and
         // we don't have currentEntity, avoid atlas fallback by hashing the path.
-        Identifier last = lastBoundTexture;
-        if (isProducingColourMap && colourmapFrame && last != null) {
-            String p = last.getPath();
-            boolean pendIsAtlas = (pendingR < 0 || pendingG < 0 || pendingB < 0);
-            if (p != null && p.startsWith("textures/entity/") && !hasCurrentEntity() && pendIsAtlas) {
-                int fb = getFallbackEntityColourFromTexture(last);
-                if (fb != -1) {
-                    pendingR = (fb >> 16) & 0xFF;
-                    pendingG = (fb >> 8) & 0xFF;
-                    pendingB = (fb) & 0xFF;
+        if (!renderingParticles) {
+            Identifier last = lastBoundTexture;
+            if (isProducingColourMap && colourmapFrame && last != null) {
+                String p = last.getPath();
+                boolean pendIsAtlas = (pendingR < 0 || pendingG < 0 || pendingB < 0);
+                if (p != null && p.startsWith("textures/entity/") && !hasCurrentEntity() && pendIsAtlas) {
+                    int fb = getFallbackEntityColourFromTexture(last);
+                    if (fb != -1) {
+                        pendingR = (fb >> 16) & 0xFF;
+                        pendingG = (fb >> 8) & 0xFF;
+                        pendingB = (fb) & 0xFF;
+                    }
+                } else if ((SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE.equals(last) || (p != null && p.contains("textures/atlas/"))) && (isDrawingBlock() || currentBlockType != null)) {
+                    // Ensure blocks keep their per-type colour even if a late bind overwrote pending to -1
+                    setPendingColourForCurrentBlock();
                 }
-            } else if ((SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE.equals(last) || (p != null && p.contains("textures/atlas/"))) && (isDrawingBlock() || currentBlockType != null)) {
-                // Ensure blocks keep their per-type colour even if a late bind overwrote pending to -1
-                setPendingColourForCurrentBlock();
             }
         }
     }
@@ -1065,5 +1103,6 @@ public class TextureHelper {
         lastBoundTexture = null;
         segAtlasBinds = segEntityBinds = segOtherBinds = 0;
         segProgramSwapsUV = segProgramSwapsNoUV = 0;
+        renderingParticles = false;
     }
 }

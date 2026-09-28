@@ -296,8 +296,8 @@ public class VideoHook {
         ClientPlayerEntity player = MinecraftClient.getInstance().player;
         Vec3d pos = player.getPos();
         float x = (float) pos.getX();
-        float y = (float) pos.getX();
-        float z = (float) pos.getX();
+        float y = (float) pos.getY();
+        float z = (float) pos.getZ();
         float yaw = player.getYaw();
         float pitch = player.getPitch();
         /*

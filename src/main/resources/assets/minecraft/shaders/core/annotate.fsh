@@ -1,6 +1,7 @@
 #version 150
 
 uniform sampler2D Sampler0;
+// R selects the colour source: >= 0 = uniform RGB bytes, -1 = atlas, -2 = vertex labels.
 uniform int entityColourR;
 uniform int entityColourG;
 uniform int entityColourB;
@@ -49,6 +50,13 @@ void main() {
     }
     if (debugMode == 3) {
         FragColor = vec4(fract(gl_FragCoord.xy / 32.0), 0.0, 1.0);
+        return;
+    }
+
+    // VertexBufferColoursMixin binds block labels to Color only for this draw.
+    // These are palette RGBs, not shaded/tinted mesh colours; UVs only affect cutout alpha above.
+    if (entityColourR == -2) {
+        FragColor = vec4(vertexColor.rgb, 1.0);
         return;
     }
 

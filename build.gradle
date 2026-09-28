@@ -136,6 +136,25 @@ tasks.test {
     useJUnitPlatform()
 }
 
+tasks.register('runBlockSegTest', JavaExec) {
+    group = 'verification'
+    description = 'Checks block segmentation using an isolated client launcher supplied by -PsegLauncher.'
+    dependsOn 'testClasses', 'remapJar'
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'io.singularitynet.tests.BlockSegmentationTestMain'
+    args(project.findProperty('segLauncher') ?: 'build/block-segmentation-launch.sh',
+            project.findProperty('segMode') ?: 'block')
+    systemProperty 'seg.test.legacyMetadata', project.hasProperty('segReferenceJar')
+    doFirst {
+        copy {
+            from project.findProperty('segReferenceJar') ?: tasks.named('remapJar').get().archiveFile
+            into file(project.findProperty('segModsDir') ?: 'build/segmentation-client/mods')
+            // Reference and current builds replace the same file, rather than loading both mods.
+            rename { tasks.named('remapJar').get().archiveFile.get().asFile.name }
+        }
+    }
+}
+
 // Convenience task to run the integration harness
 tasks.register('runSegTest', JavaExec) {
     group = 'verification'

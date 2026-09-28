@@ -55,9 +55,9 @@ import java.util.concurrent.ConcurrentMap;
  - Shader: annotate.vsh/annotate.fsh is loaded once. Uniforms entityColourR/G/B
    are set per draw to:
      * a solid RGB for entities (from map or deterministic fallback),
-     * a solid RGB for known misc textures, or
-     * -1 to signal the atlas/texture-hash path for blocks and other fallback
-       geometry.
+     * a solid RGB for known misc textures,
+     * -2 to use the per-vertex block labels attached to chunk buffers, or
+     * -1 to signal the atlas/texture-hash path for fallback geometry.
  - Extensibility: use setMobColours and setMiscTextureColours with keys:
      * mob/entity: by entity type string from mission config,
      * misc textures: by Identifier path, e.g. "textures/environment/sun.png".
@@ -200,6 +200,10 @@ public class TextureHelper {
 
     public static void setIsProducingColourMap(boolean usemap) {
         isProducingColourMap = usemap;
+        if (usemap) {
+            LOGGER.info("Block segmentation mode: {}", BlockSegmentation.isEnabled() ? "block" : "texture");
+            BlockSegmentation.exportPaletteIfRequested();
+        }
         LOGGER.trace("TextureHelper: setIsProducingColourMap({})", usemap);
     }
 
@@ -354,17 +358,15 @@ public class TextureHelper {
 
     private static int getColourForBlockType(String blockType) {
         if (blockType == null || blockType.isEmpty()) return 0xFF444444;
-        // Derive 3 decorrelated bytes from the string hash; then clamp to mid-range (32..223)
+        if (BlockSegmentation.isEnabled()) return 0xFF000000 | BlockSegmentation.colour(blockType);
+        // Preserve the historical fallback as well as the atlas shader in texture mode.
         int h = blockType.hashCode();
         int h2 = Integer.rotateLeft(h * 0x45D9F3B, 13);
         int h3 = Integer.rotateLeft(h2 * 0x45D9F3B, 17);
-        int r0 = (h      ) & 0xFF;
-        int g0 = (h2     ) & 0xFF;
-        int b0 = (h3     ) & 0xFF;
-        int r = 32 + (r0 * 191 / 255);
-        int g = 32 + (g0 * 191 / 255);
-        int b = 32 + (b0 * 191 / 255);
-        return 0xFF000000 | ((r & 0xFF) << 16) | ((g & 0xFF) << 8) | (b & 0xFF);
+        int r = 32 + ((h & 0xFF) * 191 / 255);
+        int g = 32 + ((h2 & 0xFF) * 191 / 255);
+        int b = 32 + ((h3 & 0xFF) * 191 / 255);
+        return 0xFF000000 | (r << 16) | (g << 8) | b;
     }
 
     public static int getColourForEntity(Entity entity) {
@@ -664,6 +666,9 @@ public class TextureHelper {
     }
 
     public static int[] getPendingColourRGB() {
+        // Draw hooks forward this sentinel to annotate.fsh only while the label VBO is bound.
+        // Block mode alone is not enough: unlabelled geometry must keep its usual fallback.
+        if (BlockSegmentation.isDrawingColours()) return new int[]{-2, -2, -2};
         return new int[]{pendingR, pendingG, pendingB};
     }
 

@@ -1,6 +1,7 @@
 package io.singularitynet.mixin;
 
 import io.singularitynet.utils.TextureHelper;
+import io.singularitynet.utils.BlockSegmentation;
 import net.minecraft.block.BlockState;
 import net.minecraft.client.render.block.BlockRenderManager;
 import net.minecraft.client.util.math.MatrixStack;
@@ -32,6 +33,9 @@ public abstract class BlockRenderManagerMixin {
                                          boolean cull,
                                          Random random,
                                          CallbackInfo ci) {
+        // Texture mode retains the legacy block-context lifecycle, including chunk builds.
+        if (BlockSegmentation.isEnabled() && (!com.mojang.blaze3d.systems.RenderSystem.isOnRenderThread()
+                || !TextureHelper.isProducingColourMap() || !TextureHelper.colourmapFrame)) return;
         Identifier id = Registries.BLOCK.getId(state.getBlock());
         if (id != null) {
             TextureHelper.setCurrentBlockType(id.toString());
@@ -53,9 +57,12 @@ public abstract class BlockRenderManagerMixin {
                                        boolean cull,
                                        Random random,
                                        CallbackInfo ci) {
+        if (BlockSegmentation.isEnabled() && !com.mojang.blaze3d.systems.RenderSystem.isOnRenderThread()) return;
         if (TextureHelper.isProducingColourMap() && TextureHelper.colourmapFrame) {
             TextureHelper.setDrawingBlock(false);
             TextureHelper.setStrictBlockDraw(false);
+            // Texture compatibility deliberately retains the legacy last-block context.
+            if (BlockSegmentation.isEnabled()) TextureHelper.setCurrentBlockType(null);
         }
     }
 }
